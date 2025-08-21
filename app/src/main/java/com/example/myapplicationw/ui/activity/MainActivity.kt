@@ -1,220 +1,185 @@
 package com.example.myapplicationw.ui.activity
-import android.Manifest.permission.CAMERA
+
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
-import android.widget.Button
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.TextView
-import android.widget.Toast
+import android.util.Log
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.ExperimentalGetImage
-import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.myapplicationw.R
-import com.example.myapplicationw.ui.fragment.BillsFragment
-import com.example.myapplicationw.ui.fragment.HomeFragment
-import com.example.myapplicationw.ui.fragment.ProfileFragment
-import com.example.myapplicationw.ui.fragment.ScanFragment
-import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.example.myapplicationw.Interfaces.JsInterface
 
 @ExperimentalGetImage class MainActivity : AppCompatActivity() {
-    private lateinit var bottomNav:LinearLayout
-    private lateinit var homeNav:LinearLayout
-    private lateinit var scanNav:LinearLayout
-    private lateinit var assistantNav:LinearLayout
-    private lateinit var billsNav:LinearLayout
-    private lateinit var profileNav:LinearLayout
-    private var currentIndex:Int=0
-    // 存储所有Fragment实例
-    private val fragmentList = listOf(
-        HomeFragment(),
-        ScanFragment(),
-        BillsFragment(),
-        ProfileFragment()
+    private var jsInterfaces=JsInterface(this)
+    private lateinit var webView:WebView
+
+    private val specialPages = listOf(
+        "bills.html",
+        "profile.html",
+        "index.html"
     )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContentView(R.layout.activity_main)
+        setContentView(R.layout.activity_login)
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-        val requestCameraPermissionLauncher = registerForActivityResult(
-                ActivityResultContracts.RequestPermission()
-                ) { isGranted: Boolean ->
-            if (isGranted) {
-                // 权限已授予，执行回调
-                Toast.makeText(this, "权限已授予,请再次点击", Toast.LENGTH_SHORT).show()
-            } else {
-                // 权限被拒绝，执行回调
-                Toast.makeText(this, "相机权限被拒绝", Toast.LENGTH_SHORT).show()
+        webView=findViewById(R.id.loginWebView)
+        // 配置 WebView
+        webView.settings.apply {
+            javaScriptEnabled = true               // 启用 JavaScript（如果需要）
+            allowFileAccess = true                 // 允许访问文件
+            allowFileAccessFromFileURLs = true     // 允许通过 file:// URL 访问其他文件
+            allowUniversalAccessFromFileURLs = true // 允许通过 file:// URL 访问任何来源
+            domStorageEnabled = true               // 启用 DOM 存储（如 localStorage）
+        }
+
+        webView.addJavascriptInterface(jsInterfaces, "AndroidInterface")
+
+        webView.loadUrl("file:///android_asset/login.html");
+        // 设置 WebViewClient 处理页面导航
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                // 在当前 WebView 中加载 URL，而非打开系统浏览器
+                view.loadUrl(url)
+                return true
+            }
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?
+            ) {
+                super.onReceivedError(view, request, error)
+                    Log.e("WebView", "资源加载错误: ${error?.description}")
+
+            }
+            // 拦截请求并添加跨域响应头（关键部分）
+            override fun shouldInterceptRequest(
+                view: WebView?,
+                request: WebResourceRequest
+            ): WebResourceResponse? {
+                // 1. 先获取原始响应
+                val originalResponse = super.shouldInterceptRequest(view, request)
+
+                // 2. 如果是目标接口域名（替换为你的后端域名），添加跨域头
+                if (request.url.host == "graywolf.top") {
+                    // 复制原始响应头并添加CORS相关头
+                    val modifiedHeaders = mutableMapOf<String, String>().apply {
+                        // 保留原始响应头
+                        originalResponse?.responseHeaders?.let { putAll(it) }
+
+                        // 添加跨域许可头
+                        put("Access-Control-Allow-Origin", "*") // 开发环境可用*，生产环境建议指定具体前端域名
+                        put("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD")
+                        put("Access-Control-Allow-Headers", "accept, Content-Type, Authorization")
+                        put("Access-Control-Max-Age", "86400") // 预检请求缓存时间（24小时）
+                    }
+
+                    // 3. 返回添加了跨域头的响应
+                    return originalResponse?.let {
+                        WebResourceResponse(
+                            it.mimeType,
+                            it.encoding,
+                            it.statusCode,
+                            it.reasonPhrase,
+                            modifiedHeaders,
+                            it.data
+                        )
+                    }
+                }
+
+                // 非目标域名的请求，返回原始响应
+                return originalResponse
             }
         }
-        initFragments()
-        bottomNav=findViewById(R.id.bottom_nav)
-        homeNav=findViewById(R.id.nav_home)
-        scanNav=findViewById(R.id.nav_scan)
-        assistantNav=findViewById(R.id.nav_assistant)
-        billsNav=findViewById(R.id.nav_bills)
-        profileNav=findViewById(R.id.nav_profile)
 
-        homeNav.setOnClickListener(){
-            setSelectedTab(0)
-        }
-        scanNav.setOnClickListener(){
-            setSelectedTab(1)
-            checkAndRequestCameraPermission(
-                activity = this,
-                launcher = requestCameraPermissionLauncher,
-                onPermissionGranted = {
-                    val intent = Intent(this, QrScannerActivity::class.java)
-                    startActivity(intent)
-                }
-            )
-        }
-        billsNav.setOnClickListener(){
-            setSelectedTab(2)
-        }
-        profileNav.setOnClickListener(){
-            setSelectedTab(3)
-        }
-        assistantNav.setOnClickListener{
-            val intent=Intent(this,AssistantActivity::class.java)
-            startActivity(intent)
-        }
-        /*bottomNavigationView=findViewById(R.id.bottomNavigationView)
-        bottomNavigationView.selectedItemId = R.id.nav_home
 
-        // 初始化导航控制器
-        val navController = supportFragmentManager.beginTransaction()
-        navController.replace(R.id.fragmentContainer, HomeFragment())
-        navController.commit()
-
-        // 设置导航项选中监听器
-        bottomNavigationView.setOnItemSelectedListener { item ->
-            when (item.itemId) {
-                R.id.nav_home -> {
-                    // 切换到首页
-                    val transaction = supportFragmentManager.beginTransaction()
-                    transaction.replace(R.id.fragmentContainer, HomeFragment())
-                    transaction.commit()
-                    true
-                }
-                /*R.id.nav_scan -> {
-                    // 切换到扫描页
-                    val transaction = supportFragmentManager.beginTransaction()
-                    transaction.replace(R.id.fragmentContainer, ScanFragment())
-                    transaction.commit()
-                    true
-                }
-                R.id.nav_history -> {
-                    // 切换到历史页
-                    val transaction = supportFragmentManager.beginTransaction()
-                    transaction.replace(R.id.fragmentContainer, HistoryFragment())
-                    transaction.commit()
-                    true
-                }
-                R.id.nav_mine -> {
-                    // 切换到我的页
-                    val transaction = supportFragmentManager.beginTransaction()
-                    transaction.replace(R.id.fragmentContainer, MineFragment())
-                    transaction.commit()
-                    true
-                }*/
-                else -> false
-            }
-        }*/
-        /*btnTest=findViewById(R.id.test)
-        btnTest.setOnClickListener {
-            checkAndRequestCameraPermission(
-                activity = this,
-                launcher = requestCameraPermissionLauncher,
-                onPermissionGranted = {
-                    val intent = Intent(this, QrScannerActivity::class.java)
-                    startActivity(intent)
-                }
-            )
-        }*/
     }
-    private fun initFragments() {
-        val transaction = supportFragmentManager.beginTransaction()
-        fragmentList.forEachIndexed { index, fragment ->
-            transaction.add(R.id.fragment_container, fragment, "fragment_$index")
-            // 默认只显示第一个Fragment，其他隐藏
-            if (index != 0) {
-                transaction.hide(fragment)
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        when (requestCode) {
+            JsInterface.REQUEST_CODE_IMAGE_PICK -> {
+                jsInterfaces.handleImageResult(resultCode, data)
+            }
+            JsInterface.REQUEST_CODE_QR_SCAN -> {
+                jsInterfaces.handleScanResult(resultCode, data)
             }
         }
-        transaction.commit()
     }
-    private fun setSelectedTab(position: Int) {
-        if (currentIndex==position)return
-        val tvHome=findViewById<TextView>(R.id.tv_home)
-        val ivHome=findViewById<ImageView>(R.id.iv_home)
-        val tvScan=findViewById<TextView>(R.id.tv_scan)
-        val ivScan=findViewById<ImageView>(R.id.iv_scan)
-        val tvBills=findViewById<TextView>(R.id.tv_bills)
-        val ivBills=findViewById<ImageView>(R.id.iv_bills)
-        val tvProfile=findViewById<TextView>(R.id.tv_profile)
-        val ivProfile=findViewById<ImageView>(R.id.iv_profile)
-        val transaction = supportFragmentManager.beginTransaction()
-
-        // 隐藏当前Fragment，显示选中的Fragment
-        transaction.hide(fragmentList[currentIndex])
-        transaction.show(fragmentList[position])
-        transaction.commit()
-        val tvItems = listOf(
-            tvHome,
-            tvScan,
-            tvBills,
-            tvProfile,
-        )
-        val ivItems = listOf(
-            ivHome,
-            ivScan,
-            ivBills,
-            ivProfile,
-        )
-        val activeColor= ContextCompat.getColor(this,R.color.nav_active)
-
-        val inactiveColor= ContextCompat.getColor(this,R.color.nav_inactive)
-        tvItems.forEachIndexed { index, tv ->
-            if(position==index){
-                tv.setTextIsSelectable(true)
-                tv.setTextColor(activeColor)
-            }
-            else{
-                tv.setTextIsSelectable(false)
-                tv.setTextColor(inactiveColor)
-            }
-        }
-        ivItems.forEachIndexed { index, iv ->
-            if(position==index){
-            }
-            else{
-            }
-
-        }
-        currentIndex=position
+    // 判断是否为特殊页面
+    private fun isSpecialPage(): Boolean {
+        val currentUrl = webView.url ?: return false
+        return specialPages.any { currentUrl.contains(it) }
     }
-    fun checkAndRequestCameraPermission(
-        activity: AppCompatActivity,
-        launcher: ActivityResultLauncher<String>,
-        onPermissionGranted: () -> Unit,
-        onPermissionDenied: (() -> Unit)? = null
-    ) {
-        if (ContextCompat.checkSelfPermission(activity, CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            onPermissionGranted.invoke()
+
+    // 判断是否为特殊页面的主状态（非子状态）
+    private fun isSpecialPageMainState(): Boolean {
+        val currentUrl = webView.url ?: return false
+        // 检查是否包含特殊页面且不包含任何子状态哈希
+        return specialPages.any { page ->
+            currentUrl.contains(page) &&
+                    !currentUrl.contains("#") // 没有哈希参数视为主状态
+        }
+    }
+
+    // 获取特殊页面的子状态哈希（如#annual）
+    private fun getSpecialPageSubState(): String? {
+        val currentUrl = webView.url ?: return null
+        val hashIndex = currentUrl.indexOf("#")
+        return if (hashIndex != -1 && hashIndex < currentUrl.length - 1) {
+            currentUrl.substring(hashIndex)
         } else {
-            launcher.launch(CAMERA)
+            null
         }
+    }
+
+    // 重写返回键逻辑
+    override fun onBackPressed() {
+        when {
+            // 情况1：特殊页面的主状态，直接退出
+            isSpecialPageMainState() -> {
+                finish()
+            }
+            // 情况2：特殊页面的子状态（有哈希），先回退到主状态
+            isSpecialPage() && webView.canGoBack() -> {
+                webView.goBack()
+            }
+            // 情况3：非特殊页面但可以回退，正常回退
+            webView.canGoBack() -> {
+                webView.goBack()
+            }
+            // 情况4：其他无法回退的情况，执行默认退出
+            else -> {
+                super.onBackPressed()
+            }
+        }
+    }
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        jsInterfaces.onRequestPermissionsResult(requestCode)
+    }
+    override fun onDestroy() {
+        webView.clearCache(true)
+        webView.clearHistory()
+        webView.loadUrl("about:blank")
+        webView.pauseTimers()
+        webView.removeAllViews()
+        webView.destroy()
+        super.onDestroy()
     }
 }

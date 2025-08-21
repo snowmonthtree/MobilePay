@@ -1,25 +1,18 @@
 package com.example.myapplicationw.ui.fragment
 
-import android.Manifest.permission.CAMERA
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.Toast
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.ExperimentalGetImage
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.example.myapplicationw.R
-import com.example.myapplicationw.ui.activity.LoginActivity
-import com.example.myapplicationw.ui.activity.QrScannerActivity
+import com.example.myapplicationw.ui.activity.MainActivity
+import com.example.myapplicationw.ui.activity.TestActivity
 
-class HomeFragment : Fragment() {
+@ExperimentalGetImage class HomeFragment : Fragment() {
     private lateinit var btntest:Button
 
     override fun onCreateView(
@@ -36,7 +29,7 @@ class HomeFragment : Fragment() {
 
         btntest=view.findViewById(R.id.buttonScan)
         btntest.setOnClickListener {
-            val intent = Intent(requireContext(), LoginActivity::class.java)
+            val intent = Intent(requireContext(), TestActivity::class.java)
             startActivity(intent)
         }
     }
