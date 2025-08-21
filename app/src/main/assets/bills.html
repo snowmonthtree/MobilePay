@@ -1,0 +1,1839 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>账单中心 - 移动支付应用</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* 模态框整体样式 */
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        /* 账单分类标签样式 */
+        .bill-category {
+            display: inline-block;
+            padding: 2px 8px;
+            background-color: #f0f2f5;
+            color: #666;
+            border-radius: 10px;
+            font-size: 12px;
+            margin-top: 4px;
+            cursor: pointer;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            max-width: 400px;
+            width: 100%;
+            overflow: hidden;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* 模态框头部样式 */
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            border-bottom: 1px solid #f0f2f5;
+            background-color: #f9fafc;
+        }
+
+        .modal-header h3 {
+            color: #1d2129;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        /* 模态框主体样式 */
+        .modal-body {
+            max-height: 70vh;
+            /* 设置最大高度，防止内容溢出 */
+            overflow-y: auto;
+            /* 允许内容溢出时显示滚动条 */
+        }
+
+        /* 支出分类选择器样式 */
+        .category-selector {
+            width: 100%;
+        }
+
+        .category-selector select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #333;
+            background-color: #fff;
+            appearance: none;
+            background-image: url('icons/danjiantouxia.png');
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 12px;
+        }
+
+        /* 模态框底部样式 */
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            padding: 15px 20px;
+            border-top: 1px solid #f0f2f5;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .modal-body {
+                padding: 20px;
+            }
+
+            .year-title h2 {
+                font-size: 2rem;
+            }
+
+            .annual-stats {
+                flex-direction: column;
+            }
+
+            .stat-card {
+                flex: 1 1 auto;
+            }
+
+            .category-list {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .modal-header {
+                padding: 15px 20px;
+            }
+
+            .modal-header h3 {
+                font-size: 1.25rem;
+            }
+
+            .modal-body {
+                padding: 15px;
+            }
+
+            .year-title h2 {
+                font-size: 1.75rem;
+            }
+
+            .stat-value {
+                font-size: 1.25rem;
+            }
+
+            .monthly-trend h4,
+            .category-analysis h4,
+            .annual-insights h4,
+            .annual-goals h4 {
+                font-size: 1.1rem;
+            }
+        }
+
+        .action-btn {
+            display: flex;
+            align-items: center;
+            flex-direction: row;
+            gap: 8px;
+            width: 100%;
+            padding: 12px;
+            background: #fff2e8;
+            border: 1px solid #ffd591;
+            border-radius: 8px;
+            color: #fa8c16;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn:hover {
+            background: #ffe7ba;
+        }
+
+        .action-btn img {
+            width: 16px;
+            height: 16px;
+        }
+
+        .btn-secondary {
+            background-color: #f0f2f5;
+            color: #1d2129;
+            margin-right: 15px;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e5e6eb;
+        }
+
+        .search-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: #f8f9fa;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .search-btn:hover {
+            background: #e9ecef;
+            transform: scale(1.05);
+        }
+
+        .search-btn img {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* 年度账单页面样式 */
+        #annualBillPage {
+            padding: 0 15px;
+            margin-bottom: 50px;
+            overflow-y: auto;
+            height: calc(100% - 120px);
+        }
+
+        .annual-summary {
+            padding: 15px 0;
+        }
+
+        .year-title {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .year-title h2 {
+            font-size: 2.5rem;
+            color: #1890ff;
+            margin-bottom: 5px;
+        }
+
+        .year-title p {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .annual-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .stat-card {
+            flex: 1 1 30%;
+            background: #fff;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+        }
+
+        .stat-card.primary {
+            border-left: 4px solid #ff6b6b;
+        }
+
+        .stat-card.success {
+            border-left: 4px solid #4ecdc4;
+        }
+
+        .stat-card.info {
+            border-left: 4px solid #45b7d1;
+        }
+
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #f0f2f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+        }
+
+        .stat-icon img {
+            width: 24px;
+            height: 24px;
+        }
+
+        .stat-info {
+            flex: 1;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1d2129;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .monthly-trend,
+        .category-analysis,
+        .annual-insights,
+        .annual-goals {
+            background: #fff;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .monthly-trend h4,
+        .category-analysis h4,
+        .annual-insights h4,
+        .annual-goals h4 {
+            font-size: 1.2rem;
+            color: #1d2129;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .trend-chart {
+            width: 100%;
+            height: 180px;
+            margin-top: 10px;
+        }
+
+        .category-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .category-item {
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            background: #f9fafc;
+            border-radius: 8px;
+        }
+
+        .category-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .category-info img {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+        }
+
+        .category-name {
+            font-size: 0.9rem;
+            color: #1d2129;
+        }
+
+        .category-amount {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1d2129;
+            margin-bottom: 4px;
+        }
+
+        .category-percent {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .insight-list,
+        .goal-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .insight-item {
+            display: flex;
+            align-items: flex-start;
+            background: #f9fafc;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .insight-icon {
+            font-size: 1.5rem;
+            margin-right: 12px;
+            line-height: 1;
+        }
+
+        .insight-text {
+            flex: 1;
+        }
+
+        .insight-title {
+            font-weight: 600;
+            color: #1d2129;
+            margin-bottom: 4px;
+        }
+
+        .insight-desc {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .goal-item {
+            display: flex;
+            align-items: center;
+            background: #f0f7ff;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .goal-icon {
+            font-size: 1.5rem;
+            margin-right: 12px;
+        }
+
+        .goal-text {
+            font-size: 0.95rem;
+            color: #1d2129;
+        }
+
+        .action-buttons {
+            padding: 0 15px 20px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="app-container">
+    <!-- 顶部状态栏 -->
+
+    <!-- 账单中心页面 -->
+    <div class="bills-page" id="billsPage" style="display: block;">
+        <!-- 头部 -->
+        <div class="page-header">
+            <button class="back-btn" onclick="goBack()">
+                <img src="icons/danjiantouzuo.png" alt="返回">
+            </button>
+            <h1>账单中心</h1>
+            <button class="search-btn" onclick="goToSearch()">
+                <img src="icons/sousuo.png" alt="搜索">
+            </button>
+        </div>
+
+        <!-- 月份切换 -->
+        <div class="month-selector">
+            <button class="month-nav" onclick="changeMonth(-1)">
+                <img src="icons/danjiantouzuo.png" alt="上月">
+            </button>
+            <div class="current-month" style="position: relative;">
+                <div style="position: relative;z-index: 1;">
+                    <span id="currentMonth">2024年10月</span>
+                    <img src="icons/danjiantouxia.png" alt="选择">
+                </div>
+                <!-- 透明覆盖的select（视觉不可见，但可点击） -->
+                <select id="hiddenMonthSelector" onchange="handleMonthSelect(this)"
+                        style=" position: absolute;top: 0;left: 0;width: 100%;height: 100%;opacity: 0;z-index: 2;border: none;background: none;">
+                    <!-- 选项通过JS生成 -->
+                </select>
+            </div>
+            <button class="month-nav" onclick="changeMonth(1)">
+                <img src="icons/danjiantouyou.png" alt="下月">
+            </button>
+        </div>
+
+        <!-- 账单总览 -->
+        <div class="bill-summary">
+            <div class="summary-card">
+                <div class="summary-item">
+                    <span class="label">总收入</span>
+                    <span class="amount income">¥8,000.00</span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">总支出</span>
+                    <span class="amount expense">¥2,456.78</span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">结余</span>
+                    <span class="amount balance">¥5,543.22</span>
+                </div>
+            </div>
+
+            <div class="chart-section">
+                <h3>支出分类</h3>
+                <div class="expense-chart">
+                    <div class="chart-item">
+                        <div class="chart-color" style="background: #ff6b6b;"></div>
+                        <span class="chart-label">餐饮</span>
+                        <span class="chart-amount">¥982.34</span>
+                        <span class="chart-percent">40%</span>
+                    </div>
+                    <div class="chart-item">
+                        <div class="chart-color" style="background: #4ecdc4;"></div>
+                        <span class="chart-label">出行</span>
+                        <span class="chart-amount">¥614.20</span>
+                        <span class="chart-percent">25%</span>
+                    </div>
+                    <div class="chart-item">
+                        <div class="chart-color" style="background: #45b7d1;"></div>
+                        <span class="chart-label">购物</span>
+                        <span class="chart-amount">¥491.36</span>
+                        <span class="chart-percent">20%</span>
+                    </div>
+                    <div class="chart-item">
+                        <div class="chart-color" style="background: #f9ca24;"></div>
+                        <span class="chart-label">其他</span>
+                        <span class="chart-amount">¥368.88</span>
+                        <span class="chart-percent">15%</span>
+                    </div>
+                </div>
+
+                <button class="year-bill-btn" onclick="showAnnualBillPage()">
+                    <img src="icons/rili.png" alt="年度账单">
+                    <span>查看年度账单</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 筛选器 -->
+        <div class="filter-section">
+            <div class="filter-tabs">
+                <button class="filter-tab active" onclick="filterBills('all')">全部</button>
+                <button class="filter-tab" onclick="filterBills('income')">收入</button>
+                <button class="filter-tab" onclick="filterBills('expense')">支出</button>
+            </div>
+            <button class="date-filter-btn" onclick="showDateFilter()">
+                <img src="icons/rili.png" alt="日期筛选">
+                <span>日期筛选</span>
+            </button>
+        </div>
+
+        <!-- 账单列表 -->
+        <div class="bills-list" id="billsList">
+            <!-- 今天 -->
+            <div class="date-group">
+                <div class="date-header">今天</div>
+
+                <div class="bill-item expense" data-type="expense" data-category="餐饮"
+                     onclick="viewBillDetail(this)">
+                    <div class="bill-icon">
+                        <img src="icons/canyin.png" alt="餐饮">
+                    </div>
+                    <div class="bill-info">
+                        <h4>星巴克咖啡</h4>
+                        <p>支付宝支付 • 2025-7-29 15:30</p>
+                        <span class="bill-category">餐饮</span>
+                    </div>
+                    <div class="bill-amount expense">-¥32.00</div>
+                </div>
+
+                <div class="bill-item expense" data-type="expense" data-category="出行"
+                     onclick="viewBillDetail(this)">
+                    <div class="bill-icon">
+                        <img src="icons/zhiyin.png" alt="出行">
+                    </div>
+                    <div class="bill-info">
+                        <h4>地铁出行</h4>
+                        <p>出行码支付 • 2025-7-29 08:45</p>
+                        <span class="bill-category">出行</span>
+                    </div>
+                    <div class="bill-amount expense">-¥6.00</div>
+                </div>
+            </div>
+
+            <!-- 昨天 -->
+            <div class="date-group">
+                <div class="date-header">昨天</div>
+
+                <div class="bill-item income" data-type="income" data-category="其他" onclick="viewBillDetail(this)">
+                    <div class="bill-icon">
+                        <img src="icons/shoukuanjiekou.png" alt="收款">
+                    </div>
+                    <div class="bill-info">
+                        <h4>朋友转账</h4>
+                        <p>收款码收款 • 2025-7-28 19:20</p>
+                        <span class="bill-category">其他</span>
+                    </div>
+                    <div class="bill-amount income">+¥200.00</div>
+                </div>
+
+                <div class="bill-item expense" data-type="expense" data-category="餐饮"
+                     onclick="viewBillDetail(this)">
+                    <div class="bill-icon">
+                        <img src="icons/canyin.png" alt="支付">
+                    </div>
+                    <div class="bill-info">
+                        <h4>美团外卖</h4>
+                        <p>银行卡支付 • 2025-7-28 12:15</p>
+                        <span class="bill-category">餐饮</span>
+                    </div>
+                    <div class="bill-amount expense">-¥45.80</div>
+                </div>
+            </div>
+
+            <!-- 更早之前 -->
+            <div class="date-group">
+                <div class="date-header">更早之前</div>
+
+                <div class="bill-item expense" data-type="expense" data-category="购物"
+                     onclick="viewBillDetail(this)">
+                    <div class="bill-icon">
+                        <img src="icons/gouwu.png" alt="支付">
+                    </div>
+                    <div class="bill-info">
+                        <h4>超市购物</h4>
+                        <p>扫码支付 • 2024-10-20 10:25</p>
+                        <span class="bill-category">购物</span>
+                    </div>
+                    <div class="bill-amount expense">-¥128.50</div>
+                </div>
+
+                <div class="bill-item expense" data-type="expense" data-category="购物"
+                     onclick="viewBillDetail(this)">
+                    <div class="bill-icon">
+                        <img src="icons/gouwu.png" alt="支付">
+                    </div>
+                    <div class="bill-info">
+                        <h4>便利店</h4>
+                        <p>银行卡支付 • 2024-10-19 08:15</p>
+                        <span class="bill-category">购物</span>
+                    </div>
+                    <div class="bill-amount expense">-¥35.50</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 年度账单页面 -->
+    <div class="bills-page" id="annualBillPage" style="display: none;">
+        <!-- 头部 -->
+        <div class="page-header">
+            <button class="back-btn" onclick="showBillsPage()">
+                <img src="icons/danjiantouzuo.png" alt="返回">
+            </button>
+            <h1>2025年度账单</h1>
+            <div style="width: 40px;"></div> <!-- 占位元素，保持头部对称 -->
+        </div>
+
+        <div class="annual-summary">
+            <div class="year-title">
+                <h2>2025</h2>
+                <p>您的数字生活足迹</p>
+            </div>
+
+            <div class="annual-stats">
+                <div class="stat-card primary">
+                    <div class="stat-icon">
+                        <img src="icons/feiyongchaxun.png" alt="总支出">
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value">¥45,680.50</div>
+                        <div class="stat-label">全年总支出</div>
+                    </div>
+                </div>
+
+                <div class="stat-card success">
+                    <div class="stat-icon">
+                        <img src="icons/shuangjiantoushang.png" alt="总收入">
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value">¥52,300.00</div>
+                        <div class="stat-label">全年总收入</div>
+                    </div>
+                </div>
+
+                <div class="stat-card info">
+                    <div class="stat-icon">
+                        <img src="icons/a-27-lishishuju.png" alt="交易次数">
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value">1,248</div>
+                        <div class="stat-label">交易笔数</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="monthly-trend">
+                <h4>月度支出趋势</h4>
+                <div class="trend-chart">
+                    <canvas id="annualTrendChart" width="300" height="150"></canvas>
+                </div>
+            </div>
+
+            <div class="category-analysis">
+                <h4>支出分类统计</h4>
+                <div class="category-list">
+                    <div class="category-item">
+                        <div class="category-info">
+                            <img src="icons/canyin.png" alt="餐饮">
+                            <span class="category-name">餐饮美食</span>
+                        </div>
+                        <div class="category-amount">¥12,580.50</div>
+                        <div class="category-percent">27.5%</div>
+                    </div>
+
+                    <div class="category-item">
+                        <div class="category-info">
+                            <img src="icons/gouwu.png" alt="购物">
+                            <span class="category-name">购物消费</span>
+                        </div>
+                        <div class="category-amount">¥9,240.80</div>
+                        <div class="category-percent">20.2%</div>
+                    </div>
+
+                    <div class="category-item">
+                        <div class="category-info">
+                            <img src="icons/zhiyin.png" alt="交通">
+                            <span class="category-name">交通出行</span>
+                        </div>
+                        <div class="category-amount">¥6,890.20</div>
+                        <div class="category-percent">15.1%</div>
+                    </div>
+
+                    <div class="category-item">
+                        <div class="category-info">
+                            <img src="icons/xiuxianyule.png" alt="娱乐">
+                            <span class="category-name">娱乐休闲</span>
+                        </div>
+                        <div class="category-amount">¥5,420.30</div>
+                        <div class="category-percent">11.9%</div>
+                    </div>
+
+                    <div class="category-item">
+                        <div class="category-info">
+                            <img src="icons/shenghuofuwu.png" alt="生活">
+                            <span class="category-name">生活服务</span>
+                        </div>
+                        <div class="category-amount">¥4,680.90</div>
+                        <div class="category-percent">10.2%</div>
+                    </div>
+
+                    <div class="category-item">
+                        <div class="category-info">
+                            <img src="icons/shoukuanjiekou.png" alt="其他">
+                            <span class="category-name">其他</span>
+                        </div>
+                        <div class="category-amount">¥6,867.80</div>
+                        <div class="category-percent">15.1%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="annual-insights">
+                <h4>年度洞察</h4>
+                <div class="insight-list">
+                    <div class="insight-item">
+                        <div class="insight-icon">📊</div>
+                        <div class="insight-text">
+                            <div class="insight-title">消费习惯</div>
+                            <div class="insight-desc">您最爱在周末消费，餐饮是最大支出项</div>
+                        </div>
+                    </div>
+
+                    <div class="insight-item">
+                        <div class="insight-icon">💰</div>
+                        <div class="insight-text">
+                            <div class="insight-title">理财成果</div>
+                            <div class="insight-desc">全年结余¥6,619.50，理财意识不错</div>
+                        </div>
+                    </div>
+
+                    <div class="insight-item">
+                        <div class="insight-icon">📈</div>
+                        <div class="insight-text">
+                            <div class="insight-title">消费趋势</div>
+                            <div class="insight-desc">下半年支出增长15%，建议合理规划</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="annual-goals">
+                <h4>新年目标</h4>
+                <div class="goal-list">
+                    <div class="goal-item">
+                        <div class="goal-icon">🎯</div>
+                        <div class="goal-text">控制餐饮支出，目标减少20%</div>
+                    </div>
+                    <div class="goal-item">
+                        <div class="goal-icon">💎</div>
+                        <div class="goal-text">增加理财投资，目标收益8%</div>
+                    </div>
+                    <div class="goal-item">
+                        <div class="goal-icon">📱</div>
+                        <div class="goal-text">使用数字支付，享受更多优惠</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-buttons" style="display: flex; justify-content: space-between; margin: 20px 0;">
+                <button class="btn-secondary" onclick="shareAnnualBill()">分享账单</button>
+                <button class="btn-primary" onclick="downloadAnnualBill()">下载报告</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 日期筛选弹窗 (底部弹出) -->
+    <div class="modal bottom-modal" id="dateFilterModal">
+        <div class="modal-content bottom-modal-content">
+            <div class="modal-header">
+                <h3>选择日期范围</h3>
+                <button class="close-btn" onclick="closeModal('dateFilterModal')">
+                    <img src="icons/shibai.png" alt="关闭">
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="date-range">
+                    <div class="date-input-group">
+                        <label>开始日期</label>
+                        <input type="date" id="startDate" value="2025-07-01" class="mobile-date-input">
+                    </div>
+                    <div class="date-input-group">
+                        <label>结束日期</label>
+                        <input type="date" id="endDate" value="2025-07-31" class="mobile-date-input">
+                    </div>
+                </div>
+                <div class="quick-date-options">
+                    <button class="quick-date-btn" onclick="setQuickDate(7)">最近7天</button>
+                    <button class="quick-date-btn" onclick="setQuickDate(30)">最近30天</button>
+                    <button class="quick-date-btn" onclick="setQuickDate(90)">最近3个月</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" onclick="closeModal('dateFilterModal')">取消</button>
+                <button class="confirm-btn" onclick="applyDateFilter()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 年度账单已移至页面形式显示 -->
+
+    <!-- 底部导航 -->
+
+    <div class="bottom-nav">
+        <div class="nav-item" onclick="goToIndex()">
+            <img src="icons/a-1-gongzuotai.png" alt="首页">
+            <span>首页</span>
+        </div>
+        <div class="nav-item" onclick="goToScan()">
+            <img src="icons/saoma.png" alt="扫一扫">
+            <span>扫一扫</span>
+        </div>
+        <div class="nav-item" onclick="goToAssistant()">
+            <div class="floating-assistant" onclick=";">
+                <div class="voice-wave"></div>
+                <img src="icons/kefu.png" alt="智能助手">
+            </div>
+        </div>
+        <div class="nav-item active" onclick="goToBills()">
+            <img src="icons/a-21-jiaoyizhongxin.png" alt="账单">
+            <span>账单</span>
+        </div>
+        <div class="nav-item" onclick="goToProfile()">
+            <img src="icons/a-29-gerenxinxi.png" alt="我的">
+            <span>我的</span>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+    // 账单中心相关功能
+    let currentMonthIndex = 7; // 当前月份索引
+    let currentYear = 2025;
+    const YEAR_RANGE = { start: currentYear - 5, end: currentYear + 1 };
+
+    function changeMonth(direction) {
+        currentMonthIndex += direction;
+        if (currentMonthIndex > 12) {
+            currentMonthIndex = 1;
+            currentYear++;
+        } else if (currentMonthIndex < 1) {
+            currentMonthIndex = 12;
+            currentYear--;
+        }
+
+        updateMonthDisplay();
+    }
+
+    function initHiddenSelector() {
+        const selector = document.getElementById('hiddenMonthSelector');
+        if (!selector) return;
+
+        // 清空选项
+        selector.innerHTML = '';
+
+        // 生成年份和月份选项（格式：YYYY年MM月）
+        for (let year = YEAR_RANGE.start; year <= YEAR_RANGE.end; year++) {
+            for (let month = 1; month <= 12; month++) {
+                const option = document.createElement('option');
+                const monthText = month.toString().padStart(2, '0'); // 补零为两位（01-12）
+                option.value = `${year}-${monthText}`; // 存储值：YYYY-MM
+                option.textContent = `${year}年${monthText}月`; // 显示文本
+
+                // 设置当前年月为默认选中
+                if (year === currentYear && month === currentMonthIndex) {
+                    option.selected = true;
+                }
+
+                selector.appendChild(option);
+            }
+        }
+    }
+
+    /**
+     * 处理下拉选择事件（同步到显示和数据）
+     * @param {HTMLSelectElement} selector - 隐藏的select元素
+     */
+    function handleMonthSelect(selector) {
+        const selectedValue = selector.value; // 格式：YYYY-MM
+        if (!selectedValue) return;
+
+        // 解析选中的年月
+        const [year, month] = selectedValue.split('-').map(Number);
+        // 更新当前年月
+        currentYear = year;
+        currentMonthIndex = month;
+        // 更新显示文本（保持原有样式）
+        updateMonthDisplay();
+        // 触发数据更新（如账单总览）
+
+    }
+
+    /**
+     * 更新月份显示文本（与原有样式保持一致）
+     */
+    function updateMonthDisplay() {
+        const monthText = currentMonthIndex.toString().padStart(2, '0'); // 补零为两位
+        document.getElementById('currentMonth').textContent = `${currentYear}年${monthText}月`;
+
+        initBillSummary();
+    }
+
+    function loadBillsForMonth() {
+        // 模拟加载对应月份的账单数据
+        console.log(`加载 ${currentYear}年${currentMonthIndex}月 的账单`);
+    }
+
+    function filterBills(type) {
+        document.querySelectorAll('.filter-tab').forEach(tab => tab.classList.remove('active'));
+        event.target.classList.add('active');
+
+        const billItems = document.querySelectorAll('.bill-item');
+        billItems.forEach(item => {
+            if (type === 'all' || item.dataset.type === type) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+
+    function goToSearch() {
+        window.location.href = 'bill_search.html';
+    }
+
+    function showDateFilter() {
+        document.getElementById('dateFilterModal').style.display = 'flex';
+    }
+
+    // 显示年度账单页面
+    function showAnnualBillPage() {
+        document.getElementById('billsPage').style.display = 'none';
+        document.getElementById('annualBillPage').style.display = 'block';
+        initAnnualBill();
+        // 延迟绘制图表，确保页面已显示
+        setTimeout(() => {
+            drawAnnualTrendChart();
+        }, 100);
+    }
+
+    history.pushState({ page: 'annual' }, '年度账单', 'bills.html#annual');
+
+    // 返回账单中心页面
+    function showBillsPage() {
+        document.getElementById('annualBillPage').style.display = 'none';
+        document.getElementById('billsPage').style.display = 'block';
+        history.replaceState({ page: 'bills' }, '账单中心', 'bills.html');
+    }
+
+    function initAnnualBill() {
+        // 1. 获取当前年度（从页面标题提取，如"2025年度账单"）
+        const yearTitle = document.querySelector('#annualBillPage .page-header h1').textContent;
+        const year = yearTitle.match(/\d+/)[0]; // 提取年份数字（如2025）
+        if (!year) {
+            console.error('未获取到年度信息');
+            showToast('数据加载失败');
+            return;
+        }
+
+        // 2. 获取token
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        // 3. 调用年度账单接口
+        showToast('加载年度账单中...');
+        fetch(`http://graywolf.top:6031/appassets/assets/bills/yearSummary?year=${year}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                'Accept': '*/*'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code === 200 && data.data) {
+                    const annualData = data.data;
+                    // 更新统计数据（总支出、总收入、交易笔数）
+                    updateAnnualStats(annualData);
+                    // 更新支出分类列表
+                    updateAnnualCategories(annualData.expenseVos || []);
+                    // 绘制月度支出趋势图
+                    drawAnnualTrendChart(annualData.expenseChartVos || []);
+                    showToast('年度账单加载成功');
+                } else {
+                    showToast(data.message || '获取年度账单失败');
+                }
+            })
+            .catch(error => {
+                console.error('年度账单初始化失败:', error);
+                showToast(error.message || '网络异常，加载失败');
+            });
+    }
+
+    /**
+     * 更新年度统计数据（总支出、总收入、交易笔数）
+     * @param {Object} data - 年度账单数据
+     */
+    function updateAnnualStats(data) {
+        // 格式化金额（保留两位小数，添加千分位）
+        const formatAmount = (value) => {
+            return parseFloat(value).toLocaleString('zh-CN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        };
+
+        // 格式化数字（添加千分位，无小数）
+        const formatNumber = (value) => {
+            return parseInt(value).toLocaleString('zh-CN');
+        };
+
+        // 更新总支出（primary卡片）
+        const expenseEl = document.querySelector('.annual-stats .primary .stat-value');
+        if (expenseEl) {
+            expenseEl.textContent = `¥${formatAmount(data.totalExpense)}`;
+        }
+
+        // 更新总收入（success卡片）
+        const incomeEl = document.querySelector('.annual-stats .success .stat-value');
+        if (incomeEl) {
+            incomeEl.textContent = `¥${formatAmount(data.totalIncome)}`;
+        }
+
+        // 更新交易笔数（info卡片）
+        const countEl = document.querySelector('.annual-stats .info .stat-value');
+        if (countEl) {
+            countEl.textContent = formatNumber(data.totalCount);
+        }
+
+        // 更新页面标题年份（如"2025年度账单"）
+        document.querySelector('#annualBillPage .page-header h1').textContent = `${data.id || year}年度账单`;
+    }
+
+    /**
+     * 更新支出分类统计列表
+     * @param {Array} categories - 支出分类数据
+     */
+    function updateAnnualCategories(categories) {
+        const categoryList = document.querySelector('.category-analysis .category-list');
+        if (!categoryList) return;
+
+        // 清空现有分类
+        categoryList.innerHTML = '';
+
+        // 定义分类图标映射（根据业务补充）
+        const iconMap = {
+            '餐饮美食': 'canyin.png',
+            '购物消费': 'gouwu.png',
+            '交通出行': 'zhiyin.png',
+            '娱乐休闲': 'xiuxianyule.png',
+            '生活服务': 'shenghuofuwu.png',
+            '其他': 'shoukuanjiekou.png'
+        };
+
+        // 动态生成分类项
+        categories.forEach(item => {
+            const categoryItem = document.createElement('div');
+            categoryItem.className = 'category-item';
+
+            // 匹配图标（默认用"其他"图标）
+            const iconSrc = iconMap[item.bizCategoryName] || iconMap['其他'];
+            // 格式化金额和百分比（百分比去小数）
+            const formattedAmount = parseFloat(item.amount).toLocaleString('zh-CN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+            const percentage = Math.round(parseFloat(item.percentage)) + '%';
+
+            categoryItem.innerHTML = `
+        <div class="category-info">
+            <img src="icons/${iconSrc}" alt="${item.bizCategoryName}">
+            <span class="category-name">${item.bizCategoryName}</span>
+        </div>
+        <div class="category-amount">¥${formattedAmount}</div>
+        <div class="category-percent">${percentage}</div>
+    `;
+            categoryList.appendChild(categoryItem);
+        });
+    }
+
+    /**
+     * 绘制月度支出趋势图（重写原函数，使用接口数据）
+     * @param {Array} chartData - 月度支出数据（expenseChartVos）
+     */
+    function drawAnnualTrendChart(chartData) {
+        const canvas = document.getElementById('annualTrendChart');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        // 从接口数据提取12个月的支出（按月份1-12排序）
+        const monthlyData = Array(12).fill(0); // 初始化12个月数据
+        chartData.forEach(item => {
+            const monthIndex = item.month - 1; // 转换为0-11索引
+            if (monthIndex >= 0 && monthIndex < 12) {
+                monthlyData[monthIndex] = parseFloat(item.totalExpense) || 0;
+            }
+        });
+        const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+
+        // 清空画布
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 设置样式
+        ctx.strokeStyle = '#2196F3';
+        ctx.lineWidth = 3;
+        ctx.fillStyle = 'rgba(33, 150, 243, 0.1)';
+
+        // 计算坐标（处理数据全为0的情况）
+        const padding = 30;
+        const chartWidth = canvas.width - padding * 2;
+        const chartHeight = canvas.height - padding * 2;
+        const stepX = chartWidth / (monthlyData.length - 1);
+        const minValue = Math.min(...monthlyData);
+        const maxValue = Math.max(...monthlyData);
+        // 避免除数为0（所有数据为0时）
+        const valueRange = maxValue - minValue || 1;
+
+        // 绘制网格线
+        ctx.strokeStyle = '#f0f0f0';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+            const y = padding + (chartHeight / 4) * i;
+            ctx.beginPath();
+            ctx.moveTo(padding, y);
+            ctx.lineTo(padding + chartWidth, y);
+            ctx.stroke();
+        }
+
+        // 绘制数据线
+        ctx.strokeStyle = '#2196F3';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        monthlyData.forEach((value, index) => {
+            const x = padding + index * stepX;
+            // 计算Y轴坐标（数据为0时特殊处理）
+            const y = padding + chartHeight - ((value - minValue) / valueRange) * chartHeight;
+
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        ctx.stroke();
+
+        // 绘制数据点
+        ctx.fillStyle = '#2196F3';
+        monthlyData.forEach((value, index) => {
+            const x = padding + index * stepX;
+            const y = padding + chartHeight - ((value - minValue) / valueRange) * chartHeight;
+
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, 2 * Math.PI);
+            ctx.fill();
+        });
+
+        // 绘制填充区域
+        ctx.fillStyle = 'rgba(33, 150, 243, 0.1)';
+        ctx.beginPath();
+        monthlyData.forEach((value, index) => {
+            const x = padding + index * stepX;
+            const y = padding + chartHeight - ((value - minValue) / valueRange) * chartHeight;
+
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        ctx.lineTo(padding + (monthlyData.length - 1) * stepX, padding + chartHeight);
+        ctx.lineTo(padding, padding + chartHeight);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+
+
+
+    // 分享年度账单
+    function shareAnnualBill() {
+        alert('分享年度账单功能');
+    }
+
+    // 下载年度账单
+    function downloadAnnualBill() {
+        alert('下载年度账单报告功能');
+    }
+
+    async function viewBillDetail(billItem) {
+        // 1. 从点击的账单条目获取billId
+        const billId = billItem.dataset.billId;
+        if (!billId) {
+            showToast('未获取到账单ID');
+            return;
+        }
+
+        // 2. 显示加载状态
+        showToast('加载账单详情中...');
+
+        // 3. 获取token
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        try {
+            // 4. 调用账单详情接口
+            const response = await fetch(`http://graywolf.top:6031/appassets/assets/bills/detail?id=${billId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                    'Accept': '*/*'
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || '获取账单详情失败');
+            }
+
+            const result = await response.json();
+            if (result.code === 200 && result.data) {
+                const bill = result.data;
+                // 5. 格式化详情数据（适配详情页需要的字段）
+                const detailData = {
+                    id: bill.id,
+                    merchant: bill.targetName || '未知账户', // 收款/付款方名称
+                    amount: `${bill.type === 1 ? '+' : '-'}¥${bill.amount}`, // 收入+，支出-
+                    type: bill.typeName, // 交易类型（收入/转出等）
+                    category: bill.bizCategoryName || '其他', // 交易分类
+                    payment: `${bill.targetTypeName} ${bill.type === 1 ? '收款' : '支付'}`, // 支付方式描述
+                    time: formatBillTime(bill.completeTime), // 格式化时间
+                    orderNo: bill.transferNumber || '无交易单号', // 交易单号
+                    note: bill.remark || '无备注信息' // 备注内容
+                };
+
+                // 6. 保存数据到sessionStorage供详情页使用
+                sessionStorage.setItem('currentBillData', JSON.stringify(detailData));
+
+                // 7. 跳转到详情页
+                window.location.href = 'bill_detail.html';
+            } else {
+                throw new Error(result.message || '获取详情数据失败');
+            }
+        } catch (error) {
+            console.error('账单详情加载失败:', error);
+            showToast(error.message || '网络异常，详情加载失败');
+        }
+    }
+    function formatBillTime(isoTime) {
+        if (!isoTime) return '未知时间';
+        const date = new Date(isoTime);
+        // 补零处理（确保月份、日期等为两位数）
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0'); // 月份从0开始，需+1
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+    function performSearch() {
+        const keyword = document.getElementById('searchInput').value.trim();
+        if (!keyword) return;
+
+        // 模拟搜索结果
+        const searchResults = document.getElementById('searchResults');
+        searchResults.innerHTML = `
+            <div class="bill-item expense" data-type="expense" data-category="餐饮" onclick="viewBillDetail(this)">
+                <div class="bill-icon">
+                    <img src="icons/a-2-lijifukuan.png" alt="支付">
+                </div>
+                <div class="bill-info">
+                    <h4>星巴克咖啡</h4>
+                    <p>支付宝支付 • 2024-10-22 15:30</p>
+                    <span class="bill-category">餐饮</span>
+                </div>
+                <div class="bill-amount expense">-¥32.00</div>
+            </div>
+            <div class="no-more-results">没有更多结果了</div>
+        `;
+    }
+
+    function handleSearchKeyPress(event) {
+        if (event.key === 'Enter') {
+            performSearch();
+        }
+    }
+
+    function setQuickDate(days) {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - days);
+
+        document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+        document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+    }
+
+    function applyDateFilter() {
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+        const startDate = startDateInput.value;
+        const endDate = endDateInput.value;
+
+        // 验证日期输入
+        if (!startDate || !endDate) {
+            showToast('请选择完整的日期范围');
+            return;
+        }
+
+        // 格式化日期参数（拼接时间）
+        const startTime = `${startDate} 00:00:00`;
+        const endTime = `${endDate} 23:59:59`;
+
+        // 获取token
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        // 构建请求URL（编码特殊字符）
+        const encodedStartTime = encodeURIComponent(startTime);
+        const encodedEndTime = encodeURIComponent(endTime);
+        const url = `http://graywolf.top:6031/appassets/assets/bills/list/condition?startTime=${encodedStartTime}&endTime=${encodedEndTime}&type=&scene=bills`;
+
+        // 显示加载状态
+        showToast('正在筛选账单...');
+        const billsList = document.getElementById('billsList');
+        billsList.innerHTML = '<div class="loading">加载中...</div>';
+
+        // 发送请求
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                'Accept': '*/*'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code === 200 && Array.isArray(data.data)) {
+                    // 筛选成功，更新账单列表
+                    console.log("接口返回完整数据：", JSON.stringify(data, null, 2));
+                    updateBillsList(data.data);
+                    showToast('日期筛选已应用');
+                } else {
+                    showToast(data.message || '筛选账单失败');
+                    billsList.innerHTML = '<div class="no-bills">筛选失败，请重试</div>';
+                }
+            })
+            .catch(error => {
+                console.error('筛选账单失败:', error);
+                showToast('网络异常，筛选失败');
+                billsList.innerHTML = '<div class="no-bills">网络异常，请稍后重试</div>';
+            })
+            .finally(() => {
+                closeModal('dateFilterModal');
+            });
+    }
+
+    /**
+     * 根据接口返回数据更新账单列表
+     * @param {Array} bills - 筛选后的账单数据
+     */
+    function updateBillsList(bills) {
+        const billsList = document.getElementById('billsList');
+        if (!billsList) return;
+
+        // 清空列表
+        billsList.innerHTML = '';
+
+        // 处理空数据
+        if (bills.length === 0) {
+            billsList.innerHTML = '<div class="no-bills">该日期范围内无账单记录</div>';
+            return;
+        }
+
+        // 按日期分组（今天/昨天/更早之前）
+        const groupedBills = groupBillsByDate(bills);
+
+        // 生成HTML
+        Object.keys(groupedBills).forEach(dateKey => {
+            // 创建日期组容器
+            const dateGroup = document.createElement('div');
+            dateGroup.className = 'date-group';
+            dateGroup.innerHTML = `<div class="date-header">${dateKey}</div>`;
+
+            // 添加该日期组下的所有账单
+            groupedBills[dateKey].forEach(bill => {
+                dateGroup.appendChild(createBillItem(bill));
+            });
+
+            billsList.appendChild(dateGroup);
+        });
+    }
+
+    function reportProblem() {
+        alert('问题反馈功能开发中，请联系客服处理');
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    function goBack() {
+        window.history.back();
+    }
+
+    function showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            z-index: 10000;
+            font-size: 14px;
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 2000);
+    }
+
+    // 页面跳转函数
+    function goToPage(page) {
+        window.location.href = page;
+    }
+    function initBillsList() {
+        const container = document.getElementById('billsList');
+        if (!container) {
+            console.error('未找到账单列表容器');
+            return;
+        }
+
+        // 清空容器
+        container.innerHTML = '';
+
+        // 获取token
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        // 调用接口获取账单数据
+        fetch('http://graywolf.top:6031/appassets/assets/bills/list', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                'Accept': '*/*'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code === 200 && Array.isArray(data.data)) {
+                    const bills = data.data;
+                    if (bills.length === 0) {
+                        container.innerHTML = '<div class="no-bills">暂无账单记录</div>';
+                        return;
+                    }
+
+                    // 按日期分组（今天、昨天、更早之前）
+                    const groupedBills = groupBillsByDate(bills);
+
+                    // 渲染每个日期组
+                    Object.keys(groupedBills).forEach(dateKey => {
+                        const dateGroup = document.createElement('div');
+                        dateGroup.className = 'date-group';
+
+                        // 添加日期标题（今天/昨天/更早之前）
+                        dateGroup.innerHTML = `<div class="date-header">${dateKey}</div>`;
+
+                        // 渲染该组下的所有账单
+                        groupedBills[dateKey].forEach(bill => {
+                            dateGroup.appendChild(createBillItem(bill));
+                        });
+
+                        container.appendChild(dateGroup);
+                    });
+                } else {
+                    showToast(data.message || '获取账单列表失败');
+                }
+            })
+            .catch(error => {
+                console.error('更新账单列表失败:', error);
+                showToast(error.message || '网络异常，获取账单失败');
+            });
+    }
+
+    /**
+     * 将账单按日期分组（今天、昨天、更早之前）
+     * @param {Array} bills - 原始账单数据
+     * @returns {Object} 分组后的账单 { '今天': [], '昨天': [], '更早之前': [] }
+     */
+    function groupBillsByDate(bills) {
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        return bills.reduce((groups, bill) => {
+            const billDate = new Date(bill.completeTime);
+            let dateKey = '更早之前';
+
+            // 判断属于今天、昨天还是更早
+            if (isSameDay(billDate, today)) {
+                dateKey = '今天';
+            } else if (isSameDay(billDate, yesterday)) {
+                dateKey = '昨天';
+            }
+
+            // 按日期分组，同时按时间倒序排列（最新的在前）
+            if (!groups[dateKey]) {
+                groups[dateKey] = [];
+            }
+            groups[dateKey].push(bill);
+
+            return groups;
+        }, {});
+    }
+
+    /**
+     * 判断两个日期是否为同一天
+     * @param {Date} date1 - 日期1
+     * @param {Date} date2 - 日期2
+     * @returns {boolean} 是否为同一天
+     */
+    function isSameDay(date1, date2) {
+        return date1.getFullYear() === date2.getFullYear() &&
+            date1.getMonth() === date2.getMonth() &&
+            date1.getDate() === date2.getDate();
+    }
+
+    /**
+     * 创建单个账单条目元素
+     * @param {Object} bill - 账单数据
+     * @returns {HTMLElement} 账单元素
+     */
+    function createBillItem(bill) {
+        const billItem = document.createElement('div');
+        const isExpense = bill.type !== 1; // 假设type=1为收入，其他为支出（根据实际业务调整）
+
+        // 设置基础类名和数据属性（保存id供查看详情）
+        billItem.className = `bill-item ${isExpense ? 'expense' : 'income'}`;
+        billItem.dataset.type = isExpense ? 'expense' : 'income';
+        billItem.dataset.category = bill.bizCategoryName;
+        billItem.dataset.billId = bill.id; // 保存账单id
+        billItem.setAttribute('onclick', 'viewBillDetail(this)');
+
+        // 格式化时间（YYYY-MM-DD HH:MM）
+        const billTime = new Date(bill.completeTime);
+        const formattedTime = `${billTime.getFullYear()}-${String(billTime.getMonth() + 1).padStart(2, '0')}-${String(billTime.getDate()).padStart(2, '0')} ${String(billTime.getHours()).padStart(2, '0')}:${String(billTime.getMinutes()).padStart(2, '0')}`;
+
+        // 金额符号（收入+，支出-）
+        const amountSign = isExpense ? '-' : '+';
+
+        // 设置图标（根据分类匹配，这里使用示例图标，可根据实际需求扩展）
+        const iconMap = {
+            '餐饮': 'canyin.png',
+            '出行': 'zhiyin.png',
+            '购物': 'gouwu.png',
+            '其他': 'shoukuanjiekou.png' // 默认使用收款图标
+        };
+        const iconSrc = iconMap[bill.bizCategoryName] || 'shoukuanjiekou.png';
+
+        // 拼接账单内容
+        billItem.innerHTML = `
+    <div class="bill-icon">
+        <img src="icons/${iconSrc}" alt="${bill.bizCategoryName}">
+    </div>
+    <div class="bill-info">
+        <h4>${bill.remark || bill.targetName}</h4> <!-- 优先显示备注，无则显示目标名称 -->
+        <p>${bill.targetTypeName} ${isExpense ? '支付' : '收款'} • ${formattedTime}</p>
+        <span class="bill-category">${bill.bizCategoryName}</span>
+    </div>
+    <div class="bill-amount ${isExpense ? 'expense' : 'income'}">
+        ${amountSign}¥${parseFloat(bill.amount).toFixed(2)}
+    </div>
+`;
+
+        return billItem;
+    }
+    function initBillSummary() {
+        // 1. 获取当前选中的年月（从月份选择器中提取）
+        const currentMonthText = document.getElementById('currentMonth').textContent.trim();
+        const year = currentMonthText.split('年')[0]; // 提取年份（如"2025"）
+        const month = currentMonthText.split('年')[1].replace('月', ''); // 提取月份（如"07"）
+
+        // 2. 获取token进行身份验证
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        // 3. 调用账单总览接口
+        showToast('加载账单总览数据中...');
+        fetch(`http://graywolf.top:6031/appassets/assets/bills/summary?year=${year}&month=${month}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                'Accept': '*/*'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code === 200 && data.data) {
+                    const summaryData = data.data;
+                    // 更新总收入、总支出、结余
+                    updateSummaryNumbers(summaryData);
+                    // 更新支出分类图表
+                    updateExpenseCategories(summaryData.expenseV0 || []);
+                    showToast('账单总览加载成功');
+                } else {
+                    showToast(data.message || '获取账单数据失败');
+                }
+            })
+            .catch(error => {
+                console.error('账单总览初始化失败:', error);
+                showToast(error.message || '网络异常，加载失败');
+            });
+    }
+    function updateSummaryNumbers(data) {
+        // 格式化金额为的字符串
+
+
+    // 更新DOM
+    document.querySelector('.summary-item .income').textContent = data.totalIncome;
+    document.querySelector('.summary-item .expense').textContent = data.totalExpense;
+    document.querySelector('.summary-item .balance').textContent = data.balance;
+    }
+
+    /**
+     * 更新支出分类图表（处理单个分类和多个分类的情况）
+     * @param {Array} expenseList - 接口返回的支出分类数据
+     */
+    function updateExpenseCategories(expenseList) {
+        const chartContainer = document.querySelector('.expense-chart');
+        if (!chartContainer) return;
+
+        // 定义固定分类（与UI对应，确保样式一致）
+        const fixedCategories = [
+            { name: '餐饮', color: '#ff6b6b' },
+            { name: '出行', color: '#4ecdc4' },
+            { name: '购物', color: '#45b7d1' },
+            { name: '其他', color: '#f9ca24' }
+        ];
+
+        // 将接口数据转换为Map（按分类名称映射）
+        const expenseMap = new Map();
+        expenseList.forEach(item => {
+            expenseMap.set(item.bizCategoryName, {
+                amount: item.amount,
+                percentage: item.percentage
+            });
+        });
+
+        // 生成完整的分类数据（缺失分类填充0）
+        const fullCategories = fixedCategories.map(cat => {
+            const matched = expenseMap.get(cat.name) || { amount: '0', percentage: '0.00' };
+            return {
+                ...cat,
+                amount: matched.amount,
+                percentage: Math.round(parseFloat(matched.percentage)).toString()
+            };
+        });
+
+        // 清空并重新渲染图表
+        chartContainer.innerHTML = '';
+        fullCategories.forEach(item => {
+            const chartItem = document.createElement('div');
+            chartItem.className = 'chart-item';
+            // 格式化金额（保留两位小数）
+            const formattedAmount = parseFloat(item.amount).toLocaleString('zh-CN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+            chartItem.innerHTML = `
+        <div class="chart-color" style="background: ${item.color};"></div>
+        <span class="chart-label">${item.name}</span>
+        <span class="chart-amount">¥${formattedAmount}</span>
+        <span class="chart-percent">${item.percentage}%</span>
+    `;
+            chartContainer.appendChild(chartItem);
+        });
+    }
+
+    // 页面加载时初始化账单列表
+    document.addEventListener('DOMContentLoaded', function () {
+        initBillsList();
+        initHiddenSelector();
+        updateMonthDisplay();
+
+        initBillSummary();
+    });
+</script>
+</body>
+
+</html>

@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>总资产</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* 全屏页面基础样式 */
+        .fullscreen-page {
+            background: #f8f9fa;
+            min-height: calc(100vh - 40px);
+            padding-bottom: 20px;
+            display: none;
+        }
+
+        .fullscreen-page.active {
+            display: block;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        .back-btn img {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* 页面内容样式 */
+        .page-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background-color: #f8f9fa;
+        }
+
+        /* 页面底部样式 */
+        .page-footer {
+            padding: 16px;
+            background-color: #fff;
+            border-top: 1px solid #f0f2f5;
+            position: sticky;
+            bottom: 0;
+        }
+
+        .transfer-form {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* 金额输入组样式 */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background-color: #fff;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .form-group label {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #1d2129;
+        }
+
+        .amount-input-group {
+            display: flex;
+            align-items: center;
+            background-color: #f8f9fa;
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid #e9ecef;
+            transition: border-color 0.2s;
+        }
+
+        .amount-input-group:focus-within {
+            border-color: #165DFF;
+            box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.1);
+        }
+
+        .currency {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1d2129;
+            margin-right: 8px;
+        }
+
+        #transferInAmount,
+        #transferOutAmount {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1d2129;
+            background: transparent;
+            width: 100%;
+        }
+
+        #transferInAmount::placeholder,
+        #transferOutAmount::placeholder {
+            color: #86909C;
+            font-weight: 400;
+        }
+
+        /* 银行卡选择样式 */
+        .bank-card-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .bank-card-option {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background-color: #fff;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .bank-card-option:active {
+            background-color: #f0f7ff;
+        }
+
+        .bank-card-option.selected {
+            border-color: #165DFF;
+            background-color: #f0f7ff;
+        }
+
+        .bank-card-option img {
+            width: 32px;
+            height: 32px;
+        }
+
+        .card-info {
+            flex: 1;
+        }
+
+        .card-name {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1d2129;
+            margin-bottom: 4px;
+        }
+
+        .card-number {
+            font-size: 0.85rem;
+            color: #86909C;
+        }
+
+        .card-balance {
+            font-size: 0.9rem;
+            color: #165DFF;
+            font-weight: 500;
+        }
+
+        /* 手续费信息样式 */
+        .transfer-fee-info {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 16px;
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .fee-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .fee-item:first-child {
+            margin-bottom: 8px;
+        }
+
+        .fee-item span:first-child {
+            color: #86909C;
+            font-size: 0.9rem;
+        }
+
+        .fee-item span:last-child {
+            color: #1d2129;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        /* 页面底部按钮样式 */
+        .page-footer {
+            display: flex;
+            justify-content: center;
+            padding: 16px;
+            background-color: #fff;
+            border-top: 1px solid #f0f2f5;
+        }
+
+        .btn-confirm {
+            padding: 14px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            outline: none;
+            background-color: #165DFF;
+            color: white;
+        }
+
+        .btn-confirm:active {
+            background-color: #0E42D2;
+        }
+
+        .full-width {
+            width: 100%;
+        }
+
+        .available-balance {
+            background-color: #d8eaff;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            color: #165DFF;
+            font-weight: 500;
+        }
+
+        .quick-amounts {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .quick-amount {
+            padding: 8px 16px;
+            border-radius: 20px;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            color: #1d2129;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .quick-amount:active {
+            background-color: #e9ecef;
+        }
+
+        /* Toast提示样式 */
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-size: 14px;
+            z-index: 2000;
+            opacity: 0;
+            transition: all 0.3s ease;
+            text-align: center;
+            max-width: 80%;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* 响应式优化 */
+        @media (max-width: 480px) {
+            .modal .modal-body {
+                padding: 18px;
+                max-height: 100vh;
+            }
+
+            .modal .amount-input-group {
+                padding: 14px;
+            }
+
+            .modal .currency,
+            .modal #transferInAmount {
+                font-size: 1.25rem;
+            }
+
+            .modal .modal-footer {
+                padding: 12px 18px;
+                gap: 12px;
+            }
+        }
+
+        .eye-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .eye-btn img {
+            width: 20px;
+            height: 20px;
+            filter: brightness(0) invert(1);
+        }
+
+        .password-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            /* 默认隐藏 */
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .password-modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            width: 80%;
+            max-width: 300px;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .password-input {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            justify-content: center;
+        }
+
+        .password-input input {
+            width: 40px;
+            height: 40px;
+            text-align: center;
+            font-size: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .modal-buttons {
+            margin-top: 15px;
+        }
+
+        .modal-buttons button {
+            padding: 8px 20px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+<div class="app-container">
+    <!-- 状态栏 -->
+
+    <!-- 总资产页面 -->
+    <div class="assets-page">
+        <!-- 页面头部 -->
+        <div class="page-header">
+            <button class="back-btn" onclick="goBack()">
+                <img src="icons/danjiantouzuo.png" alt="返回">
+            </button>
+            <h1>总资产</h1>
+            <div class="header-placeholder"></div>
+        </div>
+
+        <!-- 资产总览 -->
+        <div class="asset-overview">
+            <div class="total-asset">
+                <div class="asset-header">
+                    <h3>总资产</h3>
+                    <button class="eye-btn" onclick="toggleAssetVisibility()">
+                        <img src="icons/xianshimima.png" alt="显示/隐藏" id="eyeIcon">
+                    </button>
+                </div>
+                <div class="asset-amount" id="totalAsset">¥12,580.50</div>
+                <div class="asset-update-time">更新时间：2024-01-15 14:30</div>
+            </div>
+
+            <!-- 资产变动趋势 -->
+            <div class="asset-trend">
+                <h4>近7日资产变动</h4>
+                <div class="trend-chart">
+                    <canvas id="trendChart" width="300" height="120"></canvas>
+                </div>
+                <div class="trend-summary">
+                    <div class="trend-item">
+                        <span class="trend-label">本周收入</span>
+                        <span class="trend-value positive">+¥2,350.00</span>
+                    </div>
+                    <div class="trend-item">
+                        <span class="trend-label">本周支出</span>
+                        <span class="trend-value negative">-¥1,890.50</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 资产详情 -->
+        <div class="asset-details">
+            <div class="asset-section">
+                <h3>账户余额</h3>
+                <div class="balance-card">
+                    <div class="balance-info">
+                        <div class="balance-type">可用余额</div>
+                        <div class="balance-amount" id="availableBalance">¥8,580.50</div>
+                    </div>
+                    <div class="balance-actions">
+                        <button class="balance-action-btn" onclick="showTransferIn()">
+                            <img src="icons/shuangjiantoushang.png" alt="转入">
+                            <span>转入</span>
+                        </button>
+                        <button class="balance-action-btn" onclick="showTransferOut()">
+                            <img src="icons/shuangjiantouxia.png" alt="转出">
+                            <span>转出</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 转入页面 -->
+    <div class="fullscreen-page" id="transferInPage">
+        <div class="page-header">
+            <button class="back-btn" onclick="hideFullscreenPage('transferInPage')">
+                <img src="icons/danjiantouzuo.png" alt="返回">
+            </button>
+            <h3>转入余额</h3>
+            <div class="header-placeholder"></div>
+        </div>
+        <div class="page-content">
+            <div class="transfer-form">
+                <div class="form-group">
+                    <label>转入金额</label>
+                    <div class="amount-input-group">
+                        <span class="currency">¥</span>
+                        <input type="number" id="transferInAmount" placeholder="请输入转入金额" step="0.01">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>选择银行卡</label>
+                    <div class="bank-card-list">
+                        <div class="bank-card-option" onclick="selectBankCard(this)">
+                            <img src="icons/a-32-woyaofukuan.png" alt="银行卡">
+                            <div class="card-info">
+                                <div class="card-name">招商银行</div>
+                                <div class="card-number">****1234</div>
+                            </div>
+                            <div class="card-balance">余额：¥4,000.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="transfer-fee-info">
+                    <div class="fee-item">
+                        <span>到账时间</span>
+                        <span>实时到账</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="page-footer">
+            <button class="btn-primary full-width" onclick="confirmTransferIn()">确认转入</button>
+        </div>
+    </div>
+
+    <!-- 转出页面 -->
+    <div class="fullscreen-page" id="transferOutPage">
+        <div class="page-header">
+            <button class="back-btn" onclick="hideFullscreenPage('transferOutPage')">
+                <img src="icons/danjiantouzuo.png" alt="返回">
+            </button>
+            <h3>转出至银行卡</h3>
+            <div class="header-placeholder"></div>
+        </div>
+        <div class="page-content">
+            <div class="transfer-form">
+                <div class="form-group">
+                    <label>转出金额</label>
+                    <div class="amount-input-group">
+                        <span class="currency">¥</span>
+                        <input type="number" id="transferOutAmount" placeholder="请输入转出金额" step="0.01">
+                    </div>
+                    <div class="quick-amounts">
+                        <button class="quick-amount" onclick="setQuickAmount(100)">100</button>
+                        <button class="quick-amount" onclick="setQuickAmount(500)">500</button>
+                        <button class="quick-amount" onclick="setQuickAmount(1000)">1000</button>
+                        <button class="quick-amount" onclick="setAllAmount()">全部</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>选择收款银行卡</label>
+                    <div class="bank-card-list">
+                        <div class="bank-card-option">
+                            <img src="icons/a-32-woyaofukuan.png" alt="银行卡">
+                            <div class="card-info">
+                                <div class="card-name">招商银行</div>
+                                <div class="card-number">****1234</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="transfer-fee-info">
+                    <div class="fee-item">
+                        <span>到账时间</span>
+                        <span>2小时内</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="page-footer">
+            <button class="btn-primary full-width" onclick="confirmTransferOut()">确认转出</button>
+        </div>
+    </div>
+</div>
+<div id="passwordModal" class="password-modal">
+    <div class="modal-content">
+        <h3>请输入6位支付密码</h3>
+        <div class="password-input">
+            <!-- 6个输入框，每个限输1位数字 -->
+            <input type="text" maxlength="1" oninput="nextPasswordInput(this, 0)">
+            <input type="text" maxlength="1" oninput="nextPasswordInput(this, 1)">
+            <input type="text" maxlength="1" oninput="nextPasswordInput(this, 2)">
+            <input type="text" maxlength="1" oninput="nextPasswordInput(this, 3)">
+            <input type="text" maxlength="1" oninput="nextPasswordInput(this, 4)">
+            <input type="text" maxlength="1" oninput="nextPasswordInput(this, 5)">
+        </div>
+        <div class="modal-buttons">
+            <button onclick="cancelPasswordInput()">取消</button>
+        </div>
+    </div>
+</div>
+<script>
+    let assetsVisible = true;
+    let selectedBankCard = null;
+    let selectedReceiveCard = null;
+    let formattedBalance = 0;
+    let inputtedPassword = '';
+    // 切换资产显示/隐藏
+    function toggleAssetVisibility() {
+        const totalAsset = document.getElementById('totalAsset');
+        const availableBalance = document.getElementById('availableBalance');
+        const eyeIcon = document.getElementById('eyeIcon');
+        const rawValue = totalAsset.dataset.rawValue
+        if (assetsVisible) {
+            totalAsset.textContent = '****';
+            availableBalance.textContent = '****';
+            eyeIcon.src = 'icons/yincangmima.png';
+            assetsVisible = false;
+        } else {
+            totalAsset.textContent = `¥${formatCurrency(rawValue)}`;
+            availableBalance.textContent = '¥8,580.50';
+            eyeIcon.src = 'icons/xianshimima.png';
+            assetsVisible = true;
+        }
+    }
+
+    // 显示转入页面
+    function showTransferIn() {
+        const page = document.getElementById('transferInPage');
+        page.classList.add('active');
+        // 隐藏总资产页面
+        document.querySelector('.assets-page').style.display = 'none';
+    }
+
+    // 显示转出页面
+    function showTransferOut() {
+        const page = document.getElementById('transferOutPage');
+        page.classList.add('active');
+        // 隐藏总资产页面
+        document.querySelector('.assets-page').style.display = 'none';
+    }
+
+    // 隐藏全屏页面
+    function hideFullscreenPage(pageId) {
+        const page = document.getElementById(pageId);
+        page.classList.remove('active');
+        // 显示总资产页面
+        document.querySelector('.assets-page').style.display = 'block';
+    }
+
+    // 选择银行卡
+    function selectBankCard(element) {
+        // 获取当前选中卡片的唯一标识（cardId）
+        const selectedCardId = element.dataset.cardId;
+        if (!selectedCardId) {
+            console.error('未找到卡片ID');
+            return;
+        }
+
+        // 1. 移除所有列表中所有卡片的选中状态
+        document.querySelectorAll('.bank-card-option').forEach(card => {
+            card.classList.remove('selected');
+        });
+
+        // 2. 为所有列表中相同cardId的卡片添加选中状态
+        document.querySelectorAll(`.bank-card-option[data-card-id="${selectedCardId}"]`).forEach(card => {
+            card.classList.add('selected');
+        });
+
+        // 3. 保存选中的卡片（可保留原逻辑，取第一个匹配的卡片即可）
+        selectedBankCard = document.querySelector(`.bank-card-option[data-card-id="${selectedCardId}"]`);
+    }
+
+    // 选择收款银行卡
+
+
+    // 设置快捷金额
+    function setQuickAmount(amount) {
+        document.getElementById('transferOutAmount').value = amount;
+    }
+
+    // 设置全部金额
+    function setAllAmount() {
+        document.getElementById('transferOutAmount').value = formattedBalance.toString();
+    }
+
+    // 确认转入
+    function confirmTransferIn() {
+        // 1. 验证转入金额
+        const amountInput = document.getElementById('transferInAmount');
+        const amount = amountInput.value.trim();
+        if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
+            showToast('请输入有效的转入金额');
+            amountInput.focus();
+            return;
+        }
+        const formattedAmount = parseFloat(amount).toFixed(2);
+
+        // 2. 验证是否选择银行卡
+        if (!selectedBankCard) {
+            showToast('请选择银行卡');
+            return;
+        }
+        const bankCardId = selectedBankCard.dataset.cardId;
+        const bankName = selectedBankCard.dataset.bankName;
+        if (!bankCardId || !bankName) {
+            showToast('银行卡信息异常，请重新选择');
+            return;
+        }
+
+        // 3. 显示自定义密码输入层（替代 prompt）
+        inputtedPassword = ''; // 重置密码
+        document.getElementById('passwordModal').classList.add('show');
+        // 聚焦第一个输入框
+        document.querySelectorAll('.password-input input')[0].focus();
+
+        // 4. 定义密码输入完成后的回调（通过闭包保留当前参数）
+        window.handlePasswordComplete = function (payPassword) {
+            // 隐藏密码层
+            document.getElementById('passwordModal').classList.remove('show');
+            // 清空输入框
+            document.querySelectorAll('.password-input input').forEach(input => input.value = '');
+
+            // 5. 调用转入接口
+            proceedWithTransfer(bankCardId, bankName, formattedAmount, payPassword);
+        };
+    }
+
+    /**
+     * 处理密码输入（自动跳到下一个输入框）
+     * @param {HTMLInputElement} input - 当前输入框
+     * @param {number} index - 当前输入框索引（0-5）
+     */
+    function nextPasswordInput(input, index) {
+        // 只允许输入数字
+        input.value = input.value.replace(/\D/g, '');
+
+        if (input.value) {
+            // 保存输入的数字（覆盖当前索引位置的字符）
+            inputtedPassword = inputtedPassword.substring(0, index) + input.value + inputtedPassword.substring(index + 1);
+
+            // 如果不是最后一个输入框，自动聚焦下一个
+            if (index < 5) {
+                document.querySelectorAll('.password-input input')[index + 1].focus();
+            } else {
+                // 输入完成，优先判断当前场景的回调（转入/转出）
+                if (window.handleWithdrawPasswordComplete) {
+                    // 转出场景：执行转出回调
+                    window.handleWithdrawPasswordComplete(inputtedPassword);
+                    // 执行后清空回调，避免冲突
+                    window.handleWithdrawPasswordComplete = null;
+                } else if (window.handlePasswordComplete) {
+                    // 转入场景：执行转入回调
+                    window.handlePasswordComplete(inputtedPassword);
+                    // 执行后清空回调，避免冲突
+                    window.handlePasswordComplete = null;
+                } else {
+                    // 未找到回调（异常情况）
+                    showToast('密码输入异常，请重试');
+                }
+            }
+        }
+    }
+
+    /**
+     * 取消密码输入
+     */
+    function cancelPasswordInput() {
+        document.getElementById('passwordModal').classList.remove('show');
+        document.querySelectorAll('.password-input input').forEach(input => input.value = '');
+        inputtedPassword = '';
+        showToast('已取消转出操作');
+        // 清除转出回调，避免与转入功能冲突
+        window.handleWithdrawPasswordComplete = null;
+    }
+
+    /**
+     * 执行转入接口调用（提取为独立函数）
+     */
+    function proceedWithTransfer(bankCardId, bankName, amount, payPassword) {
+        // 验证密码长度
+        if (payPassword.length !== 6) {
+            showToast('请输入6位数字支付密码');
+            return;
+        }
+
+        // 获取token
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+
+
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        // 调用接口
+        showToast('正在处理转入请求...');
+        const requestData = {
+            bankCardId: bankCardId,
+            bankName: bankName,
+            amount: amount,
+            payPassword: payPassword
+        };
+
+        fetch('http://graywolf.top:6031/appassets/assets/topup', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': '*/*'
+            },
+            body: JSON.stringify(requestData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code === 200) {
+                    showToast('转入成功');
+                    hideFullscreenPage('transferInPage');
+                    document.getElementById('transferInAmount').value = '';
+                    // 刷新数据
+                    fetchAssetSummary();
+                    initAllBankCardLists();
+                } else {
+                    throw new Error(data.message || '转入失败，请重试');
+                }
+            })
+            .catch(error => {
+                console.error('转入失败:', error);
+                showToast(error.message || '网络异常，转入失败');
+            });
+    }
+
+    // 确认转出
+    function confirmTransferOut() {
+        // 1. 验证转出金额
+        const amountInput = document.getElementById('transferOutAmount');
+        const amount = amountInput.value.trim();
+        if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
+            showToast('请输入有效的转出金额');
+            amountInput.focus();
+            return;
+        }
+        // 保留两位小数处理
+        const formattedAmount = parseFloat(amount).toFixed(2);
+
+        // 2. 验证金额不超过可用余额
+        const availableBalanceEl = document.getElementById('availableBalance');
+        if (!availableBalanceEl) {
+            showToast('未获取到可用余额信息');
+            return;
+        }
+        // 提取并转换可用余额（去除¥和千分位逗号）
+        const currentBalance = parseFloat(availableBalanceEl.textContent.replace('¥', '').replace(/,/g, ''));
+        if (isNaN(currentBalance)) {
+            showToast('余额格式异常');
+            return;
+        }
+        if (parseFloat(formattedAmount) > currentBalance) {
+            showToast('转出金额不能超过可用余额');
+            return;
+        }
+
+        // 3. 验证是否选择收款银行卡
+        if (!selectedBankCard) {
+            showToast('请先在列表中选择银行卡');
+            return;
+        }
+
+        // 从共用变量中获取银行卡信息
+        const bankCardId = selectedBankCard.dataset.cardId;
+        const bankName = selectedBankCard.dataset.bankName;
+        if (!bankCardId || !bankName) {
+            showToast('银行卡信息异常，请重新选择');
+            return;
+        }
+        // 4. 显示自定义密码输入层（复用转入功能的密码组件）
+        inputtedPassword = ''; // 重置密码
+        document.getElementById('passwordModal').classList.add('show');
+        // 聚焦第一个输入框
+        document.querySelectorAll('.password-input input')[0].focus();
+
+        // 5. 定义密码输入完成后的回调（闭包保留当前参数）
+        window.handleWithdrawPasswordComplete = function (payPassword) {
+            // 隐藏密码层并清空输入
+            document.getElementById('passwordModal').classList.remove('show');
+            document.querySelectorAll('.password-input input').forEach(input => input.value = '');
+
+            // 6. 调用转出接口
+            proceedWithTransferOut(bankCardId, bankName, formattedAmount, payPassword);
+        };
+    }
+    function proceedWithTransferOut(bankCardId, bankName, amount, payPassword) {
+        // 验证密码长度
+        if (payPassword.length !== 6) {
+            showToast('请输入6位数字支付密码');
+            return;
+        }
+
+        // 获取token进行身份验证
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        // 调用转出接口
+        showToast('正在提交转出申请...');
+        const requestData = {
+            bankCardId: bankCardId,       // 收款银行卡ID
+            bankName: bankName,           // 收款银行名称
+            amount: amount,               // 转出金额（保留两位小数）
+            payPassword: payPassword      // 支付密码
+        };
+
+        fetch('http://graywolf.top:6031/appassets/assets/withdraw', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': '*/*',
+                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)'
+            },
+            body: JSON.stringify(requestData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code === 200) {
+                    showToast('转出申请已提交，预计2小时内到账');
+                    // 隐藏转出页面并清空输入
+                    hideFullscreenPage('transferOutPage');
+                    document.getElementById('transferOutAmount').value = '';
+                    // 清除回调避免冲突
+                    window.handleWithdrawPasswordComplete = null;
+                    // 刷新资产数据
+                    fetchAssetSummary();
+                } else {
+                    throw new Error(data.message || '转出申请提交失败，请重试');
+                }
+            })
+            .catch(error => {
+                console.error('转出操作失败:', error);
+                showToast(error.message || '网络异常，转出失败');
+                // 清除回调
+                window.handleWithdrawPasswordComplete = null;
+            });
+    }
+    // 显示Toast提示
+    function showToast(message) {
+        // 创建Toast元素
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        // 显示Toast
+        setTimeout(() => {
+            toast.classList.add('show');
+        }, 10);
+
+        // 2秒后隐藏并移除Toast
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                document.body.removeChild(toast);
+            }, 300);
+        }, 2000);
+    }
+
+    // 更新余额显示
+    function updateBalance() {
+        // 这里可以调用API更新实际余额
+        console.log('更新余额显示');
+    }
+
+    // 绘制趋势图
+    function drawTrendChart(chartData) {
+        const canvas = document.getElementById('trendChart');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // 提取数据和标签（从接口数据转换）
+        const data = chartData.map(item => parseFloat(item.balance));
+        const labels = chartData.map(item => item.day); // 使用接口返回的日期（如"07-22"）
+
+        // 清空画布
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 设置样式
+        ctx.strokeStyle = '#4CAF50'; // 线条颜色
+        ctx.lineWidth = 2;
+        ctx.fillStyle = 'rgba(76, 175, 80, 0.1)'; // 填充色
+
+        // 计算绘图参数
+        const padding = 20; // 边距
+        const chartWidth = canvas.width - padding * 2;
+        const chartHeight = canvas.height - padding * 2;
+        const stepX = data.length > 1 ? chartWidth / (data.length - 1) : 0; // X轴步长
+
+        // 计算数据范围（确保Y轴比例合理）
+        const minValue = Math.min(...data) * 0.95; // 稍微缩小最小值范围
+        const maxValue = Math.max(...data) * 1.05; // 稍微扩大最大值范围
+        const valueRange = maxValue - minValue;
+
+        // 绘制线条和填充区域
+        ctx.beginPath();
+        data.forEach((value, index) => {
+            const x = padding + index * stepX;
+            // 计算Y坐标（反转Y轴，因为Canvas原点在左上角）
+            const y = padding + chartHeight - ((value - minValue) / valueRange) * chartHeight;
+
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        ctx.stroke(); // 绘制线条
+
+        // 绘制填充区域（连接底部形成闭合区域）
+        ctx.lineTo(padding + (data.length - 1) * stepX, padding + chartHeight);
+        ctx.lineTo(padding, padding + chartHeight);
+        ctx.closePath();
+        ctx.fill(); // 填充区域
+
+        // 绘制X轴标签（日期）
+
+    }
+
+    // 其他功能函数
+    function goBack() {
+        window.history.back();
+    }
+
+    function showAssetSettings() {
+        alert('资产设置功能');
+    }
+
+    function addBankCard() {
+        window.location.href = 'cards.html';
+    }
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function () {
+        fetchAssetSummary();
+        initAllBankCardLists();
+    });
+
+    // 点击模态框背景关闭
+    document.addEventListener('click', function (e) {
+        if (e.target.classList.contains('modal')) {
+            e.target.style.display = 'none';
+        }
+    });
+    function fetchAssetSummary() {
+        // 获取token用于身份验证
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        // 调用资产汇总接口
+        fetch('http://graywolf.top:6031/appassets/assets/summary', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                'Accept': '*/*'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code === 200 && data.data) {
+                    // 更新资产数据到页面
+                    updateAssetUI(data.data);
+                    // 绘制趋势图
+                    drawTrendChart(data.data.assertsChartV0);
+                } else {
+                    showToast(data.message || '获取资产数据失败');
+                }
+            })
+            .catch(error => {
+                console.error('获取资产数据失败:', error);
+                showToast(error.message || '网络异常，获取资产数据失败');
+            });
+    }
+
+    /**
+     * 更新资产概览UI
+     * @param {Object} assetData - 接口返回的资产数据
+     */
+    function updateAssetUI(assetData) {
+        // 更新总资产（格式化金额）
+        const totalAssetEl = document.getElementById('totalAsset');
+        const availableBalanceEl=document.getElementById('availableBalance');
+        formattedBalance = formatCurrency(assetData.balance);
+
+        totalAssetEl.textContent = `¥${formattedBalance}`;
+        availableBalanceEl.textContent = `¥${formattedBalance}`;
+        totalAssetEl.dataset.rawValue = assetData.balance; // 存储原始值用于显示切换
+
+        // 更新更新时间（格式化时间）
+        const updateTimeEl = document.querySelector('.asset-update-time');
+        const formattedTime = formatDateTime(assetData.updateTime);
+        updateTimeEl.textContent = `更新时间：${formattedTime}`;
+
+        // 计算并更新本周收入/支出（基于近7日数据）
+        calculateWeeklyTrend(assetData.assertsChartV0);
+    }
+    function calculateWeeklyTrend(chartData) {
+        // 提取每日余额（转换为数字）
+        const dailyBalances = chartData.map(item => parseFloat(item.balance));
+
+        // 计算每日变动（后一天 - 前一天）
+        const dailyChanges = [];
+        for (let i = 1; i < dailyBalances.length; i++) {
+            dailyChanges.push(dailyBalances[i] - dailyBalances[i - 1]);
+        }
+
+        // 汇总收入和支出
+        let totalIncome = 0; // 正数总和（收入）
+        let totalExpense = 0; // 负数总和（支出，取绝对值）
+        dailyChanges.forEach(change => {
+            if (change > 0) {
+                totalIncome += change;
+            } else if (change < 0) {
+                totalExpense += Math.abs(change);
+            }
+        });
+
+        // 更新页面显示
+        document.querySelector('.trend-value.positive').textContent = `+¥${formatCurrency(totalIncome.toFixed(2))}`;
+        document.querySelector('.trend-value.negative').textContent = `-¥${formatCurrency(totalExpense.toFixed(2))}`;
+    }
+
+    /**
+     * 格式化金额（保留两位小数，添加千分位）
+     * @param {string|number} amount - 原始金额
+     * @returns {string} 格式化后的金额
+     */
+    function formatCurrency(amount) {
+        return parseFloat(amount).toLocaleString('zh-CN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    /**
+     * 格式化日期时间（将ISO格式转换为本地格式）
+     * @param {string} isoTime - ISO格式时间（如"2025-07-28T10:16:56"）
+     * @returns {string} 格式化后的时间（如"2025-07-28 10:16"）
+     */
+    function formatDateTime(isoTime) {
+        const date = new Date(isoTime);
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    }
+    function initAllBankCardLists() {
+        // 获取页面中所有的银行卡列表容器
+        const containers = document.querySelectorAll('.bank-card-list');
+        if (containers.length === 0) {
+            console.error('未找到任何银行卡列表容器');
+            return;
+        }
+
+        // 先清空所有容器
+        containers.forEach(container => {
+            container.innerHTML = '';
+        });
+
+        // 获取token进行身份验证
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        // 调用接口获取银行卡数据
+        fetch('http://graywolf.top:6031/appassets/assets/cards', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                'Accept': '*/*'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code === 200 && Array.isArray(data.data)) {
+                    const bankCards = data.data;
+
+                    // 为每个容器生成相同的银行卡列表
+                    containers.forEach(container => {
+                        if (bankCards.length === 0) {
+                            // 无银行卡时显示提示
+                            container.innerHTML = '<div class="no-card">暂无绑定的银行卡</div>';
+                            return;
+                        }
+
+                        // 动态生成银行卡列表项
+                        bankCards.forEach(card => {
+                            // 创建列表项元素
+                            const cardOption = document.createElement('div');
+                            cardOption.className = 'bank-card-option';
+                            // 绑定点击事件，传递当前元素（this）
+                            cardOption.setAttribute('onclick', 'selectBankCard(this)');
+                            // 存储id和bankName到data属性，供selectBankCard使用
+                            cardOption.dataset.cardId = card.id;
+                            cardOption.dataset.bankName = card.bankName;
+
+                            // 拼接列表项内容（只显示bankName和最后4位卡号，余额固定为***）
+                            cardOption.innerHTML = `
+                    <img src="icons/a-32-woyaofukuan.png" alt="银行卡">
+                    <div class="card-info">
+                        <div class="card-name">${card.bankName}</div>
+                        <div class="card-number">****${card.lastFourDigits}</div>
+                    </div>
+                    <div class="card-balance">余额：***</div>
+                `;
+
+                            // 添加到当前容器
+                            container.appendChild(cardOption);
+                        });
+                    });
+                } else {
+                    showToast(data.message || '获取银行卡列表失败');
+                }
+            })
+            .catch(error => {
+                console.error('初始化银行卡列表失败:', error);
+                showToast(error.message || '网络异常，获取银行卡失败');
+            });
+    }
+</script>
+</body>
+
+</html>

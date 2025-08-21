@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 点击时的状态（对应 hover 效果） -->
+    <item android:state_pressed="true">
+        <scale
+            android:duration="300"
+        android:fromXScale="1.0"
+        android:fromYScale="1.0"
+        android:toXScale="1.05"
+        android:toYScale="1.05"
+        android:pivotX="50%"
+        android:pivotY="50%"/>
+    </item>
+    <!-- 默认状态 -->
+    <item>
+        <scale
+            android:duration="300"
+            android:fromXScale="1.05"
+            android:fromYScale="1.05"
+            android:toXScale="1.0"
+            android:toYScale="1.0"
+            android:pivotX="50%"
+            android:pivotY="50%"/>
+    </item>
+</selector>

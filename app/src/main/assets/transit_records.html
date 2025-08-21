@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>出行记录 - 移动支付应用</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* 基础样式重置与工具类 */
+        :root {
+            --primary-color: #409EFF;
+            --primary-light: #e0e7ff;
+            --secondary-color: #3f37c9;
+            --gray-100: #f8f9fa;
+            --gray-200: #e9ecef;
+            --gray-300: #dee2e6;
+            --gray-400: #ced4da;
+            --gray-500: #adb5bd;
+            --gray-600: #6c757d;
+            --gray-700: #495057;
+            --gray-800: #343a40;
+            --gray-900: #212529;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+            --border-radius: 0.375rem;
+            --transition: all 0.3s ease;
+        }
+
+        .transit-records-page {
+            padding: 20px;
+            padding-top: 0;
+            min-height: calc(100vh - 40px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: center;
+            padding: 15px 0;
+            position: relative;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        .back-btn img {
+            width: 20px;
+            height: 20px;
+        }
+
+        .page-header h1 {
+            flex: 1;
+            text-align: center;
+            font-size: 18px;
+            margin: 0;
+        }
+
+        .filter-btn {
+            background: none;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        .filter-btn img {
+            width: 20px;
+            height: 20px;
+        }
+
+        .records-filter {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .filter-tabs {
+            display: flex;
+        }
+
+        .filter-tab {
+            padding: 6px 12px;
+            margin-right: 8px;
+            border-radius: 16px;
+            font-size: 14px;
+            background: #f5f5f5;
+            border: none;
+            cursor: pointer;
+        }
+
+        .filter-tab.active {
+            background: #1677ff;
+            color: white;
+        }
+
+        .date-filter {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .date-filter img {
+            width: 16px;
+            height: 16px;
+            margin-left: 4px;
+        }
+
+        .records-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .record-item {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            flex-direction: column;
+        }
+
+        .record-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            width: 100%;
+        }
+
+        .record-title {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .record-status {
+            font-size: 14px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #e6f7ff;
+            color: #1677ff;
+        }
+
+        .record-status.error {
+            background: #fff2f0;
+            color: #ff4d4f;
+        }
+
+        .record-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .info-value {
+            color: #333;
+        }
+
+        .info-value.amount {
+            font-weight: bold;
+            color: #ff4d4f;
+        }
+
+        .record-time {
+            text-align: right;
+            font-size: 12px;
+            color: #999;
+            margin-top: 12px;
+            width: 100%;
+        }
+
+        .empty-records {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 0;
+            color: #999;
+        }
+
+        .empty-records img {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .close-btn:hover {
+            background-color: var(--gray-200);
+        }
+
+        .close-btn img {
+            width: 1.25rem;
+            height: 1.25rem;
+            object-fit: contain;
+        }
+
+        /* 日期选择内容区域样式 */
+        .date-picker-content {
+            padding: 1.5rem;
+        }
+
+        .date-range-option {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            border-radius: var(--border-radius);
+            background-color: white;
+            border: 1px solid var(--gray-200);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .date-range-option:last-child {
+            margin-bottom: 0;
+        }
+
+        .date-range-option:hover {
+            background-color: var(--primary-light);
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .date-range-option span {
+            flex: 1;
+            font-size: 1rem;
+            color: var(--gray-700);
+            font-weight: 500;
+        }
+
+        /* 自定义日期选择器（隐藏状态） */
+        .custom-date-picker {
+            display: none;
+            margin-top: 1rem;
+            gap: 1rem;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 480px) {
+            .modal-content {
+                width: 95%;
+            }
+
+            .modal-header {
+                padding: 1rem;
+            }
+
+            .date-picker-content {
+                padding: 1rem;
+            }
+
+            .date-range-option {
+                padding: 0.75rem;
+                font-size: 0.9rem;
+            }
+        }
+
+        .handle-options {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .btn-option {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            font-size: 14px;
+            border-radius: 1.25rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-option img {
+            width: 20px;
+            height: 20px;
+            filter: brightness(0) invert(1);
+        }
+
+        /* 详情页面样式 */
+        .transit-detail-content {
+            padding: 0px;
+        }
+
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .detail-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .detail-status {
+            font-size: 14px;
+            padding: 4px 10px;
+            margin: 0;
+            border-radius: 12px;
+            background: #e6f7ff;
+            color: #1677ff;
+        }
+
+        .detail-status.error {
+            background: #fff2f0;
+            color: #ff4d4f;
+        }
+
+        .detail-map {
+            background: #f5f5f5;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .station-line {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .station {
+            width: 100%;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 500;
+            position: relative;
+            z-index: 2;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .station.start {
+            border-left: 4px solid #52c41a;
+            margin-bottom: 30px;
+        }
+
+        .station.end {
+            border-left: 4px solid #1677ff;
+        }
+
+        .station.error {
+            border-left: 4px solid #ff4d4f;
+            color: #ff4d4f;
+        }
+
+        .line-path {
+            position: absolute;
+            top: 45px;
+            height: calc(100% - 90px);
+            width: 4px;
+            background: #1677ff;
+            z-index: 1;
+        }
+
+        .line-path.error {
+            background: #ff4d4f;
+            border-right: 2px dashed #ff4d4f;
+        }
+
+        .detail-info {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .info-group {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #666;
+        }
+
+        .info-value {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .info-value.error {
+            color: #ff4d4f;
+        }
+
+        .info-value.amount {
+            color: #ff4d4f;
+            font-weight: bold;
+        }
+
+        .error-message {
+            margin-top: 15px;
+            padding: 10px 15px;
+            background: #fff2f0;
+            border-radius: 8px;
+            border-left: 4px solid #ff4d4f;
+            color: #ff4d4f;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 15px 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #666;
+            border: 1px solid #ddd;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        /* 交互效果 */
+        .btn-option:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }
+
+        /* 动画效果 */
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .error-message {
+            animation: pulse 2s infinite;
+        }
+
+        /* 加载动画 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 360px) {
+            .transit-detail-content {
+                padding: 15px;
+            }
+
+            .detail-title {
+                font-size: 16px;
+            }
+
+            .detail-status {
+                font-size: 12px;
+                padding: 3px 8px;
+            }
+
+            .station {
+                padding: 10px;
+                font-size: 14px;
+            }
+
+            .info-item {
+                font-size: 13px;
+            }
+
+            .btn-secondary {
+                padding: 8px 15px;
+                font-size: 14px;
+            }
+
+            .handle-options {
+                flex-wrap: wrap;
+            }
+
+            .btn-option {
+                flex: 1;
+                min-width: 100px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- 顶部状态栏 -->
+
+        <!-- 出行记录页面 -->
+        <div class="transit-records-page">
+            <!-- 头部导航 -->
+            <div class="page-header">
+                <button class="back-btn" onclick="goBack()">
+                    <img src="icons/danjiantouzuo.png" alt="返回">
+                </button>
+                <h1>出行记录</h1>
+                <div class="header-placeholder"></div>
+            </div>
+
+            <!-- 筛选区域 -->
+            <div class="records-filter">
+                <div class="filter-tabs">
+                    <button class="filter-tab active" onclick="filterRecords('all')">全部</button>
+                    <button class="filter-tab" onclick="filterRecords('normal')">正常</button>
+                    <button class="filter-tab" onclick="filterRecords('error')">异常</button>
+                </div>
+                <div class="date-filter" onclick="showDatePicker()">
+                    <span>最近30天</span>
+                    <img src="icons/danjiantouxia.png" alt="选择日期">
+                </div>
+            </div>
+
+            <!-- 记录列表 -->
+            <div class="records-list" id="recordsList">
+                <!-- 记录项 - 正常记录 -->
+                <div class="record-item" onclick="navigateToDetail('record1')">
+                    <div class="record-header">
+                        <div class="record-title">北京地铁</div>
+                        <div class="record-status">正常</div>
+                    </div>
+                    <div class="record-info">
+                        <div class="info-item">
+                            <span class="info-label">进站：</span>
+                            <span class="info-value">天安门东站</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">出站：</span>
+                            <span class="info-value">王府井站</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">费用：</span>
+                            <span class="info-value amount">¥4.00</span>
+                        </div>
+                    </div>
+                    <div class="record-time">2025-07-10 14:30</div>
+                </div>
+
+                <!-- 记录项 - 异常记录 -->
+                <div class="record-item" onclick="navigateToDetail('record2')">
+                    <div class="record-header">
+                        <div class="record-title">北京公交</div>
+                        <div class="record-status error">异常</div>
+                    </div>
+                    <div class="record-info">
+                        <div class="info-item">
+                            <span class="info-label">进站：</span>
+                            <span class="info-value">西单站</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">出站：</span>
+                            <span class="info-value">未记录</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">费用：</span>
+                            <span class="info-value amount">¥0.00</span>
+                        </div>
+                    </div>
+                    <div class="record-time">2025-07-09 09:15</div>
+                </div>
+
+                <!-- 记录项 - 正常记录 -->
+                <div class="record-item" onclick="navigateToDetail('record3')">
+                    <div class="record-header">
+                        <div class="record-title">北京地铁</div>
+                        <div class="record-status">正常</div>
+                    </div>
+                    <div class="record-info">
+                        <div class="info-item">
+                            <span class="info-label">进站：</span>
+                            <span class="info-value">北京南站</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">出站：</span>
+                            <span class="info-value">西单站</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">费用：</span>
+                            <span class="info-value amount">¥5.00</span>
+                        </div>
+                    </div>
+                    <div class="record-time">2025-07-08 18:45</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 记录详情弹窗已移除，改为页面跳转 -->
+
+        <!-- 日期选择弹窗 -->
+        <div class="modal" id="datePickerModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>选择日期范围</h2>
+                    <button class="close-btn" onclick="closeModal('datePickerModal')">
+                        <img src="icons/shibai.png" alt="关闭">
+                    </button>
+                </div>
+                <div class="date-picker-content">
+                    <div class="date-range-option" onclick="selectDateRange('7days')">
+                        <span>最近7天</span>
+                    </div>
+                    <div class="date-range-option" onclick="selectDateRange('30days')">
+                        <span>最近30天</span>
+                    </div>
+                    <div class="date-range-option" onclick="selectDateRange('90days')">
+                        <span>最近90天</span>
+                    </div>
+                    <div class="date-range-option" onclick="showCustomDatePicker()">
+                        <span>自定义</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 异常处理弹窗 -->
+        <div class="modal" id="errorHandleModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>异常处理</h2>
+                    <button class="close-btn" onclick="closeModal('errorHandleModal')">
+                        <img src="icons/shibai.png" alt="关闭">
+                    </button>
+                </div>
+                <div class="error-handle-content">
+                    <div class="detail-rules">
+                        <p style="margin-bottom: 10px;">您的出行记录存在异常，可能是由于以下原因：</p>
+                        <ul>
+                            <li>未正常出站或刷卡</li>
+                            <li>系统记录错误</li>
+                            <li>支付失败</li>
+                        </ul>
+                    </div>
+                    <div class="handle-options">
+                        <button class="btn-option" onclick="contactCustomerService()">
+                            <img src="icons/kefu.png" alt="客服">
+                            <span>联系客服</span>
+                        </button>
+                        <button class="btn-option" onclick="payNow()">
+                            <img src="icons/tuikuanjingban.png" alt="支付">
+                            <span>立即补缴</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // 筛选记录
+        function filterRecords(type) {
+            // 更新筛选按钮状态
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // 模拟筛选效果
+            const recordItems = document.querySelectorAll('.record-item');
+
+            if (type === 'all') {
+                recordItems.forEach(item => {
+                    item.style.display = 'block';
+                });
+            } else if (type === 'normal') {
+                recordItems.forEach(item => {
+                    const status = item.querySelector('.record-status');
+                    item.style.display = !status.classList.contains('error') ? 'block' : 'none';
+                });
+            } else if (type === 'error') {
+                recordItems.forEach(item => {
+                    const status = item.querySelector('.record-status');
+                    item.style.display = status.classList.contains('error') ? 'block' : 'none';
+                });
+            }
+
+            // 检查是否有记录显示
+            checkEmptyRecords();
+        }
+
+        // 检查是否有记录显示
+        function checkEmptyRecords() {
+            // 获取所有记录项
+            const recordItems = document.querySelectorAll('.record-item');
+            // 过滤出实际可见的记录
+            const visibleRecords = Array.from(recordItems).filter(item => {
+                return window.getComputedStyle(item).display !== 'none';
+            });
+            const recordsList = document.getElementById('recordsList');
+            const existingEmpty = document.querySelector('.empty-records');
+
+            if (visibleRecords.length === 0 && !existingEmpty) {
+                const emptyElement = document.createElement('div');
+                emptyElement.className = 'empty-records';
+                emptyElement.innerHTML = `
+                    <img src="icons/a-27-lishishuju.png" alt="无记录">
+                    <p>暂无出行记录</p>
+                `;
+                recordsList.appendChild(emptyElement);
+            } else if (visibleRecords.length > 0 && existingEmpty) {
+                existingEmpty.remove();
+            }
+        }
+
+        // 显示筛选选项
+        function showFilterOptions() {
+            showToast('筛选功能');
+        }
+
+        // 显示日期选择器
+        function showDatePicker() {
+            document.getElementById('datePickerModal').style.display = 'flex';
+        }
+
+        // 选择日期范围
+        function selectDateRange(range) {
+            let rangeText = '';
+
+            switch (range) {
+                case '7days':
+                    rangeText = '最近7天';
+                    break;
+                case '30days':
+                    rangeText = '最近30天';
+                    break;
+                case '90days':
+                    rangeText = '最近90天';
+                    break;
+                default:
+                    rangeText = '自定义';
+            }
+
+            document.querySelector('.date-filter span').textContent = rangeText;
+            closeModal('datePickerModal');
+
+            // 模拟加载新数据
+            const loading = showLoading();
+            setTimeout(() => {
+                hideLoading(loading);
+                showToast(`已加载${rangeText}数据`);
+            }, 1000);
+        }
+
+        // 显示自定义日期选择器
+        function showCustomDatePicker() {
+            showToast('自定义日期选择');
+            closeModal('datePickerModal');
+        }
+
+        // 跳转到记录详情页面
+        function navigateToDetail(transactionId) {
+            // 跳转到详情页面并传递记录ID
+            window.location.href = `transit_detail.html?id=${transactionId}`;
+        }
+
+        // 处理异常记录 - 已移至详情页面
+        function handleErrorRecord() {
+            document.getElementById('errorHandleModal').style.display = 'flex';
+        }
+
+        // 联系客服
+        function contactCustomerService() {
+            closeModal('errorHandleModal');
+            showToast('正在连接客服...');
+        }
+
+        // 立即补缴
+        function payNow() {
+            closeModal('errorHandleModal');
+            showToast('正在准备支付...');
+            setTimeout(() => {
+                window.location.href = 'payment.html?amount=3&merchant=出行补缴';
+            }, 1000);
+        }
+
+        // 关闭弹窗
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        /**
+ * 初始化交通出行记录列表
+ */
+function initTransitRecords() {
+    const recordsContainer = document.getElementById('recordsList');
+    if (!recordsContainer) {
+        console.error('未找到记录列表容器');
+        return;
+    }
+
+    // 显示加载状态
+    recordsContainer.innerHTML = '<div class="records-loading">加载记录中...</div>';
+
+    // 获取用户token
+    let token = '';
+    try {
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        token = userData.token || '';
+
+    } catch (error) {
+        console.error('获取token失败:', error);
+        recordsContainer.innerHTML = '<div class="records-error">登录状态异常</div>';
+        return;
+    }
+
+    if (!token) {
+        recordsContainer.innerHTML = '<div class="records-error">请先登录</div>';
+        return;
+    }
+
+    // 调用接口获取记录
+    fetch('http://graywolf.top:6031/payment/transit/records?limit=100', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+            'Accept': '*/*'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`请求失败: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.code !== 200 || !Array.isArray(result.data)) {
+            throw new Error(result.message || '获取记录失败');
+        }
+
+        const records = result.data;
+        renderTransitRecords(recordsContainer, records);
+    })
+    .catch(error => {
+        console.error('加载记录出错:', error);
+        recordsContainer.innerHTML = `<div class="records-error">${error.message || '加载失败，请重试'}</div>`;
+    });
+}
+
+/**
+ * 渲染交通记录列表
+ * @param {HTMLElement} container - 容器元素
+ * @param {Array} records - 记录数据数组
+ */
+function renderTransitRecords(container, records) {
+    container.innerHTML = '';
+
+    if (records.length === 0) {
+        container.innerHTML = '<div class="no-records">暂无出行记录</div>';
+        return;
+    }
+
+    // 遍历记录生成DOM
+    records.forEach(record => {
+        // 1. 处理基础状态
+        const isAbnormal = record.status === 2; // status=2为异常
+        const modeText = record.mode === 'SUBWAY' ? '北京地铁' : '公共交通'; // 根据mode显示标题
+        const statusText = isAbnormal ? '异常' : '正常';
+        const statusClass = isAbnormal ? 'error' : '';
+
+        // 2. 处理时间（优先显示出站时间，无则显示进站时间）
+        const timeSource = record.exitTime || record.entryTime;
+        const formattedTime = formatRecordTime(timeSource);
+
+        // 3. 处理站点信息
+        const entrySite = record.entrySiteName || '未记录';
+        const exitSite = record.exitSiteName || '未记录';
+
+        // 4. 处理费用信息
+        const amount = record.actualAmount !== null ?
+            parseFloat(record.actualAmount).toFixed(2) : '0.00';
+
+        // 5. 创建记录项元素
+        const recordItem = document.createElement('div');
+        recordItem.className = 'record-item';
+        // 保存transactionId到data属性
+        recordItem.dataset.transactionId = record.transactionId || '';
+        // 绑定点击事件
+        recordItem.addEventListener('click', function() {
+            const transactionId = this.dataset.transactionId;
+            if (transactionId) {
+                navigateToDetail(transactionId);
+            }
+        });
+
+        // 6. 填充记录内容
+        recordItem.innerHTML = `
+            <div class="record-header">
+                <div class="record-title">${modeText}</div>
+                <div class="record-status ${statusClass}">${statusText}</div>
+            </div>
+            <div class="record-info">
+                <div class="info-item">
+                    <span class="info-label">进站：</span>
+                    <span class="info-value">${entrySite}（${record.entrySiteLine || ''}）</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">出站：</span>
+                    <span class="info-value">${exitSite}（${record.exitSiteLine || ''}）</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">费用：</span>
+                    <span class="info-value amount">¥${amount}</span>
+                </div>
+            </div>
+            <div class="record-time">${formattedTime}</div>
+        `;
+
+        container.appendChild(recordItem);
+    });
+}
+
+/**
+ * 格式化时间为 "YYYY-MM-DD HH:mm"
+ * @param {string} timeStr - 接口返回的时间字符串（如2025-08-07T17:56:27）
+ * @returns {string} 格式化后的时间
+ */
+function formatRecordTime(timeStr) {
+    if (!timeStr) return '未知时间';
+
+    try {
+        const date = new Date(timeStr);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+
+        return `${year}-${month}-${day} ${hours}:${minutes}`;
+    } catch (error) {
+        console.error('时间格式化失败:', error);
+        return timeStr.replace('T', ' ').split(':').slice(0, 2).join(':');
+    }
+}
+
+
+
+// 页面加载完成后初始化记录列表
+document.addEventListener('DOMContentLoaded', initTransitRecords);
+    </script>
+</body>
+
+</html>

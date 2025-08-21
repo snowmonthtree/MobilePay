@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>出行详情 - 移动支付应用</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* 基础样式重置与工具类 */
+        :root {
+            --primary-color: #409EFF;
+            --primary-light: #e0e7ff;
+            --secondary-color: #3f37c9;
+            --gray-100: #f8f9fa;
+            --gray-200: #e9ecef;
+            --gray-300: #dee2e6;
+            --gray-400: #ced4da;
+            --gray-500: #adb5bd;
+            --gray-600: #6c757d;
+            --gray-700: #495057;
+            --gray-800: #343a40;
+            --gray-900: #212529;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+            --border-radius: 0.5rem;
+            --transition: all 0.3s ease;
+        }
+
+        .transit-detail-page {
+            padding-top: 0;
+            min-height: calc(100vh - 40px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: center;
+            padding: 15px 0;
+            position: relative;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        .back-btn img {
+            width: 20px;
+            height: 20px;
+        }
+
+        .page-header h1 {
+            flex: 1;
+            text-align: center;
+            font-size: 18px;
+            margin: 0;
+        }
+
+        /* 详情页面样式 */
+        .transit-detail-content {
+            padding: 0 20px;
+            flex: 1;
+        }
+
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0 20px 0;
+        }
+
+        .detail-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .detail-status {
+            font-size: 14px;
+            padding: 4px 10px;
+            margin: 0;
+            border-radius: 12px;
+            background: #e6f7ff;
+            color: #1677ff;
+        }
+
+        .detail-status.error {
+            background: #fff2f0;
+            color: #ff4d4f;
+        }
+
+        .detail-map {
+            background: #e4e4e4;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .station-line {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .station {
+            width: 100%;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 500;
+            position: relative;
+            z-index: 2;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .station.start {
+            border-left: 4px solid #52c41a;
+            margin-bottom: 30px;
+        }
+
+        .station.end {
+            border-left: 4px solid #1677ff;
+        }
+
+        .station.error {
+            border-left: 4px solid #ff4d4f;
+            color: #ff4d4f;
+        }
+
+        .line-path {
+            position: absolute;
+            top: 45px;
+            height: calc(100% - 90px);
+            width: 4px;
+            background: #1677ff;
+            z-index: 1;
+        }
+
+        .line-path.error {
+            background: #ff4d4f;
+            border-right: 2px dashed #ff4d4f;
+        }
+
+        .detail-info {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .info-group {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid #e8e8e8;
+        }
+
+        .info-item:last-child {
+            margin-bottom: 0;
+            border: none;
+        }
+
+        .info-value {
+            color: #333;
+        }
+
+        .info-value.amount {
+            font-weight: bold;
+            color: #ff4d4f;
+        }
+
+        .info-value.error {
+            color: #ff4d4f;
+        }
+
+        .error-message {
+            background: #f4dbd6;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 15px;
+            color: #ff4d4f;
+            font-size: 14px;
+        }
+
+        .error-message p {
+            margin: 0;
+        }
+
+        .page-actions {
+            display: flex;
+            justify-content: center;
+            flex-direction: column;
+            gap: 15px;
+            padding: 10px 0px;
+        }
+
+        .btn-secondary {
+            background-color: var(--gray-200);
+            color: var(--gray-700);
+            border: none;
+            border-radius: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--gray-300);
+        }
+
+        /* 异常处理内容区域样式 */
+        .error-handle-content {
+            padding: 0 20px 20px 20px;
+        }
+
+        .detail-rules {
+            background-color: #e8e8e8;
+            padding: 15px;
+            border-radius: var(--border-radius);
+            margin-bottom: 1rem;
+        }
+
+        .detail-rules ul {
+            padding-left: 1.5rem;
+            margin: 0;
+        }
+
+        .detail-rules li {
+            margin-bottom: 0.5rem;
+            color: var(--gray-700);
+        }
+
+        .handle-options {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .btn-option {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            font-size: 14px;
+            border-radius: 1.25rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-option img {
+            width: 40px;
+            height: 40px;
+            filter: brightness(0) invert(1);
+            margin-right: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <div class="transit-detail-page">
+            <div class="page-header">
+                <button class="back-btn" onclick="history.back()">
+                    <img src="icons/danjiantouzuo.png" alt="返回">
+                </button>
+                <h1>出行详情</h1>
+                <div class="header-placeholder"></div>
+            </div>
+
+            <div class="transit-detail-content" id="detailContent">
+                <!-- 详情内容将通过JS动态填充 -->
+            </div>
+
+            <div class="error-handle-content" id="errorContent" style="display: none;">
+                <div class="detail-rules">
+                    <p style="margin-bottom: 10px;">您的出行记录存在异常，可能是由于以下原因：</p>
+                    <ul>
+                        <li>未正常出站或刷卡</li>
+                        <li>系统记录错误</li>
+                        <li>支付失败</li>
+                    </ul>
+                </div>
+                <div class="page-actions">
+                    <button class="btn-primary" onclick="contactCustomerService()">
+                        <img src="icons/kefu.png" alt="客服">
+                        <span>联系客服</span>
+                    </button>
+                    <button class="btn-primary" onclick="payNow()">
+                        <img src="icons/tuikuanjingban.png" alt="支付">
+                        <span>立即补缴</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // 页面加载时获取记录ID并显示详情
+        document.addEventListener('DOMContentLoaded', function () {
+    // 从URL获取记录ID（transactionId）
+    const urlParams = new URLSearchParams(window.location.search);
+    const recordId = urlParams.get('id');
+
+    if (recordId) {
+        loadRecordDetail(recordId);
+    } else {
+        // 如果没有记录ID，显示错误信息
+        document.getElementById('detailContent').innerHTML = `
+            <div class="error-message">
+                <p>未找到记录信息</p>
+            </div>
+        `;
+    }
+});
+
+// 加载记录详情（调用接口获取数据）
+function loadRecordDetail(transactionId) {
+    const content = document.getElementById('detailContent');
+    // 显示加载状态
+    content.innerHTML = '<div class="loading-message">加载详情中...</div>';
+
+    // 获取用户token
+    let token = '';
+    try {
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        token = userData.token || '';
+
+    } catch (error) {
+        console.error('获取token失败:', error);
+        content.innerHTML = `
+            <div class="error-message">
+                <p>登录状态异常，无法加载详情</p>
+            </div>
+        `;
+        return;
+    }
+
+    if (!token) {
+        content.innerHTML = `
+            <div class="error-message">
+                <p>请先登录</p>
+            </div>
+        `;
+        return;
+    }
+
+    // 调用接口获取详情
+    fetch(`http://graywolf.top:6031/payment/transit/detail/${transactionId}`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+            'Accept': '*/*'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`请求失败: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.code !== 200 || !result.data) {
+            throw new Error(result.message || '获取详情失败');
+        }
+
+        const detail = result.data;
+        renderDetailContent(content, detail);
+    })
+    .catch(error => {
+        console.error('加载详情出错:', error);
+        content.innerHTML = `
+            <div class="error-message">
+                <p>${error.message || '加载详情失败，请重试'}</p>
+            </div>
+        `;
+    });
+}
+
+// 渲染详情内容
+function renderDetailContent(container, detail) {
+    // 判断是否为异常状态
+    const isError = detail.status === 2;
+    // 交通方式文本
+    const modeText = detail.mode === 'SUBWAY' ? '北京地铁' : '公共交通';
+    // 状态文本和样式
+    const statusText = isError ? '异常' : '正常';
+    const statusClass = isError ? 'error' : '';
+    // 站点信息（处理null值）
+    const entrySite = `${detail.entrySiteName || '未记录'}（${detail.entrySiteLine || '未知线路'}）`;
+    const exitSite = detail.exitSiteName ?
+        `${detail.exitSiteName}（${detail.exitSiteLine || '未知线路'}）` : '未记录';
+    // 时间格式化
+    const entryTimeFormatted = formatTime(detail.entryTime);
+    const exitTimeFormatted = detail.exitTime ? formatTime(detail.exitTime) : '未记录';
+    // 费用处理
+    const amount = detail.actualAmount !== null ?
+        parseFloat(detail.actualAmount).toFixed(2) : '0.00';
+    // 行程时长计算
+    const durationText = calculateDuration(detail.entryTime, detail.exitTime);
+    // 异常原因（仅异常状态显示）
+    const errorReason = isError ? detail.reason || '未明确异常原因' : '';
+
+    // 构建详情HTML
+    const detailHTML = `
+        <div class="detail-header">
+            <div class="detail-title">${modeText}</div>
+            <div class="detail-status ${statusClass}">${statusText}</div>
+        </div>
+        <div class="detail-map">
+            <div class="station-line">
+                <div class="station start">${detail.entrySiteName || '未记录'}</div>
+                <div class="line-path ${isError ? 'error' : ''}"></div>
+                <div class="station end ${isError ? 'error' : ''}">${detail.exitSiteName || '未记录'}</div>
+            </div>
+        </div>
+        <div class="detail-info">
+            <div class="info-group">
+                <div class="info-item">
+                    <span class="info-label">进站时间：</span>
+                    <span class="info-value">${entryTimeFormatted}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">出站时间：</span>
+                    <span class="info-value ${isError && !detail.exitTime ? 'error' : ''}">${exitTimeFormatted}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">行程时长：</span>
+                    <span class="info-value ${isError ? 'error' : ''}">${durationText}</span>
+                </div>
+            </div>
+            <div class="info-group">
+                <div class="info-item">
+                    <span class="info-label">费用：</span>
+                    <span class="info-value amount">¥${amount}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">支付方式：</span>
+                    <span class="info-value ${isError ? 'error' : ''}">${isError ? '未完成支付' : '账户余额'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">交易编号：</span>
+                    <span class="info-value">${detail.transactionId || '未知'}</span>
+                </div>
+            </div>
+            ${isError ? `
+                <div class="error-message">
+                    <p>异常原因：${errorReason}</p>
+                </div>
+            ` : ''}
+        </div>
+    `;
+
+    container.innerHTML = detailHTML;
+    // 控制异常内容显示（兼容原有errorContent逻辑）
+    const errorContent = document.getElementById("errorContent");
+    if (errorContent) {
+        errorContent.style.display = isError ? "block" : "none";
+    }
+}
+
+// 格式化时间为 "YYYY-MM-DD HH:mm:ss"
+function formatTime(timeStr) {
+    if (!timeStr) return '未知时间';
+    try {
+        const date = new Date(timeStr);
+        return `${date.getFullYear()}-${
+            String(date.getMonth() + 1).padStart(2, '0')
+        }-${
+            String(date.getDate()).padStart(2, '0')
+        } ${
+            String(date.getHours()).padStart(2, '0')
+        }:${
+            String(date.getMinutes()).padStart(2, '0')
+        }:${
+            String(date.getSeconds()).padStart(2, '0')
+        }`;
+    } catch (error) {
+        console.error('时间格式化失败:', error);
+        return timeStr.replace('T', ' ');
+    }
+}
+
+// 计算行程时长
+function calculateDuration(entryTimeStr, exitTimeStr) {
+    if (!entryTimeStr || !exitTimeStr) {
+        return '未知';
+    }
+    try {
+        const entryTime = new Date(entryTimeStr).getTime();
+        const exitTime = new Date(exitTimeStr).getTime();
+        if (exitTime <= entryTime) {
+            return '异常（时间顺序错误）';
+        }
+        const minutes = Math.floor((exitTime - entryTime) / (1000 * 60));
+        return `${minutes}分钟`;
+    } catch (error) {
+        console.error('计算时长失败:', error);
+        return '未知';
+    }
+}
+        // 联系客服
+        function contactCustomerService() {
+            showToast('正在连接客服...');
+        }
+
+        // 立即补缴
+        function payNow() {
+            showToast('正在准备支付...');
+            const urlParams = new URLSearchParams(window.location.search);
+    const recordId = urlParams.get('id');
+
+    if (recordId) {
+        repayTransit(recordId)
+           .then(data => {
+     console.log('补款成功:', data);
+     showToast('补款成功');
+     window.close();
+   })
+   .catch(error => {
+     console.error('补款失败:', error.message);
+     showToast(error.message || '补款失败，请稍后重试');
+   });
+    } else {
+        // 如果没有记录ID，显示错误信息
+        showToast('ID无效,请联系客服');
+    }
+        }
+        /**
+ * 调用交通补款接口
+ * @param {string} transactionId - 交易ID，用于填充transitId参数
+ * @returns {Promise} - 返回接口请求的Promise对象
+ */
+function repayTransit(transactionId) {
+    // 验证参数
+
+
+    // 获取用户token
+    let token;
+    try {
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        token = userData.token;
+
+        if (!token) {
+            return Promise.reject(new Error('未获取到登录信息，请重新登录'));
+        }
+    } catch (error) {
+        return Promise.reject(new Error('解析用户信息失败'));
+    }
+
+    // 生成当前时间，格式为YYYY-MM-DDTHH:mm:ss
+    const now = new Date();
+    const payTime = `${now.getFullYear()}-${
+        String(now.getMonth() + 1).padStart(2, '0')
+    }-${
+        String(now.getDate()).padStart(2, '0')
+    }T${
+        String(now.getHours()).padStart(2, '0')
+    }:${
+        String(now.getMinutes()).padStart(2, '0')
+    }:${
+        String(now.getSeconds()).padStart(2, '0')
+    }`;
+
+    // 构造请求数据
+    const requestData = {
+        transitId: transactionId,  // 使用传入的transactionId
+        amount: "4.00",            // 固定金额为4
+        payTime: payTime           // 当前时间
+    };
+
+    // 调用补款接口
+    return fetch('http://graywolf.top:6031/payment/transit/repay', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+            'Content-Type': 'application/json',
+            'Accept': '*/*'
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => {
+        // 处理网络响应状态
+        if (!response.ok) {
+            console.error('补款接口响应异常:', {
+                status: response.status,
+                statusText: response.statusText,
+                url: response.url
+            });
+            return Promise.reject(new Error(`网络请求失败 (${response.status} - ${response.statusText})`));
+        }
+        return response.json();
+    })
+    .then(result => {
+        // 处理业务响应结果
+        if (result.code === 200) {
+            return Promise.resolve(result.data || { message: '补款成功' });
+        } else {
+            return Promise.reject(new Error(result.message || '补款失败，请重试'));
+        }
+    })
+    .catch(error => {
+        console.error('补款操作失败:', error);
+        return Promise.reject(error);
+    });
+}
+    </script>
+</body>
+
+</html>

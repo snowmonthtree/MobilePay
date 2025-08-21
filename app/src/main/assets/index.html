@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>移动支付应用</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* 近期交易样式 - 支付宝风格 */
+        .transaction-list {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            margin-bottom: 10px;
+        }
+
+        .transaction-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        /* 支付宝风格的交易列表 */
+        .transaction-list {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 15px;
+        }
+
+        .transaction-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            border-bottom: 1px solid #f5f5f5;
+        }
+
+        .transaction-header-title {
+            font-size: 15px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .transaction-header-more {
+            font-size: 13px;
+            color: #1677ff;
+            cursor: pointer;
+        }
+
+        .transaction-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #f5f5f5;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            position: relative;
+        }
+
+        .transaction-item:hover {
+            background: #f9f9f9;
+        }
+
+        .transaction-item:last-child {
+            border-bottom: none;
+        }
+
+        .transaction-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #f0f5ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+
+        .transaction-icon.expense {
+            background: #fff2f0;
+        }
+
+        .transaction-icon.income {
+            background: #f6ffed;
+        }
+
+        .transaction-icon.transfer {
+            background: #e6f7ff;
+        }
+
+        .transaction-icon img {
+            width: 22px;
+            height: 22px;
+        }
+
+        .transaction-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .transaction-title {
+            font-size: 15px;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+        }
+
+        .transaction-tag {
+            display: inline-block;
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 4px;
+            margin-left: 6px;
+            background: #f0f5ff;
+            color: #1677ff;
+        }
+
+        .transaction-tag.success {
+            background: #f6ffed;
+            color: #52c41a;
+        }
+
+        .transaction-tag.pending {
+            background: #fffbe6;
+            color: #faad14;
+        }
+
+        .transaction-time {
+            font-size: 12px;
+            color: #999;
+            display: flex;
+            align-items: center;
+        }
+
+        .transaction-source {
+            margin-left: 8px;
+            padding-left: 8px;
+            border-left: 1px solid #eee;
+        }
+
+        .transaction-amount {
+            font-size: 16px;
+            font-weight: 600;
+            margin-left: 10px;
+            flex-shrink: 0;
+        }
+
+        .transaction-amount.expense {
+            color: #ff4d4f;
+        }
+
+        .transaction-amount.income {
+            color: #52c41a;
+        }
+
+        .transaction-amount.transfer {
+            color: #1677ff;
+        }
+
+        .view-more-btn {
+            display: block;
+            width: 100%;
+            padding: 12px 0;
+            text-align: center;
+            background: white;
+            color: #1677ff;
+            font-size: 14px;
+            border: none;
+            border-top: 1px solid #f5f5f5;
+            cursor: pointer;
+        }
+
+        .view-more-btn:hover {
+            background: #f0f5ff;
+        }
+    </style>
+</head>
+
+<body>
+<div class="app-container">
+    <!-- 顶部状态栏 -->
+
+    <!-- 主页面 -->
+    <div class="main-page" id="mainPage">
+        <!-- 头部区域 -->
+        <div class="header">
+            <div class="user-info">
+                <div class="avatar">
+                    <img src="icons/a-29-gerenxinxi.png" alt="头像">
+                </div>
+                <div class="greeting">
+                    <h2>早上好</h2>
+                    <p>今天也要元气满满哦～</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主要功能区 -->
+        <div class="main-functions">
+            <div class="function-grid">
+                <div class="function-item" onclick="goToScan()">
+                    <div class="function-icon">
+                        <img src="icons/saoma.png" alt="扫一扫">
+                    </div>
+                    <span>扫一扫</span>
+                </div>
+                <div class="function-item" onclick="goToReceive()">
+                    <div class="function-icon">
+                        <img src="icons/shoukuanjiekou.png" alt="收款码">
+                    </div>
+                    <span>收款码</span>
+                </div>
+                <div class="function-item" onclick="goToTransit()">
+                    <div class="function-icon">
+                        <img src="icons/chuxing.png" alt="出行码">
+                    </div>
+                    <span>出行码</span>
+                </div>
+                <div class="function-item" onclick="goToCards()">
+                    <div class="function-icon">
+                        <img src="icons/zhifujiekou.png" alt="卡包">
+                    </div>
+                    <span>卡包</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 近期交易 -->
+        <div class="quick-functions">
+            <div class="transaction-list">
+                <div class="transaction-header">
+                    <div class="transaction-header-title">近期交易</div>
+                    <div class="transaction-header-more" onclick="goToBills()">查看更多 ></div>
+                </div>
+
+                <!-- 支出交易 -->
+                <div class="transaction-item" onclick="goToBills()">
+                    <div class="transaction-icon expense">
+                        <img src="icons/feiyongchaxun.png" alt="餐饮">
+                    </div>
+                    <div class="transaction-info">
+                        <div class="transaction-title">午餐 - 麦当劳<span class="transaction-tag ">已支付</span></div>
+                        <div class="transaction-time">07-30 14:32<span class="transaction-source">招商银行储蓄卡</span>
+                        </div>
+                    </div>
+                    <div class="transaction-amount expense">-¥45.50</div>
+                </div>
+
+                <!-- 收入交易 -->
+                <div class="transaction-item" onclick="goToBills()">
+                    <div class="transaction-icon income">
+                        <img src="icons/a-28-zhanghuzhongxin.png" alt="工资">
+                    </div>
+                    <div class="transaction-info">
+                        <div class="transaction-title">工资发放<span class="transaction-tag success">已收款</span></div>
+                        <div class="transaction-time">07-29 15:30<span class="transaction-source">公司转账</span></div>
+                    </div>
+                    <div class="transaction-amount income">+¥2,500.00</div>
+                </div>
+
+                <!-- 转账交易 -->
+                <div class="transaction-item" onclick="goToBills()">
+                    <div class="transaction-icon transfer">
+                        <img src="icons/zhifujiekou.png" alt="转账">
+                    </div>
+                    <div class="transaction-info">
+                        <div class="transaction-title">转账给张三<span class="transaction-tag">已支付</span></div>
+                        <div class="transaction-time">07-29 10:15<span class="transaction-source">余额支付</span></div>
+                    </div>
+                    <div class="transaction-amount transfer">-¥200.00</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部导航 -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="goToIndex()">
+            <img src="icons/a-1-gongzuotai.png" alt="首页">
+            <span>首页</span>
+        </div>
+        <div class="nav-item" onclick="goToScan()">
+            <img src="icons/saoma.png" alt="扫一扫">
+            <span>扫一扫</span>
+        </div>
+        <div class="nav-item" onclick="goToAssistant()">
+            <div class="floating-assistant" onclick=";">
+                <div class="voice-wave"></div>
+                <img src="icons/kefu.png" alt="智能助手">
+            </div>
+        </div>
+        <div class="nav-item" onclick="goToBills()">
+            <img src="icons/a-21-jiaoyizhongxin.png" alt="账单">
+            <span>账单</span>
+        </div>
+        <div class="nav-item" onclick="goToProfile()">
+            <img src="icons/a-29-gerenxinxi.png" alt="我的">
+            <span>我的</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 页面跳转函数
+    function goToPage(page) {
+        window.location.href = page;
+    }
+    function initRecentTransactions() {
+        // 1. 获取容器和token
+        const transactionList = document.querySelector('.transaction-list');
+        if (!transactionList) {
+            console.error('未找到交易列表容器');
+            return;
+        }
+
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+            console.log("bbb",token);
+
+
+        } catch (error) {
+            console.error('获取token失败:', error);
+            return;
+        }
+        if (!token) {
+            console.warn('未获取到token，无法加载交易数据');
+            return;
+        }
+
+        // 2. 调用接口（scene=index，num=3）
+        fetch('http://graywolf.top:6031/appassets/assets/bills/list/index?num=3&scene=index', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                'Accept': '*/*'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code === 200 && Array.isArray(data.data)) {
+                    // 3. 生成交易项并更新列表
+                    renderTransactionItems(transactionList, data.data);
+                } else {
+                    console.warn('获取交易数据失败:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('加载近期交易失败:', error);
+            });
+    }
+
+    /**
+     * 渲染交易项到列表
+     * @param {HTMLElement} container - 列表容器
+     * @param {Array} transactions - 交易数据
+     */
+    function renderTransactionItems(container, transactions) {
+        // 找到现有交易项的父容器（保留标题和"查看更多"）
+        const transactionItems = container.querySelectorAll('.transaction-item');
+        transactionItems.forEach(item => item.remove()); // 清空原有交易项
+
+        // 图标映射（根据分类匹配）
+        const iconMap = {
+            '餐饮': 'canyin.png',
+            '出行': 'zhiyin.png',
+            '购物': 'gouwu.png',
+            '其他': 'feiyongchaxun.png', // 其他支出默认用费用查询图标
+            '收入': 'a-28-zhanghuzhongxin.png' // 收入默认用账户中心图标
+        };
+        transactions.reverse();
+        // 遍历数据生成新交易项
+        transactions.forEach(transaction => {
+            const isIncome = transaction.type === 1; // type=1为收入，type=2为支出
+            const amountSign = isIncome ? '+' : '-';
+            const typeClass = isIncome ? 'income' : 'expense';
+            const tagText = isIncome ? '已收款' : '已支付';
+            const tagClass = isIncome ? 'success' : '';
+
+            // 格式化时间（MM-DD HH:MM）
+            const time = new Date(transaction.completeTime);
+            const formattedTime = `${String(time.getMonth() + 1).padStart(2, '0')}-${String(time.getDate()).padStart(2, '0')} ${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
+
+            // 格式化金额（千分位+两位小数）
+            const formattedAmount = parseFloat(transaction.amount).toLocaleString('zh-CN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+
+            // 选择图标（收入优先用收入图标，支出按分类选）
+            const iconSrc = isIncome
+                ? iconMap['收入']
+                : iconMap[transaction.bizCategoryName] || iconMap['其他'];
+
+            // 创建交易项元素
+            const item = document.createElement('div');
+            item.className = `transaction-item ${typeClass}`;
+            item.setAttribute('onclick', 'goToBills()'); // 点击跳转账单页
+            item.innerHTML = `
+        <div class="transaction-icon ${typeClass}">
+            <img src="icons/${iconSrc}" alt="${transaction.bizCategoryName}">
+        </div>
+        <div class="transaction-info">
+            <div class="transaction-title">
+                ${transaction.remark || transaction.targetName}
+                <span class="transaction-tag ${tagClass}">${tagText}</span>
+            </div>
+            <div class="transaction-time">
+                ${formattedTime}
+                <span class="transaction-source">${transaction.targetName}</span>
+            </div>
+        </div>
+        <div class="transaction-amount ${typeClass}">
+            ${amountSign}¥${formattedAmount}
+        </div>
+    `;
+
+            // 添加到容器（插入到"查看更多"下方）
+            const headerContainer = container.querySelector('.transaction-header');
+            // 将新元素插入到头部容器的正下方（即列表的最前面）
+            container.insertBefore(item, headerContainer.nextSibling);
+        });
+    }
+
+    // 页面加载时初始化近期交易
+    document.addEventListener('DOMContentLoaded', function () {
+        initRecentTransactions();
+    });
+</script>
+<script src="script.js"></script>
+</body>
+
+</html>

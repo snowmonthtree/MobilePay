@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>收款码 - 移动支付应用</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+<div class="app-container">
+    <!-- 收款码页面 -->
+    <div class="receive-page">
+        <!-- 头部导航 -->
+        <div class="page-header">
+            <button class="back-btn" onclick="goBack()">
+                <img src="icons/danjiantouzuo.png" alt="返回">
+            </button>
+            <h1>收款码</h1>
+            <div class="header-placeholder"></div>
+        </div>
+
+        <!-- 收款信息 -->
+        <div class="receive-info">
+            <div class="user-avatar">
+                <img src="icons/a-29-gerenxinxi.png" alt="用户头像">
+            </div>
+            <h2 class="user-name">张三</h2>
+            <p class="receive-tip">请对方扫码付款</p>
+        </div>
+
+        <!-- 二维码区域 -->
+        <div class="qr-container">
+            <div class="qr-code" id="receiveQR">
+                <!-- 这里应该是动态生成的二维码 -->
+                <div class="qr-placeholder">
+                    <div class="qr-grid">
+                        <div class="qr-dot"></div>
+                        <div class="qr-dot"></div>
+                        <div class="qr-dot"></div>
+                        <div class="qr-dot"></div>
+                        <div class="qr-dot"></div>
+                        <div class="qr-dot"></div>
+                        <div class="qr-dot"></div>
+                        <div class="qr-dot"></div>
+                        <div class="qr-dot"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="qr-actions">
+                <button class="qr-action-btn" onclick="getReceiptCode()">
+                    <img src="icons/shuaxin.png" alt="刷新">
+                    <span>刷新</span>
+                </button>
+                <button class="qr-action-btn" onclick="saveQR()">
+                    <img src="icons/baocun.png" alt="保存">
+                    <span>确认</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 金额设置 -->
+        <div class="amount-section">
+            <h3>设置收款金额</h3>
+            <div class="amount-input-container">
+                <span class="currency">¥</span>
+                <input type="number" id="receiveAmount" placeholder="0.00" class="receive-amount-input"
+                       >
+            </div>
+            <div class="quick-amounts">
+                <button class="quick-amount" onclick="setAmount(10)">¥10</button>
+                <button class="quick-amount" onclick="setAmount(50)">¥50</button>
+                <button class="quick-amount" onclick="setAmount(100)">¥100</button>
+
+                <button class="quick-amount" onclick="updateQRCode()">自定义金额</button>
+            </div>
+            <button class="qr-action-btn" onclick="simulateReceiveSuccess()">
+                <img src="icons/chenggong.png" alt="模拟收款">
+                <span>模拟收款</span>
+            </button>
+        </div>
+
+        <!-- 收款记录 -->
+        <div class="receive-records">
+            <div class="records-header">
+                <h3>最近收款</h3>
+                <button class="view-all" onclick="goToReceiveHistory()">
+                    查看全部
+                    <img src="icons/danjiantouyou.png" alt="查看">
+                </button>
+            </div>
+            <div class="records-list">
+                <div class="record-item">
+                    <div class="record-info">
+                        <h4>李四</h4>
+                        <p>今天 14:30</p>
+                    </div>
+                    <div class="record-amount">+¥88.00</div>
+                </div>
+                <div class="record-item">
+                    <div class="record-info">
+                        <h4>王五</h4>
+                        <p>今天 12:15</p>
+                    </div>
+                    <div class="record-amount">+¥25.50</div>
+                </div>
+                <div class="record-item">
+                    <div class="record-info">
+                        <h4>赵六</h4>
+                        <p>昨天 18:45</p>
+                    </div>
+                    <div class="record-amount">+¥156.00</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 安全提示 -->
+        <div class="security-tip">
+            <img src="icons/tanhaotishi.png" alt="提示">
+            <p>为了您的资金安全，收款码每60秒自动更新</p>
+        </div>
+    </div>
+
+    <!-- 收款成功弹窗 -->
+    <div class="modal" id="receiveSuccessModal" style="display: none;">
+        <div class="modal-content">
+            <div class="success-icon">
+                <img src="icons/chenggong.png" alt="成功">
+            </div>
+            <h2>收款成功</h2>
+            <div class="success-amount">¥88.00</div>
+            <div class="success-info">
+                <p>付款方：李四</p>
+                <p>时间：今天 14:30</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal('receiveSuccessModal')">完成</button>
+                <button class="btn-primary" onclick="goToBills()">查看账单</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* 模态框样式 */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 16px;
+            padding: 24px;
+            width: 85%;
+            max-width: 350px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            animation: modalFadeIn 0.3s ease;
+        }
+
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn-secondary,
+        .btn-primary {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary {
+            background-color: #f5f5f5;
+            color: #333;
+            border: none;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e0e0e0;
+        }
+    </style>
+
+
+</div>
+
+<script src="libs/qrcode.js"></script>
+<script src="script.js"></script>
+<script>
+    // 收款码相关功能
+    let qrRefreshTimer;
+
+    // 页面加载时启动定时刷新
+    document.addEventListener('DOMContentLoaded', function () {
+        // 初始化二维码
+
+        initRecentReceipts();
+         if (typeof QRCode === 'undefined') {
+        console.error('请先引入qrcode.js库');
+
+        const qrContainer = document.getElementById('receiveQR');
+        if (qrContainer) {
+            qrContainer.innerHTML = '<div class="qr-error">依赖库缺失</div>';
+        }
+        return;
+    }
+    // 初始化二维码
+    getReceiptCode();
+
+        // 模拟自动刷新二维码（每30秒）
+        //setInterval(updateQRCode, 30000);
+
+        startQRRefresh();
+    });
+
+    // 启动二维码自动刷新
+    function startQRRefresh() {
+        qrRefreshTimer = setInterval(function () {
+            refreshQR();
+        }, 60000); // 60秒刷新一次
+    }
+
+    // 刷新二维码
+    function refreshQR() {
+        const qrCode = document.getElementById('receiveQR');
+        qrCode.style.opacity = '0.5';
+
+        setTimeout(function () {
+            // 这里应该调用后端API生成新的二维码
+            qrCode.style.opacity = '1';
+            showToast('二维码已刷新');
+        }, 500);
+    }
+
+    // 保存二维码
+    function saveQR() {
+        showToast('二维码已保存到相册');
+    }
+
+    // 设置收款金额
+    function setAmount(amount) {
+        if (amount <= 0) {
+            showToast('请输入正确的金额');
+            return;
+        }
+        document.getElementById('receiveAmount').value = amount;
+        updateQRCode();
+    }
+
+    // 更新二维码
+    function updateQRCode() {
+    // 获取输入的金额并验证
+    const amountInput = document.getElementById('receiveAmount');
+    const amount = amountInput.value.trim();
+
+    // 金额验证逻辑
+    if (!amount) {
+        alert('请输入收款金额');
+        amountInput.focus();
+        return;
+    }
+    const numericAmount = Number(amount);
+    if (isNaN(numericAmount) || numericAmount < 0) {
+        alert('请输入有效的非负金额');
+        amountInput.focus();
+        return;
+    }
+
+    // 显示加载状态
+    const qrContainer = document.getElementById('receiveQR');
+    if (qrContainer) {
+        qrContainer.innerHTML = '<div class="qr-loading">更新金额中...</div>';
+    }
+
+    // 1. 获取必要参数：receiptCodeId（从本地存储读取）
+    let receiptCodeId = '';
+    try {
+        const receiptData = localStorage.getItem('receiptCodeData');
+        if (receiptData) {
+            const parsedData = JSON.parse(receiptData);
+            receiptCodeId = parsedData.receiptCodeId || '';
+        }
+    } catch (error) {
+        console.error('读取receiptCodeId失败:', error);
+        showError(qrContainer, '二维码信息异常，请重新获取');
+        return;
+    }
+
+    if (!receiptCodeId) {
+        showError(qrContainer, '未找到二维码标识，请先获取收款码');
+        return;
+    }
+
+    // 2. 获取用户token（从本地存储读取）
+    let token = '';
+    try {
+        const userDataStr = localStorage.getItem('userData');
+        if (userDataStr) {
+            const userData = JSON.parse(userDataStr);
+            token = userData.token || '';
+        }
+    } catch (error) {
+        console.error('读取用户token失败:', error);
+        showError(qrContainer, '登录状态异常');
+        return;
+    }
+
+    if (!token) {
+        showError(qrContainer, '请先登录');
+        return;
+    }
+
+    // 3. 调用接口设置金额
+    fetch('http://graywolf.top:6031/payment/receipt/code/set-amount', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+            'Accept': '*/*'
+        },
+        body: JSON.stringify({
+            receiptCodeId: receiptCodeId,
+            amount: amount // 传递用户输入的金额
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`网络请求失败 (${response.status})`);
+        }
+        return response.json();
+    })
+    .then(result => {
+        // 验证接口返回状态
+        if (result.code !== 200 || !result.data?.codeUrl) {
+            throw new Error(result.message || '设置金额失败');
+        }
+
+        // 验证二维码库是否加载
+        if (typeof QRCode === 'undefined') {
+            throw new Error('二维码生成库未加载');
+        }
+
+        // 4. 更新二维码显示
+        if (qrContainer) {
+            qrContainer.innerHTML = ''; // 清空容器
+            // 使用接口返回的codeUrl生成二维码
+            new QRCode(qrContainer, {
+                text: result.data.codeUrl,
+                width: 200,
+                height: 200,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H // 高容错级别
+            });
+        }
+
+        // 5. 更新本地存储的二维码信息
+        const updatedReceiptData = {
+            ...result.data,
+            amount: amount // 额外保存当前设置的金额
+        };
+        localStorage.setItem('receiptCodeData', JSON.stringify(updatedReceiptData));
+
+        console.log('金额设置成功，二维码已更新:', result.data);
+    })
+    .catch(error => {
+        console.error('设置金额失败:', error);
+        showError(qrContainer, error.message || '更新失败，请重试');
+    });
+}
+
+/**
+ * 显示错误状态
+ * @param {HTMLElement} container - 二维码容器
+ * @param {string} message - 错误信息
+ */
+function showError(container, message) {
+    if (container) {
+        container.innerHTML = `
+            <div class="qr-error">
+                <div class="error-text">${message},请点击刷新</div>
+                <button class="retry-btn" onclick="getReceiptCode()">重试</button>
+            </div>
+        `;
+    }
+}
+
+
+    function getReceiptCode() {
+    // 获取二维码容器
+    const qrContainer = document.getElementById('receiveQR');
+    if (!qrContainer) {
+        console.error('未找到二维码容器元素');
+        return;
+    }
+
+    // 显示加载状态（替换占位符）
+    qrContainer.innerHTML = '<div class="qr-loading">加载中...</div>';
+
+    // 1. 获取用户token
+    let token = '';
+    try {
+        const userDataStr = localStorage.getItem('userData');
+        if (userDataStr) {
+            const userData = JSON.parse(userDataStr);
+            token = userData.token || '';
+        }
+    } catch (error) {
+        console.error('获取token失败:', error);
+        qrContainer.innerHTML = '<div class="qr-error">登录状态异常</div>';
+        return;
+    }
+
+    if (!token) {
+        qrContainer.innerHTML = '<div class="qr-error">请先登录</div>';
+        return;
+    }
+
+    // 2. 调用接口获取二维码信息
+    fetch('http://graywolf.top:6031/payment/receipt/code', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+            'Accept': '*/*'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`网络错误: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(result => {
+        // 验证接口返回数据
+        if (result.code !== 200 || !result.data?.qrCodeUrl) {
+            throw new Error(result.message || '获取二维码失败');
+        }
+        localStorage.setItem('receiptCodeData',JSON.stringify(result.data));
+        // 3. 清空容器并生成二维码
+        qrContainer.innerHTML = ''; // 清除加载状态
+
+        // 使用qrcode.js生成二维码（内容为接口返回的qrCodeUrl）
+        new QRCode(qrContainer, {
+            text: result.data.qrCodeUrl, // 二维码内容：接口返回的图片地址
+            width: 200,                  // 二维码宽度（可根据样式调整）
+            height: 200,                 // 二维码高度
+            colorDark: '#000000',        // 二维码前景色
+            colorLight: '#ffffff',       // 二维码背景色
+            correctLevel: QRCode.CorrectLevel.H // 高容错级别（H最高）
+        });
+
+        // 4. 处理二维码过期逻辑
+        const expireAt = result.data.expireAt;
+        if (expireAt) {
+            const now = Date.now();
+            const timeLeft = expireAt - now;
+
+            // 过期前10秒自动刷新二维码
+            if (timeLeft > 10000) {
+                setTimeout(() => {
+                    getReceiptCode(); // 重新获取最新二维码
+                }, timeLeft - 10000);
+            } else if (timeLeft > 0) {
+                // 剩余时间不足10秒，到期后立即刷新
+                setTimeout(() => {
+                    getReceiptCode();
+                }, timeLeft);
+            } else {
+                // 已过期，立即刷新
+                getReceiptCode();
+            }
+        }
+    })
+    .catch(error => {
+        console.error('生成二维码失败:', error);
+        // 显示错误状态并保留重试入口
+        qrContainer.innerHTML = `
+            <div class="qr-error">
+                <div class="error-message">${error.message || '加载失败'}</div>
+                <button class="retry-btn" onclick="getReceiptCode()">重试</button>
+            </div>
+        `;
+    });
+}
+
+function initRecentReceipts() {
+    const recordsContainer = document.querySelector('.records-list');
+    if (!recordsContainer) {
+        console.error('未找到交易记录容器');
+        return;
+    }
+
+    recordsContainer.innerHTML = '<div class="records-loading">加载中...</div>';
+
+    // 获取用户token
+    let token = '';
+    try {
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        token = userData.token || '';
+
+    } catch (error) {
+        console.error('获取token失败:', error);
+        showRecordsError(recordsContainer, '登录状态异常');
+        return;
+    }
+
+    if (!token) {
+        showRecordsError(recordsContainer, '请先登录');
+        return;
+    }
+
+    // 调用接口获取最近3条记录
+    fetch('http://graywolf.top:6031/payment/receipt/recent?limit=3', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+            'Accept': '*/*'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`请求失败: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.code !== 200 || !Array.isArray(result.data?.items)) {
+            throw new Error(result.message || '获取交易记录失败');
+        }
+        const records = result.data.items;
+
+    if (records.length === 0) {
+        // 处理空数据场景（例如显示提示或隐藏弹窗）
+        console.log('交易记录为空');
+        // 示例：显示空状态提示
+        const modal = document.getElementById('receiveSuccessModal');
+        modal.querySelector('.success-amount').textContent = '暂无数据';
+        modal.querySelector('.success-info').innerHTML = '<p>暂无交易记录</p>';
+        // 清空列表渲染
+        renderRecords(recordsContainer, []);
+        return; // 终止后续逻辑
+    }
+        const firstRecord = result.data.items[0];
+        // 更新弹窗数据
+        const modal = document.getElementById('receiveSuccessModal');
+        modal.querySelector('.success-amount').textContent = `¥${firstRecord.amount}`;
+        modal.querySelector('.success-info p:first-child').textContent = `付款方：${firstRecord.payerId}`;
+        modal.querySelector('.success-info p:last-child').textContent = `时间：${formatRecordTime(firstRecord.timestamp)}`;
+
+        renderRecords(recordsContainer, records);
+    })
+    .catch(error => {
+        console.error('获取交易记录出错:', error);
+        showRecordsError(recordsContainer, error.message || '加载记录失败，请重试');
+    });
+}
+
+/**
+ * 渲染交易记录列表（保存transactionId并添加点击事件）
+ * @param {HTMLElement} container - 容器元素
+ * @param {Array} records - 交易记录数据
+ */
+function renderRecords(container, records) {
+    container.innerHTML = '';
+
+    if (records.length === 0) {
+        container.innerHTML = '<div class="no-records">暂无交易记录</div>';
+        return;
+    }
+
+    records.forEach(record => {
+        const recordItem = document.createElement('div');
+        recordItem.className = 'record-item';
+        // 保存transactionId到元素的dataset属性中
+        recordItem.dataset.transactionId = record.transactionId || '';
+
+        // 格式化时间
+        const formattedTime = formatRecordTime(record.timestamp);
+
+        // 构建记录内容
+        recordItem.innerHTML = `
+            <div class="record-info">
+                <h4>用户id: ${record.payerId || '未知用户'}</h4>
+                <p>${formattedTime}</p>
+            </div>
+            <div class="record-amount">+¥${parseFloat(record.amount || 0).toFixed(2)}</div>
+        `;
+
+        // 添加点击事件
+        recordItem.addEventListener('click', function() {
+            const transactionId = this.dataset.transactionId;
+            if (transactionId) {
+                handleRecordClick(transactionId);
+            } else {
+                console.warn('该记录没有有效的transactionId');
+            }
+        });
+
+        container.appendChild(recordItem);
+    });
+}
+
+/**
+ * 交易记录点击事件处理函数
+ * @param {string} transactionId - 交易ID
+ */
+function handleRecordClick(transactionId) {
+    console.log('点击了交易记录，transactionId:', transactionId);
+
+    // 这里可以添加后续业务逻辑，例如：
+    // 1. 跳转到交易详情页
+    // window.location.href = `receipt-detail.html?id=${transactionId}`;
+
+    // 2. 显示交易详情弹窗
+    // showReceiptDetail(transactionId);
+
+    // 3. 保存当前选中的交易ID到本地存储
+    // localStorage.setItem('currentTransactionId', transactionId);
+}
+
+/**
+ * 格式化时间为 "YYYY-MM-DD hh:mm" 格式
+ * @param {string} timestamp - 接口返回的时间字符串
+ * @returns {string} 格式化后的时间
+ */
+function formatRecordTime(timestamp) {
+    if (!timestamp) return '未知时间';
+
+    try {
+        const date = new Date(timestamp);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+
+        return `${year}-${month}-${day} ${hours}:${minutes}`;
+    } catch (error) {
+        console.error('时间格式化失败:', error);
+        return timestamp.replace('T', ' ').split(':').slice(0, 2).join(':');
+    }
+}
+
+/**
+ * 显示记录加载错误
+ * @param {HTMLElement} container - 容器元素
+ * @param {string} message - 错误信息
+ */
+function showRecordsError(container, message) {
+    container.innerHTML = `
+        <div class="records-error">
+            <div class="error-text">${message}</div>
+            <button class="retry-btn" onclick="initRecentReceipts()">重试</button>
+        </div>
+    `;
+}
+
+    // 模拟收款成功
+    function simulateReceiveSuccess() {
+        const modal = document.getElementById('receiveSuccessModal');
+
+
+
+        // 更新时间
+
+
+        // 显示弹窗
+        modal.style.display = 'flex';
+
+        // 添加收款记录到本地存储
+        // 如果有Storage工具，则保存记录
+    }
+
+    // 页面卸载时清除定时器
+    window.addEventListener('beforeunload', function () {
+        if (qrRefreshTimer) {
+            clearInterval(qrRefreshTimer);
+        }
+    });
+
+    // 关闭模态框
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    // 页面跳转函数
+    function goToPage(page) {
+        window.location.href = page;
+    }
+
+    // 显示提示信息
+    function showToast(message, duration = 2000) {
+        const existingToast = document.querySelector('.toast');
+        if (existingToast) {
+            existingToast.remove();
+        }
+
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.textContent = message;
+
+        toast.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 10000;
+        `;
+
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, duration);
+    }
+</script>
+</body>
+
+</html>

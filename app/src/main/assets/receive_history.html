@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>收款记录 - 移动支付应用</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .no-records {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            margin-top: 20px;
+        }
+
+        .no-records img {
+            width: 64px;
+            height: 64px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部状态栏 -->
+
+        <!-- 收款记录页面 -->
+        <div class="transaction-records-page" id="receiveHistoryPage">
+            <!-- 头部 -->
+            <div class="page-header">
+                <button class="back-btn" onclick="goBack()">
+                    <img src="icons/danjiantouzuo.png" alt="返回">
+                </button>
+                <h1>收款记录</h1>
+                <div class="header-placeholder"></div>
+            </div>
+
+            <!-- 统计概览 -->
+            <div class="transaction-summary">
+                <div class="summary-item">
+                    <span class="summary-label">本月收款</span>
+                    <span class="summary-amount income" id="monthlyReceiveAmount">¥0.00</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">总收款笔数</span>
+                    <span class="summary-count" id="totalReceiveCount">0</span>
+                </div>
+            </div>
+
+            <!-- 搜索栏 -->
+            <div class="search-container">
+                <div class="search-box">
+                    <img src="icons/sousuo.png" alt="搜索" class="search-icon">
+                    <input type="text" placeholder="搜索收款记录" id="searchInput">
+                    <button class="clear-btn" onclick="clearSearch()" style="display: none;">
+                        <img src="icons/shanchu.png" alt="清除">
+                    </button>
+                </div>
+            </div>
+
+            <!-- 收款记录列表 -->
+            <div class="transaction-list" id="receiveRecordsList">
+                <!-- 动态加载收款记录 -->
+            </div>
+
+            <!-- 加载更多 -->
+            <div class="load-more">
+                <button class="load-more-btn" onclick="loadMoreRecords()">加载更多</button>
+            </div>
+
+            <!-- 无记录提示 -->
+            <div class="no-records" id="noRecordsMessage" style="display: none;">
+                <img src="icons/a-22-shoukuandingdan.png" alt="无记录">
+                <p>暂无收款记录</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 加载收款记录
+            loadReceiveRecords();
+            
+            // 初始化搜索框
+            initSearchBox();
+        });
+        
+        // 初始化搜索框
+        function initSearchBox() {
+            const searchInput = document.getElementById('searchInput');
+            const clearBtn = document.querySelector('.clear-btn');
+            
+            searchInput.addEventListener('input', function() {
+                if (this.value.length > 0) {
+                    clearBtn.style.display = 'block';
+                } else {
+                    clearBtn.style.display = 'none';
+                }
+                
+                // 实时搜索
+                searchRecords(this.value);
+            });
+        }
+        
+        // 清除搜索
+        function clearSearch() {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.value = '';
+            document.querySelector('.clear-btn').style.display = 'none';
+            
+            // 重新加载所有记录
+            loadReceiveRecords();
+        }
+        
+        // 搜索记录
+        function searchRecords(keyword) {
+            if (!keyword) {
+                loadReceiveRecords();
+                return;
+            }
+            
+            // 从本地存储获取收款记录
+            const records = Storage.get('receiveRecords', []);
+            
+            // 过滤匹配关键字的记录
+            const filteredRecords = records.filter(record => {
+                return record.name.includes(keyword) || 
+                       record.amount.toString().includes(keyword) ||
+                       record.time.includes(keyword);
+            });
+            
+            // 渲染过滤后的记录
+            renderReceiveRecords(filteredRecords);
+        }
+        
+        // 加载收款记录（从接口获取）
+function loadReceiveRecords() {
+    // 显示加载状态
+    const listContainer = document.getElementById('receiveRecordsList');
+    const noRecordsMessage = document.getElementById('noRecordsMessage');
+    listContainer.innerHTML = '<div class="records-loading">加载收款记录中...</div>';
+    noRecordsMessage.style.display = 'none';
+
+    // 获取用户token
+    let token = '';
+    try {
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        token = userData.token || '';
+    } catch (error) {
+        console.error('获取token失败:', error);
+        listContainer.innerHTML = '<div class="records-error">登录状态异常，无法加载记录</div>';
+        return;
+    }
+
+    if (!token) {
+        listContainer.innerHTML = '<div class="records-error">请先登录</div>';
+        return;
+    }
+
+    // 调用接口获取收款记录
+    fetch('http://graywolf.top:6031/payment/receipt/records', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+            'Accept': '*/*'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`请求失败: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.code !== 200 || !Array.isArray(result.data?.items)) {
+            throw new Error(result.message || '获取收款记录失败');
+        }
+
+        // 转换接口数据格式为本地所需格式
+        const records = result.data.items.map(item => ({
+            id: item.transactionId,          // 使用交易ID作为记录ID
+            name: item.payerId.toString(),   // 付款方显示payerId
+            amount: item.amount,             // 金额
+            time: item.timestamp,            // 原始时间戳
+            displayTime: ''                  // 预留显示时间字段
+        }));
+
+        // 更新统计数据
+        updateStatistics(records);
+
+        // 渲染记录列表
+        renderReceiveRecords(records);
+    })
+    .catch(error => {
+        console.error('加载收款记录出错:', error);
+        listContainer.innerHTML = `<div class="records-error">${error.message || '加载失败，请重试'}</div>`;
+    });
+}
+
+// 更新统计数据（适配接口数据格式）
+function updateStatistics(records) {
+    // 获取当前月份
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // 计算本月收款总额
+    let monthlyTotal = 0;
+    records.forEach(record => {
+        try {
+            const recordDate = new Date(record.time);
+            // 验证时间格式并判断是否为本月
+            if (!isNaN(recordDate.getTime()) &&
+                recordDate.getMonth() === currentMonth &&
+                recordDate.getFullYear() === currentYear) {
+                monthlyTotal += parseFloat(record.amount) || 0;
+            }
+        } catch (error) {
+            console.warn('解析记录时间失败:', error, record);
+        }
+    });
+
+    // 更新UI
+    document.getElementById('monthlyReceiveAmount').textContent = formatCurrency(monthlyTotal);
+    document.getElementById('totalReceiveCount').textContent = records.length;
+}
+
+// 渲染收款记录（适配接口数据格式）
+function renderReceiveRecords(records) {
+    const listContainer = document.getElementById('receiveRecordsList');
+    const noRecordsMessage = document.getElementById('noRecordsMessage');
+
+    // 清空现有内容
+    listContainer.innerHTML = '';
+
+    if (records.length === 0) {
+        // 显示无记录提示
+        noRecordsMessage.style.display = 'flex';
+        return;
+    }
+
+    // 隐藏无记录提示
+    noRecordsMessage.style.display = 'none';
+
+    // 按日期分组记录
+    const groupedRecords = groupRecordsByDate(records);
+
+    // 渲染分组记录
+    for (const dateGroup in groupedRecords) {
+        const dateRecords = groupedRecords[dateGroup];
+
+        // 计算当天收款总额
+        let dailyTotal = 0;
+        dateRecords.forEach(record => {
+            dailyTotal += parseFloat(record.amount) || 0;
+        });
+
+        // 创建日期组
+        const dateGroupElement = document.createElement('div');
+        dateGroupElement.className = 'date-group';
+
+        // 添加日期头部
+        const dateHeader = document.createElement('div');
+        dateHeader.className = 'date-header';
+        dateHeader.innerHTML = `
+            <span class="date-text">${dateGroup}</span>
+            <span class="date-amount">收款 ${formatCurrency(dailyTotal)}</span>
+        `;
+        dateGroupElement.appendChild(dateHeader);
+
+        // 添加记录项
+        dateRecords.forEach(record => {
+            const recordItem = document.createElement('div');
+            recordItem.className = 'transaction-item';
+            recordItem.setAttribute('data-type', 'income');
+            recordItem.setAttribute('data-transaction-id', record.id);
+            recordItem.innerHTML = `
+                <div class="transaction-icon">
+                    <img src="icons/shoukuanjiekou.png" alt="收款">
+                </div>
+                <div class="transaction-info">
+                    <div class="transaction-title">${record.name}</div>
+                    <div class="transaction-time">${record.displayTime}</div>
+                </div>
+                <div class="transaction-amount income">+${formatCurrency(record.amount)}</div>
+            `;
+
+            // 添加点击事件查看详情
+            recordItem.addEventListener('click', () => {
+                viewReceiveDetail(record);
+            });
+
+            dateGroupElement.appendChild(recordItem);
+        });
+
+        listContainer.appendChild(dateGroupElement);
+    }
+}
+
+// 按日期分组记录（保持不变，兼容新数据格式）
+function groupRecordsByDate(records) {
+    const grouped = {};
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const todayStr = today.toLocaleDateString('zh-CN');
+    const yesterdayStr = yesterday.toLocaleDateString('zh-CN');
+
+    records.forEach(record => {
+        try {
+            const recordDate = new Date(record.time);
+            if (isNaN(recordDate.getTime())) {
+                throw new Error('无效的时间格式');
+            }
+
+            let dateStr = recordDate.toLocaleDateString('zh-CN');
+
+            // 转换为"今天"、"昨天"或具体日期
+            let displayDate;
+            if (dateStr === todayStr) {
+                displayDate = '今天';
+            } else if (dateStr === yesterdayStr) {
+                displayDate = '昨天';
+            } else {
+                displayDate = dateStr;
+            }
+
+            // 初始化分组
+            if (!grouped[displayDate]) {
+                grouped[displayDate] = [];
+            }
+
+            // 添加显示时间
+            const timeStr = recordDate.toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            record.displayTime = timeStr;
+
+            // 添加到分组
+            grouped[displayDate].push(record);
+        } catch (error) {
+            console.warn('处理记录日期失败:', error, record);
+        }
+    });
+
+    return grouped;
+}
+
+        
+        // 查看收款详情
+        function viewReceiveDetail(record) {
+            // 这里可以实现查看详情的弹窗或跳转
+            console.log('查看收款详情:', record);
+            
+            // 示例：跳转到支付结果页面
+            const params = new URLSearchParams({
+                status: 'success',
+                amount: record.amount,
+                merchant: record.name,
+                method: '收款码',
+                time: new Date(record.time).toLocaleString('zh-CN'),
+                transaction: record.id,
+                type: 'history'
+            });
+            
+            window.location.href = `payment-result.html?${params.toString()}`;
+        }
+        
+        // 加载更多记录
+        function loadMoreRecords() {
+            // 这里可以实现分页加载
+            showToast('已加载全部记录');
+        }
+    </script>
+</body>
+</html>

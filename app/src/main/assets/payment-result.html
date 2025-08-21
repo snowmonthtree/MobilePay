@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>支付结果</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-container">
+      <!-- 状态栏 -->
+
+      <!-- 支付结果页面 -->
+      <div class="payment-result-page">
+        <!-- 页面头部 -->
+        <div class="page-header">
+          <button class="back-btn" onclick="goBack()">
+            <img src="icons/danjiantouzuo.png" alt="返回" />
+          </button>
+          <h1>支付结果</h1>
+          <div class="header-placeholder"></div>
+        </div>
+
+        <!-- 支付结果内容 -->
+        <div class="result-content">
+          <!-- 成功状态 -->
+          <div class="result-success" id="successResult">
+            <div class="result-icon success">
+              <img src="icons/chenggong.png" alt="支付成功" />
+            </div>
+            <h2 class="result-title">支付成功</h2>
+            <div class="result-amount">
+              ¥<span id="successAmount">128.00</span>
+            </div>
+
+            <div class="result-details">
+              <div class="detail-item">
+                <span class="detail-label">商户名称</span>
+                <span class="detail-value" id="merchantName">星巴克咖啡</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">支付方式</span>
+                <span class="detail-value" id="paymentMethod">钱包余额</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">交易时间</span>
+                <span class="detail-value" id="paymentTime"
+                  >2024-01-15 14:30:25</span
+                >
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">交易单号</span>
+                <span class="detail-value" id="transactionId"
+                  >202401151430251234567</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- 失败状态 -->
+          <div class="result-failure" id="failureResult" style="display: none">
+            <div class="result-icon failure">
+              <img src="icons/shibai.png" alt="支付失败" />
+            </div>
+            <h2 class="result-title">支付失败</h2>
+            <div class="failure-reason" id="failureReason">
+              余额不足，请充值后重试
+            </div>
+
+            <div class="result-details">
+              <div class="detail-item">
+                <span class="detail-label">商户名称</span>
+                <span class="detail-value" id="failMerchantName"
+                  >星巴克咖啡</span
+                >
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">失败时间</span>
+                <span class="detail-value" id="failureTime"
+                  >2024-01-15 14:30:25</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="payment-result-actions">
+          <div class="success-actions" id="successActions">
+            <button class="payment-result-action-btn secondary" onclick="viewBills()">
+              <img src="icons/a-27-lishishuju.png" alt="查看账单" />
+              <span>查看账单</span>
+            </button>
+            <button class="payment-result-action-btn secondary" onclick="goHome()">
+              <img src="icons/a-1-gongzuotai.png" alt="返回首页" />
+              <span>返回首页</span>
+            </button>
+          </div>
+
+          <div
+            class="failure-actions"
+            id="failureActions"
+            style="display: none"
+          >
+            <button class="payment-result-action-btn secondary" onclick="retryPayment()">
+              <img src="icons/shuaxin.png" alt="重新支付" />
+              <span>重新支付</span>
+            </button>
+            <button class="payment-result-action-btn secondary" onclick="goHome()">
+              <img src="icons/a-1-gongzuotai.png" alt="返回首页" />
+              <span>返回首页</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // 获取URL参数
+      function getUrlParams() {
+        const params = new URLSearchParams(window.location.search);
+        return {
+          status: params.get("status") || "success",
+          amount: params.get("amount") || "128.00",
+          merchant: params.get("merchant") || "星巴克咖啡",
+          method: params.get("method") || "钱包余额",
+          time: params.get("time") || new Date().toLocaleString("zh-CN"),
+          transaction: params.get("transaction") || generateTransactionId(),
+          reason: params.get("reason") || "余额不足，请充值后重试",
+        };
+      }
+
+      // 初始化页面
+      function initPage() {
+        const params = getUrlParams();
+
+        if (params.status === "success") {
+          showSuccessResult(params);
+        } else {
+          showFailureResult(params);
+        }
+      }
+
+      // 显示成功结果
+      function showSuccessResult(params) {
+        document.getElementById("successResult").style.display = "block";
+        document.getElementById("failureResult").style.display = "none";
+        document.getElementById("successActions").style.display = "flex";
+        document.getElementById("failureActions").style.display = "none";
+
+        document.getElementById("successAmount").textContent = params.amount;
+        document.getElementById("merchantName").textContent = params.merchant;
+        document.getElementById("paymentMethod").textContent = params.method;
+        document.getElementById("paymentTime").textContent = params.time;
+        document.getElementById("transactionId").textContent =
+          params.transaction;
+      }
+
+      // 显示失败结果
+      function showFailureResult(params) {
+        document.getElementById("successResult").style.display = "none";
+        document.getElementById("failureResult").style.display = "block";
+        document.getElementById("successActions").style.display = "none";
+        document.getElementById("failureActions").style.display = "flex";
+
+        document.getElementById("failureReason").textContent = params.reason;
+        document.getElementById("failMerchantName").textContent =
+          params.merchant;
+        document.getElementById("failureTime").textContent = params.time;
+      }
+
+      // 生成交易单号
+      function generateTransactionId() {
+        const now = new Date();
+        const timestamp =
+          now.getFullYear().toString() +
+          (now.getMonth() + 1).toString().padStart(2, "0") +
+          now.getDate().toString().padStart(2, "0") +
+          now.getHours().toString().padStart(2, "0") +
+          now.getMinutes().toString().padStart(2, "0") +
+          now.getSeconds().toString().padStart(2, "0");
+        const random = Math.floor(Math.random() * 10000000)
+          .toString()
+          .padStart(7, "0");
+        return timestamp + random;
+      }
+
+      // 返回上一页
+      function goBack() {
+        window.history.back();
+      }
+
+      // 查看账单
+      function viewBills() {
+        window.location.href = "bills.html";
+      }
+
+      // 返回首页
+      function goHome() {
+        window.location.href = "index.html";
+      }
+
+      // 重新支付
+      function retryPayment() {
+        window.location.href = "scan.html";
+      }
+
+      // 页面加载完成后初始化
+      document.addEventListener("DOMContentLoaded", initPage);
+    </script>
+  </body>
+</html>

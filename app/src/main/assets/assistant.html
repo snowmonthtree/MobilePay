@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能助手 - 移动支付应用</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .action-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        /* 快捷操作按钮 */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin: 10px 0;
+            padding: 10px 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- 顶部状态栏 -->
+        <div class="status-bar">
+            <div class="status-left">
+                <span class="time">9:41</span>
+            </div>
+            <div class="status-right">
+                <span class="battery">100%</span>
+                <span class="signal">📶</span>
+            </div>
+        </div>
+
+        <!-- 智能助手页面 -->
+        <div class="assistant-page" id="assistantPage">
+            <!-- 头部 -->
+            <div class="page-header">
+                <button class="back-btn" onclick="goBack()">
+                    <img src="icons/danjiantouzuo.png" alt="返回">
+                </button>
+                <h1>智能助手</h1>
+                <div class="header-placeholder"></div>
+            </div>
+
+            <!-- 对话区域 -->
+            <div class="chat-container" id="chatContainer">
+                <!-- 欢迎消息 -->
+                <div class="message assistant-message">
+                    <div class="avatar">
+                        <img src="icons/kefu.png" alt="助手">
+                    </div>
+                    <div class="message-content">
+                        <div class="message-bubble">
+                            <p>你好！我是你的智能助手 🤖</p>
+                            <p>我可以帮你：</p>
+                            <ul>
+                                <li>📊 查看消费分析</li>
+                                <li>💰 查询账单记录</li>
+                                <li>💡 提供理财建议</li>
+                            </ul>
+                            <p>试试问我"我这个月花了多少钱？"</p>
+                        </div>
+                        <span class="message-time">9:41</span>
+                    </div>
+                </div>
+
+                <!-- 快捷功能按钮 -->
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="sendQuickMessage('我这个月花了多少钱？')">
+                        <img src="icons/feiyongchaxun.png" alt="消费查询">
+                        <span>本月消费</span>
+                    </button>
+                    <button class="quick-btn" onclick="sendQuickMessage('帮我分析一下消费情况')">
+                        <img src="icons/a-27-lishishuju.png" alt="消费分析">
+                        <span>消费分析</span>
+                    </button>
+                    <button class="quick-btn" onclick="sendQuickMessage('有什么理财建议吗？')">
+                        <img src="icons/zhiyin.png" alt="理财建议">
+                        <span>理财建议</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 输入区域 -->
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <input type="text" id="messageInput" placeholder="输入你想问的问题..." onkeypress="handleKeyPress(event)">
+                    <button class="send-btn" onclick="sendMessage()">
+                        <img src="icons/tijiaofukuan.png" alt="发送">
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消费分析图表弹窗 -->
+        <div class="modal" id="analysisModal">
+            <div class="modal-content analysis-modal">
+                <div class="modal-header">
+                    <h3>本月消费分析</h3>
+                    <button class="close-btn" onclick="closeModal('analysisModal')">
+                        <img src="icons/shibai.png" alt="关闭">
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="analysis-summary">
+                        <div class="summary-item">
+                            <span class="label">本月支出</span>
+                            <span class="amount">¥2,456.78</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="label">本月收入</span>
+                            <span class="amount income">¥8,000.00</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="label">结余</span>
+                            <span class="amount balance">¥5,543.22</span>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <h4>支出分类</h4>
+                        <div class="chart-placeholder">
+                            <div class="chart-item">
+                                <div class="chart-bar" style="width: 40%; background: #ff6b6b;"></div>
+                                <span class="chart-label">餐饮 ¥982.34 (40%)</span>
+                            </div>
+                            <div class="chart-item">
+                                <div class="chart-bar" style="width: 25%; background: #4ecdc4;"></div>
+                                <span class="chart-label">出行 ¥614.20 (25%)</span>
+                            </div>
+                            <div class="chart-item">
+                                <div class="chart-bar" style="width: 20%; background: #45b7d1;"></div>
+                                <span class="chart-label">购物 ¥491.36 (20%)</span>
+                            </div>
+                            <div class="chart-item">
+                                <div class="chart-bar" style="width: 15%; background: #f9ca24;"></div>
+                                <span class="chart-label">其他 ¥368.88 (15%)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="analysis-tips">
+                        <h4>💡 消费建议</h4>
+                        <ul>
+                            <li>餐饮支出较高，建议适当控制外卖频次</li>
+                            <li>出行费用合理，可考虑办理月卡优惠</li>
+                            <li>本月消费比上月减少12%，控制得不错！</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // 智能助手相关功能
+        const chatContainer = document.getElementById('chatContainer');
+        const messageInput = document.getElementById('messageInput');
+
+        // 预设回复模板
+        const responses = {
+            '消费': {
+                type: 'analysis',
+                text: '根据你的消费记录，我为你生成了详细的分析报告 📊',
+                action: 'showAnalysis'
+            },
+            '花了多少': {
+                type: 'text',
+                text: '你这个月总共花费了 ¥2,456.78，比上个月减少了12%。主要支出在餐饮(40%)和出行(25%)方面。需要查看详细分析吗？'
+            },
+            '理财': {
+                type: 'text',
+                text: '基于你的消费习惯，我建议：\n1. 💰 每月定投500元到货币基金\n2. 🍽️ 控制外卖支出，每周自己做饭2-3次\n3. 🚇 办理地铁月卡，可节省15%出行费用\n4. 🎯 设置月度预算提醒，避免超支'
+            },
+            '优惠券': {
+                type: 'text',
+                text: '你目前有3张可用优惠券：\n🎫 餐饮券 ¥10 (满50可用)\n🎫 出行券 ¥5 (满30可用)\n🎫 购物券 ¥20 (满100可用)\n\n建议优先使用即将过期的餐饮券哦！'
+            },
+            '账单': {
+                type: 'text',
+                text: '最近7天的主要支出：\n📅 今天: 早餐 ¥15, 地铁 ¥6\n📅 昨天: 午餐 ¥32, 咖啡 ¥25\n📅 前天: 超市购物 ¥128\n\n需要查看完整账单记录吗？'
+            }
+        };
+
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // 添加用户消息
+            addMessage(message, 'user');
+            messageInput.value = '';
+
+            // 模拟助手回复
+            setTimeout(() => {
+                const response = getResponse(message);
+                addMessage(response.text, 'assistant', response.action);
+            }, 1000);
+        }
+
+        function sendQuickMessage(message) {
+            addMessage(message, 'user');
+
+            setTimeout(() => {
+                const response = getResponse(message);
+                addMessage(response.text, 'assistant', response.action);
+            }, 1000);
+        }
+
+        function addMessage(text, sender, action = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+
+            const time = new Date().toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            if (sender === 'user') {
+                messageDiv.innerHTML = `
+                    <div class="message-content user-content">
+                        <div class="message-bubble user-bubble">
+                            <p>${text}</p>
+                        </div>
+                        <span class="message-time">${time}</span>
+                    </div>
+                    <div class="avatar user-avatar">
+                        <img src="icons/a-29-gerenxinxi.png" alt="用户">
+                    </div>
+                `;
+            } else {
+                messageDiv.innerHTML = `
+                    <div class="avatar">
+                        <img src="icons/zhiyin.png" alt="助手">
+                    </div>
+                    <div class="message-content">
+                        <div class="message-bubble">
+                            <p>${text.replace(/\\n/g, '<br>')}</p>
+                            ${action ? `<button class="action-btn" onclick="${action}()">查看详情</button>` : ''}
+                        </div>
+                        <span class="message-time">${time}</span>
+                    </div>
+                `;
+            }
+
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function getResponse(message) {
+            const lowerMessage = message.toLowerCase();
+
+            for (const [key, response] of Object.entries(responses)) {
+                if (lowerMessage.includes(key)) {
+                    return response;
+                }
+            }
+
+            // 默认回复
+            return {
+                type: 'text',
+                text: '我理解你的问题，但可能需要更多信息才能给出准确回答。你可以尝试问我关于消费分析、账单查询或理财建议的问题哦！'
+            };
+        }
+
+        function showAnalysis() {
+            document.getElementById('analysisModal').style.display = 'flex';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function goBack() {
+            window.history.back();
+        }
+
+        // 自动滚动到底部
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // 页面加载完成后滚动到底部
+        window.addEventListener('load', scrollToBottom);
+    </script>
+</body>
+
+</html>

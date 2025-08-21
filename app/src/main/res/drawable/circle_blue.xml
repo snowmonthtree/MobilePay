@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval"> <!-- 圆形（对应 border-radius:50%） -->
+    <!-- 线性渐变（对应 linear-gradient(135deg, #667eea, #764ba2)） -->
+    <gradient
+        android:startColor="#667eea"
+        android:endColor="#764ba2"
+        android:angle="135"/> <!-- 135度角的渐变方向 -->
+</shape>

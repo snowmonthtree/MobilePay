@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/qrScanner"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black">
+
+    <!-- 相机预览 -->
+    <androidx.camera.view.PreviewView
+        android:id="@+id/previewView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+
+    <!-- 扫描框 -->
+    <View
+        android:id="@+id/scanFrame"
+        android:layout_width="280dp"
+        android:layout_height="280dp"
+        android:background="@drawable/rectangle_scan_frame"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+
+    <!-- 扫描线动画 -->
+    <ImageView
+        android:id="@+id/scanLine"
+        android:layout_width="270dp"
+        android:layout_height="2dp"
+        android:background="#00ff00"
+        app:layout_constraintLeft_toLeftOf="@id/scanFrame"
+        app:layout_constraintRight_toRightOf="@id/scanFrame"
+        app:layout_constraintTop_toTopOf="@id/scanFrame" />
+
+    <!-- 顶部标题栏 -->
+    <LinearLayout
+        android:id="@+id/scanHeadLine"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="50dp"
+        android:paddingLeft="20dp"
+        android:paddingRight="20dp"
+        android:paddingBottom="20dp"
+        android:orientation="horizontal"
+        android:gravity="center"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent">
+
+        <!-- 关闭按钮 -->
+        <ImageButton
+            android:id="@+id/btn_close"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:background="@drawable/circle_thin_dark"
+            android:src="@drawable/ic_back"
+            android:scaleType="fitCenter"
+            android:padding="5dp"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="扫一扫"
+            android:gravity="center"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:layout_weight="4"
+            android:fontFamily="sans-serif-medium" />
+
+    </LinearLayout>
+
+    <!-- 手电筒按钮 -->
+    <ImageButton
+        android:id="@+id/btn_flash"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:background="@drawable/circle_thin_dark"
+        android:src="@drawable/ic_light"
+        android:padding="5dp"
+        android:scaleType="centerInside"
+        app:layout_constraintBottom_toTopOf="@id/scanFrame"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/scanHeadLine"
+        app:layout_constraintLeft_toRightOf="@+id/scanFrame"
+        android:layout_marginRight="25dp"
+
+
+/>
+
+    <!-- 扫描提示 -->
+    <LinearLayout
+        android:id="@+id/scanTip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        app:layout_constraintTop_toBottomOf="@+id/scanFrame"
+        app:layout_constraintBottom_toTopOf="@+id/scan_actions"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        android:layout_marginTop="60dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="请对准二维码"
+            android:textColor="@android:color/white"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="将二维码放入框内，即可自动扫描"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:alpha="0.8"
+            android:layout_marginTop="8dp" />
+    </LinearLayout>
+
+    <!-- 底部操作区 -->
+    <LinearLayout
+        android:id="@+id/scan_actions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="right"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="@id/scanTip">
+
+        <!-- 相册按钮 -->
+        <LinearLayout
+            android:id="@+id/btn_album"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true">
+
+            <LinearLayout
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:background="@drawable/circle_thin_dark"
+
+                android:gravity="center"
+                android:layout_marginBottom="8dp">
+
+                <ImageView
+                    android:src="@drawable/ic_images"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:padding="5dp"/>
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="相册"
+                android:textColor="@android:color/white"
+                android:textSize="14sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

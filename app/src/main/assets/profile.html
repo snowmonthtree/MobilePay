@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人中心 - 移动支付应用</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .eye-btn {
+            background: none;
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+        }
+
+        .eye-btn img {
+            width: 18px;
+            height: 18px;
+        }
+
+        .menu-items {
+            padding-bottom: 0px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="app-container">
+    <!-- 顶部状态栏 -->
+
+    <!-- 个人中心页面 -->
+    <div class="profile-page" id="profilePage">
+        <!-- 头部用户信息 -->
+        <div class="profile-header">
+            <div class="profile-user-avatar-section">
+                <div class="profile-user-avatar">
+                    <!-- 头像图片：优先使用userData中的avatarUrl，默认使用本地图标 -->
+                    <img id="userAvatar" src="icons/Avatar.png" alt="头像">
+                </div>
+                <div class="user-info">
+                    <div>
+                        <div>
+                            <!-- 用户名：使用userData中的userName，默认显示"用户" -->
+                            <h2 class="username" id="userName">用户
+                                <span class="user-status">
+                                        <span class="status-badge verified">已实名</span>
+                                    </span>
+                            </h2>
+                        </div>
+                        <!-- 用户ID：使用userData中的userId，默认显示"ID: --" -->
+                        <p class="user-id" id="userId">ID: --</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 资产总览 -->
+        <div class="assets-overview">
+            <div class="menu-section">
+                <div class="menu-items">
+                    <div class="menu-item" onclick="viewAssetDetails()">
+                        <div class="menu-icon">
+                            <img src="icons/feiyongchaxun.png" alt="总资产">
+                        </div>
+                        <div class="menu-content">
+                            <span class="menu-title">总资产</span>
+                        </div>
+                        <span class="menu-desc">查看我的余额</span>
+                        <div class="menu-arrow">
+                            <img src="icons/danjiantouyou.png" alt="进入">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 功能菜单 -->
+        <div class="function-menu">
+            <div class="menu-section">
+                <h3>服务中心</h3>
+                <div class="menu-items">
+                    <div class="menu-item" onclick="goToCards()">
+                        <div class="menu-icon">
+                            <img src="icons/zhifujiekou.png" alt="卡包">
+                        </div>
+                        <div class="menu-content">
+                            <span class="menu-title">卡包</span>
+                        </div>
+                        <div class="menu-arrow">
+                            <img src="icons/danjiantouyou.png" alt="进入">
+                        </div>
+                    </div>
+                    <div class="menu-item" onclick="goToBills()">
+                        <div class="menu-icon">
+                            <img src="icons/a-21-jiaoyizhongxin.png" alt="我的账单">
+                        </div>
+                        <div class="menu-content">
+                            <span class="menu-title">账单中心</span>
+                        </div>
+                        <div class="menu-arrow">
+                            <img src="icons/danjiantouyou.png" alt="进入">
+                        </div>
+                    </div>
+                    <div class="menu-item" onclick="goToIdentityVerification()">
+                        <div class="menu-icon">
+                            <img src="icons/gerenshezhi.png" alt="身份审核">
+                        </div>
+                        <div class="menu-content">
+                            <span class="menu-title">身份审核</span>
+                        </div>
+                        <div class="menu-arrow">
+                            <img src="icons/danjiantouyou.png" alt="进入">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="menu-section">
+                <h3>账号管理</h3>
+                <div class="menu-items">
+                    <div class="menu-item" onclick="goToEditProfile()">
+                        <div class="menu-icon">
+                            <img src="icons/xiugaibianji.png" alt="修改个人信息">
+                        </div>
+                        <div class="menu-content">
+                            <span class="menu-title">个人信息</span>
+                        </div>
+                        <div class="menu-arrow">
+                            <img src="icons/danjiantouyou.png" alt="进入">
+                        </div>
+                    </div>
+                    <div class="menu-item" onclick="goToPaymentPassword()">
+                        <div class="menu-icon">
+                            <img src="icons/mima.png" alt="支付密码">
+                        </div>
+                        <div class="menu-content">
+                            <span class="menu-title">支付密码</span>
+                        </div>
+                        <div class="menu-arrow">
+                            <img src="icons/danjiantouyou.png" alt="进入">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="menu-section">
+                <div class="menu-items">
+                    <div class="menu-item logout-item" onclick="showLogoutConfirm()">
+                        <div class="menu-icon">
+                            <img src="icons/tuichuzhanghao.png" alt="退出登录">
+                        </div>
+                        <div class="menu-content">
+                            <span class="menu-title logout-text">退出登录</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 退出登录确认弹窗 -->
+    <div class="modal" id="logoutModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>确认退出</h3>
+            </div>
+            <div class="modal-body">
+                <p>确定要退出当前账户吗？</p>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" onclick="closeModal('logoutModal')">取消</button>
+                <button class="confirm-btn" onclick="logout()">确认退出</button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- 底部导航 -->
+    <div class="bottom-nav">
+        <div class="nav-item" onclick="goToIndex()">
+            <img src="icons/a-1-gongzuotai.png" alt="首页">
+            <span>首页</span>
+        </div>
+        <div class="nav-item" onclick="goToScan()">
+            <img src="icons/saoma.png" alt="扫一扫">
+            <span>扫一扫</span>
+        </div>
+        <div class="nav-item" onclick="goToAssistant()">
+            <div class="floating-assistant" onclick=";">
+                <div class="voice-wave"></div>
+                <img src="icons/kefu.png" alt="智能助手">
+            </div>
+        </div>
+        <div class="nav-item" onclick="goToBills()">
+            <img src="icons/a-21-jiaoyizhongxin.png" alt="账单">
+            <span>账单</span>
+        </div>
+        <div class="nav-item active" onclick="goToProfile()">
+            <img src="icons/a-29-gerenxinxi.png" alt="我的">
+            <span>我的</span>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+    // 页面加载时初始化
+    document.addEventListener('DOMContentLoaded', function () {
+        initializePage();
+    });
+
+    function initializePage() {
+    try {
+        // 从localStorage获取userData
+        const userDataStr = localStorage.getItem('userData');
+        if (!userDataStr) {
+            console.log('未找到用户数据，使用默认值');
+            return;
+        }
+
+        // 解析用户数据
+        const userData = JSON.parse(userDataStr);
+
+        // 1. 填充头像（如果有有效头像地址则更新）
+        const avatarImg = document.getElementById('userAvatar');
+        if (avatarImg) { // 确保元素存在
+            // 优先使用用户头像，为空则用默认图标
+            const avatarSrc = userData.avatarUrl?.trim() || 'icons/Avatar.png';
+            avatarImg.src = avatarSrc;
+            // 头像加载失败时回退到默认图标
+            avatarImg.onerror = function () {
+                this.src = 'icons/Avatar.png';
+            };
+        }
+
+        // 2. 填充用户名（优先使用nickName，无则用手机号脱敏显示）
+        const userNameEl = document.getElementById('userName');
+        if (userNameEl && userNameEl.firstChild) {
+            let displayName = '未知用户'; // 默认值
+            if (userData.nickName?.trim()) {
+                // 使用昵称（如"666"）
+                displayName = userData.nickName;
+            } else if (userData.phone) {
+                // 手机号脱敏（如157****8453）
+                displayName = userData.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
+            }
+            userNameEl.firstChild.textContent = displayName;
+        }
+
+        // 3. 填充用户ID（显示格式：ID: 127）
+        const userIdEl = document.getElementById('userId');
+        if (userIdEl && userData.userId) {
+            userIdEl.textContent = `ID: ${userData.userId}`;
+        }
+
+    } catch (error) {
+        console.error('填充用户数据失败：', error);
+        // 出错时保持默认显示，不影响页面布局
+    }
+}
+    // 个人中心相关功能
+    let assetsVisible = false;
+
+    function toggleAssetVisibility() {
+        const amountElement = document.querySelector('.assets-amount .amount');
+        const eyeIcon = document.getElementById('eyeIcon');
+
+        if (assetsVisible) {
+            amountElement.textContent = '****';
+            eyeIcon.src = 'icons/yincangmima.png';
+            assetsVisible = false;
+        } else {
+            amountElement.textContent = '¥12,345.67';
+            eyeIcon.src = 'icons/xianshimima.png';
+            assetsVisible = true;
+        }
+    }
+
+    function viewAssetDetails() {
+        window.location.href = 'assets.html';
+    }
+
+    function showSecurityCenter() {
+        window.location.href = 'security_center.html';
+    }
+
+    function showPaymentSettings() {
+        window.location.href = 'transaction_settings.html';
+    }
+
+    function showIdentityVerification() {
+        window.location.href = 'identity_verification.html';
+    }
+
+    // 退出登录相关函数
+    function showLogoutConfirm() {
+        document.getElementById('logoutModal').style.display = 'flex';
+    }
+
+    function logout() {
+        // 1. 获取存储的 token（用于后端 logout 请求）
+        let token = '';
+        try {
+            // 从 localStorage 读取（之前登录时保存的完整用户数据）
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+        } catch (error) {
+            console.error('获取 token 失败：', error);
+        }
+
+        // 2. 调用后端 logout 接口（即使 token 获取失败也继续执行后续清除操作）
+        const logoutBackend = () => {
+            return new Promise((resolve) => {
+                if (!token) {
+                    resolve(false); // 无 token 时直接 resolve
+                    return;
+                }
+
+                fetch('http://graywolf.top:6031/app/user/logout', {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': '*/*'
+                    }
+                })
+                    .then(response => {
+                        // 后端 logout 接口通常无论成功与否都返回 200，这里仅做基本状态判断
+                        AndroidInterface.showToast(response.message)
+                        resolve(response.ok);
+                    })
+                    .catch(error => {
+                        console.error('后端退出请求失败：', error);
+                        resolve(false); // 网络错误时也继续执行前端清除
+                    });
+            });
+        };
+
+        // 3. 执行完整退出流程
+        logoutBackend().then(() => {
+            // 4. 清除前端存储
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('userData');
+
+            // 5. 清除原生存储
+            if (typeof AndroidInterface !== 'undefined') {
+                try {
+                    AndroidInterface.clearUserData();
+                    console.log('原生存储已清除');
+                } catch (error) {
+                    console.error('清除原生存储失败：', error);
+                }
+            }
+
+            // 6. 显示退出提示并跳转登录页
+            if (typeof AndroidInterface !== 'undefined') {
+                AndroidInterface.showToast('已成功退出登录');
+            } else {
+                alert('已成功退出登录');
+            }
+
+            // 延迟跳转确保所有操作完成
+            setTimeout(() => {
+                window.location.href = 'login.html';
+            }, 300);
+        });
+    }
+
+    function setTransferAmount(amount) {
+        document.getElementById('transferAmount').value = amount;
+    }
+
+    function setAllAmount() {
+        document.getElementById('transferAmount').value = '12345.67';
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    function showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            z-index: 10000;
+            font-size: 14px;
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 2000);
+    }
+
+    // 页面跳转函数
+    function goToPage(page) {
+        window.location.href = page;
+    }
+
+    function goToEditProfile() {
+        window.location.href = 'edit_profile.html';
+    }
+
+    function goToPaymentPassword() {
+        window.location.href = 'payment_password.html';
+    }
+</script>
+</body>
+
+</html>

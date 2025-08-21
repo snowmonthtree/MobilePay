@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>修改个人信息 - 移动支付应用</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+        .edit-profile-page {
+            padding: 0 0 120px 0;
+            background: #f8f9fa;
+            min-height: calc(100vh - 40px);
+        }
+
+        /* 信息项样式 */
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-item-left {
+            font-size: 15px;
+            color: #666;
+        }
+
+        .info-item-right {
+            display: flex;
+            align-items: center;
+        }
+
+        .info-item-value {
+            font-size: 15px;
+            color: #333;
+            margin-right: 10px;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* 编辑区域样式 */
+        .edit-area {
+            display: none;
+            padding-top: 15px;
+        }
+
+        .placeholder {
+            width: 40px;
+        }
+
+        .form-section {
+            margin: 20px;
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .form-section h3 {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .edit-area .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 0px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .avatar-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            margin-bottom: 10px;
+        }
+
+        .user-avatar {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #667eea;
+            margin: 0px;
+        }
+
+        .change-avatar-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 0 12px;
+            background: #f9f9f9;
+        }
+
+        .input-group img {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+
+        .input-group input {
+            flex: 1;
+            border: none;
+            padding: 12px 0;
+            background: transparent;
+            font-size: 14px;
+        }
+
+        .input-group input:focus {
+            outline: none;
+        }
+
+        .input-group .send-code-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .input-group .send-code-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* 不可修改输入框组样式 */
+        .readonly-group {
+            /* 浅灰色背景，与可编辑区域区分 */
+            background: #e9e9e9;
+            /* 更浅的边框色 */
+            border-color: #e0e0e0;
+        }
+
+        /* 不可修改输入框样式 */
+        .readonly-group input[readonly] {
+            /* 鼠标悬停显示禁止图标 */
+            cursor: not-allowed;
+            /* 文字颜色稍浅，弱化视觉权重 */
+            color: #666;
+        }
+
+        .toggle-password-btn {
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+        }
+
+        .toggle-password-btn img {
+            width: 20px;
+            height: 20px;
+            margin: 0;
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .info-text {
+            font-size: 12px;
+            color: #888;
+            margin-top: 8px;
+        }
+
+        /* 安全项目样式 */
+        .security-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .security-item:last-child {
+            border-bottom: none;
+        }
+
+        .security-item-left {
+            display: flex;
+            align-items: center;
+        }
+
+        .security-item-left img {
+            width: 24px;
+            height: 24px;
+            margin-right: 12px;
+        }
+
+        .security-item-left span {
+            font-size: 15px;
+            color: #333;
+        }
+
+        .arrow-icon {
+            width: 16px;
+            height: 16px;
+            opacity: 0.5;
+        }
+
+        /* 手机号和密码弹窗样式 */
+        .modal-form {
+            padding: 0 15px 15px;
+        }
+
+        .modal-form .form-group {
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="app-container">
+    <!-- 顶部状态栏 -->
+
+    <!-- 修改个人信息页面 -->
+    <div class="edit-profile-page">
+        <!-- 页面头部 -->
+        <div class="page-header">
+            <button class="back-btn" onclick="goBack()">
+                <img src="icons/danjiantouzuo.png" alt="返回" />
+            </button>
+            <h1 class="page-title">修改个人信息</h1>
+            <div class="placeholder"></div>
+        </div>
+
+        <div id="profilePage">
+            <!-- 表单内容 -->
+            <div class="form-section">
+                <h3>基本信息</h3>
+                <div class="form-group">
+                    <!-- 头像信息项 -->
+                    <div class="info-item" onclick="toggleEditArea('avatarEdit')">
+                        <div class="info-item-left">头像</div>
+                        <div class="info-item-right">
+                            <img id="userAvatar" src="icons/a-29-gerenxinxi.png" alt="用户头像" class="user-avatar"
+                                 style="width: 40px; height: 40px; border-radius: 50%" />
+                            <img src="icons/danjiantouyou.png" alt="编辑" class="arrow-icon" />
+                        </div>
+                    </div>
+
+                    <!-- 用户名信息项 -->
+                    <div class="info-item" onclick="toggleEditArea('usernameEdit')">
+                        <div class="info-item-left">用户名</div>
+                        <div class="info-item-right">
+                            <div id="usernameDisplay" class="info-item-value">
+                                加载中...
+                            </div>
+                            <img src="icons/danjiantouyou.png" alt="编辑" class="arrow-icon" />
+                        </div>
+                    </div>
+
+                    <!-- 手机号信息项 -->
+                    <div class="info-item" onclick="toggleEditArea('phoneEdit')">
+                        <div class="info-item-left">手机号</div>
+                        <div class="info-item-right">
+                            <div id="phoneDisplay" class="info-item-value">加载中...</div>
+                            <img src="icons/danjiantouyou.png" alt="编辑" class="arrow-icon" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3>账户安全</h3>
+                <div class="form-group">
+                    <!-- 密码信息项 -->
+                    <div class="info-item" onclick="toggleEditArea('passwordEdit')">
+                        <div class="info-item-left">登录密码</div>
+                        <div class="info-item-right">
+                            <div class="info-item-value">已设置</div>
+                            <img src="icons/danjiantouyou.png" alt="编辑" class="arrow-icon" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 编辑区域 -->
+        <div class="form-section" id="editProfilePage" style="display: none">
+            <!-- 头像编辑区域 -->
+            <div id="avatarEdit" class="edit-area">
+                <div class="avatar-container">
+                    <img id="userAvatarLarge" src="icons/a-29-gerenxinxi.png" alt="用户头像" class="user-avatar" />
+                    <button class="change-avatar-btn" style="margin-top: 20px" onclick="changeAvatar()">
+                        更换头像
+                    </button>
+                </div>
+            </div>
+
+            <!-- 用户名编辑区域 -->
+            <div id="usernameEdit" class="edit-area">
+                <div class="input-group">
+                    <img src="icons/a-29-gerenxinxi.png" alt="用户名" />
+                    <input type="text" id="username" placeholder="请输入用户名" />
+                </div>
+                <button class="btn-primary" style="margin-top: 20px" onclick="saveUsername()">
+                    保存
+                </button>
+            </div>
+
+            <!-- 手机号编辑区域 -->
+            <div id="phoneEdit" class="edit-area">
+                <div class="input-group readonly-group">
+                    <img src="icons/shoujihao.png" alt="当前手机号" />
+                    <input type="tel" id="currentPhone" readonly />
+                </div>
+                <p class="info-text">当前绑定的手机号码</p>
+
+                <div class="input-group" style="margin-top: 15px">
+                    <img src="icons/shoujihao.png" alt="新手机号" />
+                    <input type="tel" id="newPhone" placeholder="请输入新手机号" maxlength="11" />
+                </div>
+
+                <div class="input-group" style="margin-top: 15px">
+                    <img src="icons/mima.png" alt="验证码" />
+                    <input type="text" id="verifyCode" placeholder="请输入验证码" maxlength="6" />
+                    <button class="send-code-btn" id="sendCodeBtn" onclick="sendVerifyCode()">
+                        发送验证码
+                    </button>
+                </div>
+
+                <button class="btn-primary" style="margin-top: 20px" onclick="updatePhone()">
+                    保存
+                </button>
+            </div>
+
+            <!-- 密码编辑区域 -->
+            <div id="passwordEdit" class="edit-area">
+                <div class="form-group">
+                    <label>当前密码</label>
+                    <div class="input-group">
+                        <img src="icons/mima.png" alt="当前密码" />
+                        <input type="password" id="currentPassword" placeholder="请输入当前密码(123456)" />
+                        <button class="toggle-password-btn" onclick="togglePassword('currentPassword')">
+                            <img id="currentPasswordEye" src="icons/xianshimima.png" alt="显示密码" />
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>新密码</label>
+                    <div class="input-group">
+                        <img src="icons/mima.png" alt="新密码" />
+                        <input type="password" id="newPassword" placeholder="请输入新密码" />
+                        <button class="toggle-password-btn" onclick="togglePassword('newPassword')">
+                            <img id="newPasswordEye" src="icons/xianshimima.png" alt="显示密码" />
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>确认新密码</label>
+                    <div class="input-group">
+                        <img src="icons/mima.png" alt="确认新密码" />
+                        <input type="password" id="confirmPassword" placeholder="请再次输入新密码" />
+                        <button class="toggle-password-btn" onclick="togglePassword('confirmPassword')">
+                            <img id="confirmPasswordEye" src="icons/xianshimima.png" alt="显示密码" />
+                        </button>
+                    </div>
+                </div>
+
+                <button class="btn-primary" style="margin-top: 20px" onclick="updatePassword()">
+                    保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+    let codeCountdown = 0;
+    let verificationCode = "";
+    let avatarChanged = false;
+    let selectedAvatar = "icons/a-29-gerenxinxi.png";
+    let currentEditArea = null;
+
+    // 页面加载时初始化
+    document.addEventListener("DOMContentLoaded", function () {
+        initializePage();
+        // 更新状态栏时间
+        updateTime();
+        setInterval(updateTime, 60000); // 每分钟更新一次时间
+    });
+
+    // 更新状态栏时间
+    function updateTime() {
+        const now = new Date();
+        const hours = now.getHours().toString().padStart(2, "0");
+        const minutes = now.getMinutes().toString().padStart(2, "0");
+        document.querySelector(".time").textContent = `${hours}:${minutes}`;
+    }
+
+function initializePage() {
+    // 显示当前手机号
+    const userPhone = localStorage.getItem("userPhone");
+    if (userPhone) {
+        document.getElementById("currentPhone").value = userPhone;
+        document.getElementById("phoneDisplay").textContent =
+            userPhone.replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2");
+    } else {
+        document.getElementById("currentPhone").value = "未绑定手机号";
+        document.getElementById("phoneDisplay").textContent = "未绑定";
+    }
+
+    // 显示当前用户名和头像（适配实际字段）
+    const userDataStr = localStorage.getItem("userData");
+    if (userDataStr) {
+        try {
+            const userData = JSON.parse(userDataStr);
+            console.log("用户数据:", userData);
+
+            // 处理用户名（使用nickName字段）
+            const userNameEl = document.getElementById("username");
+            const userNameDisplayEl = document.getElementById("usernameDisplay");
+            const userName = userData.nickName?.trim() || "未知用户";
+
+            if (userNameEl) userNameEl.value = userName;
+            if (userNameDisplayEl) userNameDisplayEl.textContent = userName;
+
+            // 处理头像（使用avatarUrl字段）
+            const avatarUrl = userData.avatarUrl?.trim();
+            const avatarElements = [
+                document.getElementById("userAvatar"),
+                document.getElementById("userAvatarLarge")
+            ];
+
+            avatarElements.forEach(el => {
+                if (el) {
+                    // 有头像则使用，否则保持默认
+                    if (avatarUrl) {
+                        el.src = avatarUrl;
+                        // 加载失败时使用默认头像（假设默认路径为icons/default-avatar.png）
+                        el.onerror = () => {
+                            el.src = "icons/default-avatar.png";
+                        };
+                    }
+                }
+            });
+
+            // 记录选中的头像
+            window.selectedAvatar = avatarUrl || "icons/default-avatar.png";
+
+        } catch (error) {
+            console.error("解析用户数据失败:", error);
+            // 解析失败时使用默认值
+            setDefaultUserInfo();
+        }
+    } else {
+        // 无用户数据时使用默认值
+        setDefaultUserInfo();
+    }
+}
+
+/**
+ * 设置默认用户信息（抽取为函数，避免重复代码）
+ */
+function setDefaultUserInfo() {
+    document.getElementById("username").value = "用户";
+    document.getElementById("usernameDisplay").textContent = "用户";
+
+    const defaultAvatar = "icons/default-avatar.png";
+    document.getElementById("userAvatar")?.setAttribute("src", defaultAvatar);
+    document.getElementById("userAvatarLarge")?.setAttribute("src", defaultAvatar);
+    window.selectedAvatar = defaultAvatar;
+}
+
+
+    // 切换编辑区域显示/隐藏
+    function toggleEditArea(areaId) {
+        const editArea = document.getElementById(areaId);
+        const allEditAreas = document.querySelectorAll(".edit-area");
+        const pageTitle = document.querySelector(".page-title");
+        const infoSections = document.querySelectorAll(
+            ".form-section:not(:last-child)"
+        );
+
+        const profilePage = document.getElementById("profilePage");
+        const editProfilePage = document.getElementById("editProfilePage");
+        profilePage.style.display = "none";
+        editProfilePage.style.display = "block";
+
+        // 隐藏所有编辑区域
+        allEditAreas.forEach((area) => {
+            area.style.display = "none";
+        });
+
+        // 根据选择的编辑区域更新页面标题
+        if (areaId === "avatarEdit") {
+            pageTitle.textContent = "修改头像";
+        } else if (areaId === "usernameEdit") {
+            pageTitle.textContent = "修改用户名";
+        } else if (areaId === "phoneEdit") {
+            pageTitle.textContent = "修改手机号";
+        } else if (areaId === "passwordEdit") {
+            pageTitle.textContent = "修改密码";
+        } else {
+            pageTitle.textContent = "修改个人信息";
+        }
+
+        // 如果当前编辑区域已经显示，则恢复默认视图
+        if (
+            currentEditArea === editArea &&
+            editArea.style.display === "block"
+        ) {
+            editArea.style.display = "none";
+            currentEditArea = null;
+            pageTitle.textContent = "修改个人信息";
+
+            // 显示所有信息区域
+            infoSections.forEach((section) => {
+                section.style.display = "block";
+            });
+        } else {
+            // 否则显示选中的编辑区域，隐藏其他信息区域
+            editArea.style.display = "block";
+            currentEditArea = editArea;
+
+            // 隐藏所有信息区域
+            infoSections.forEach((section) => {
+                section.style.display = "none";
+            });
+        }
+    }
+
+    // 更换头像（使用相册选择和上传接口）
+function changeAvatar() {
+    // 检查是否支持原生交互
+    if (!window.AndroidInterface) {
+        showToast('不支持图片选择功能');
+        return;
+    }
+
+    // 定义图片选择成功后的回调函数
+    window.onImageSelected = function(imageUri) {
+        if (!imageUri) {
+            showToast('未选择图片');
+            return;
+        }
+
+        // 显示加载提示
+        showToast('正在上传头像...', 0);
+
+        // 调用上传接口
+        uploadAvatarToServer(imageUri)
+            .then(newAvatarUrl => {
+                // 上传成功，更新头像显示
+                selectedAvatar = newAvatarUrl;
+                document.getElementById("userAvatar").src = selectedAvatar;
+                document.getElementById("userAvatarLarge").src = selectedAvatar;
+
+                // 保存头像更改记录
+                showToast("头像已更换");
+            })
+            .catch(error => {
+                showToast(error.message || '头像上传失败');
+            });
+    };
+
+    // 调用原生方法打开相册选择图片
+    try {
+        AndroidInterface.openImagePicker("onImageSelected");
+    } catch (error) {
+        console.error('调用相册选择失败:', error);
+        showToast('打开相册失败，请重试');
+    }
+}
+
+/**
+ * 将选中的图片上传到服务器
+ * @param {string} imageUri - 原生传递的图片Uri
+ * @returns {Promise} - 包含新头像URL的Promise
+ */
+function uploadAvatarToServer(imageUri) {
+    return new Promise((resolve, reject) => {
+        // 获取用户token
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+        } catch (error) {
+            reject(new Error('登录状态异常'));
+            return;
+        }
+
+        if (!token) {
+            reject(new Error('请先登录'));
+            return;
+        }
+
+        // 将Uri转换为Blob对象（适配WebView）
+        convertUriToBlob(imageUri)
+            .then(blob => {
+                // 构建FormData
+                const formData = new FormData();
+                // 注意：filename参数建议包含扩展名（如.jpg）
+                formData.append('file', blob, `avatar_${Date.now()}.jpg`);
+
+                // 调用上传接口
+                fetch('http://graywolf.top:6031/app/user/avatar/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                        'Accept': '*/*'
+                        // 不要手动设置Content-Type，FormData会自动处理
+                    },
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`上传失败: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    if (result.code === 200 && result.data) {
+                        // 假设接口返回data中包含新头像的URL
+                        // 根据实际接口返回结构调整
+                        const newAvatarUrl = result.data.avatarUrl || '';
+                        if (newAvatarUrl) {
+
+                saveUserData("avatar", result.data.avatarUrl);
+                            resolve(newAvatarUrl);
+                        } else {
+                            reject(new Error('未获取到头像地址'));
+                        }
+                    } else {
+                        reject(new Error(result.message || '上传失败'));
+                    }
+                })
+                .catch(error => {
+                    reject(error);
+                });
+            })
+            .catch(error => {
+                reject(new Error('图片处理失败: ' + error.message));
+            });
+    });
+}
+
+/**
+ * 将图片Uri转换为Blob对象
+ * @param {string} uri - 图片Uri
+ * @returns {Promise} - 包含Blob的Promise
+ */
+function convertUriToBlob(uri) {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', uri, true);
+        xhr.responseType = 'blob';
+
+        xhr.onload = () => {
+            if (xhr.status === 200) {
+                resolve(xhr.response);
+            } else {
+                reject(new Error(`获取图片失败: ${xhr.statusText}`));
+            }
+        };
+
+        xhr.onerror = () => {
+            reject(new Error('图片请求失败，请检查权限'));
+        };
+
+        xhr.send();
+    });
+}
+
+    // 保存用户名
+    function saveUsername() {
+        const username = document.getElementById("username").value.trim();
+
+        // 前端验证
+        if (!username) {
+            showToast("用户名不能为空");
+            return;
+        }
+
+        // 获取本地存储的token和用户数据
+        let token = '';
+        let existingUserData = {};
+        try {
+            existingUserData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = existingUserData.token || '';
+        } catch (error) {
+            console.error('获取用户信息失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        // 构建请求数据（仅传递需要更新的nickName字段）
+        const requestData = {
+            nickName: username // 接口使用nickName字段接收用户名
+        };
+
+        // 显示加载状态
+        showToast("正在保存用户名...");
+
+        // 调用后端更新接口
+        fetch('http://graywolf.top:6031/app/user/profile/update', {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': '*/*'
+            },
+            body: JSON.stringify(requestData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code === 200) {
+                    // 1. 更新本地存储的userData
+                    const updatedUserData = {
+                        ...existingUserData,
+                        userName: username // 同步更新本地的userName字段
+                    };
+                    localStorage.setItem('userData', JSON.stringify(updatedUserData));
+
+                    // 2. 更新页面显示
+                    document.getElementById("usernameDisplay").textContent = username;
+
+                    // 3. 提示成功并返回
+                    showToast("用户名已更换");
+                    goBack();
+                } else {
+                    // 处理业务错误
+                    showToast(data.msg || '保存失败，请重试');
+                }
+            })
+            .catch(error => {
+                console.error('保存用户名失败:', error);
+                showToast(error.message || '网络异常，请检查网络后重试');
+            });
+    }
+
+    // 保存用户数据
+    function saveUserData(field, newValue) {
+    // 获取本地存储的用户数据，默认为空对象
+    let userData = localStorage.getItem("userData");
+    let parsedData = userData ? JSON.parse(userData) : {};
+
+    // 根据不同字段进行更新
+    if (field === "username") {
+        const username = document.getElementById("username").value;
+        if (username && username !== parsedData.nickName) {
+            parsedData.nickName = username; // 对应数据结构中的nickName字段
+            showToast("用户名修改成功");
+        }
+    } else if (field === "avatar") {
+        // 接收服务器返回的头像URL并更新
+        if (newValue) {
+            parsedData.avatarUrl = newValue; // 对应数据结构中的avatarUrl字段
+            showToast("头像已同步更新");
+        }
+    }
+
+    // 保存更新后的用户数据到本地存储
+    localStorage.setItem("userData", JSON.stringify(parsedData));
+}
+
+    // 切换密码显示/隐藏
+    function togglePassword(inputId) {
+        const input = document.getElementById(inputId);
+        const eyeIcon = document.getElementById(inputId + "Eye");
+
+        if (input.type === "password") {
+            input.type = "text";
+            eyeIcon.src = "icons/yincangmima.png";
+        } else {
+            input.type = "password";
+            eyeIcon.src = "icons/xianshimima.png";
+        }
+    }
+
+    // 发送验证码
+    function sendVerifyCode() {
+        const newPhone = document.getElementById("newPhone").value.trim();
+        const sendBtn = document.getElementById("sendCodeBtn");
+
+        // 1. 前端验证
+        if (!newPhone || !validatePhoneNumber(newPhone)) {
+            showToast("请输入正确的手机号");
+            return;
+        }
+
+        // 从本地存储获取当前手机号（更可靠）
+        let currentPhone = "";
+        try {
+            const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+            currentPhone = userData.phone || "";
+        } catch (error) {
+            console.error("获取当前手机号失败:", error);
+            // 不阻断发送，仅打印日志
+        }
+
+        if (newPhone === currentPhone) {
+            showToast("新手机号不能与当前手机号相同");
+            return;
+        }
+
+        // 避免重复发送（倒计时中）
+        if (codeCountdown > 0) {
+            return;
+        }
+
+        // 2. 构建接口参数（scene固定为resetPhone，对应修改手机号场景）
+        const params = new URLSearchParams();
+        params.append("phone", newPhone);
+        params.append("scene", "resetPhone");
+        const url = `http://graywolf.top:6031/app/verifyCode/send?${params.toString()}`;
+
+        // 3. 调用后端发送验证码接口
+        showToast("正在发送验证码...");
+        fetch(url, {
+            method: "GET",
+            headers: {
+                "User-Agent": "Apifox/1.0.0 (https://apifox.com)",
+                "Accept": "*/*"
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code === 200) {
+                    // 4. 发送成功，开始倒计时
+                    showToast("验证码已发送到新手机，请注意查收");
+                    AndroidInterface.showToast(data.data.code)
+                    codeCountdown = 60;
+                    updateCodeButton(sendBtn); // 传入按钮实例，避免重复获取
+
+                    // 倒计时定时器
+                    const timer = setInterval(() => {
+                        codeCountdown--;
+                        if (codeCountdown <= 0) {
+                            clearInterval(timer);
+                            sendBtn.textContent = "发送验证码";
+                            sendBtn.disabled = false;
+                        } else {
+                            updateCodeButton(sendBtn);
+                        }
+                    }, 1000);
+                } else {
+                    // 后端返回业务错误（如手机号已被占用、发送频繁等）
+                    showToast(data.msg || "验证码发送失败，请重试");
+                }
+            })
+            .catch(error => {
+                // 处理网络错误或接口异常
+                console.error("发送验证码失败:", error);
+                showToast(error.message || "网络异常，发送失败");
+            });
+    }
+
+    // 更新验证码按钮状态
+    function updateCodeButton() {
+        const sendBtn = document.getElementById("sendCodeBtn");
+        sendBtn.textContent = `${codeCountdown}s后重发`;
+        sendBtn.disabled = true;
+    }
+
+    // 验证手机号
+    function validatePhoneNumber(phone) {
+        const phoneRegex = /^1[3-9]\d{9}$/;
+        return phoneRegex.test(phone);
+    }
+
+    // 验证密码
+    function validatePassword(password) {
+        return password && password.length >= 6;
+    }
+
+    // 更新手机号
+    function updatePhone() {
+        // 获取表单数据
+        const newPhone = document.getElementById("newPhone").value.trim();
+        const verifyCode = document.getElementById("verifyCode").value.trim();
+
+        // 1. 前端基础验证
+        if (!newPhone || !verifyCode) {
+            showToast("请填写完整信息");
+            return;
+        }
+
+        if (!validatePhoneNumber(newPhone)) {
+            showToast("请输入正确的手机号");
+            return;
+        }
+
+        // 从本地存储获取当前手机号（更可靠，避免页面数据过时）
+        let currentPhone = "";
+        let existingUserData = {};
+        let token = "";
+        try {
+            existingUserData = JSON.parse(localStorage.getItem("userData") || "{}");
+            currentPhone = existingUserData.phone || "";
+            token = existingUserData.token || "";
+        } catch (error) {
+            console.error("获取用户信息失败:", error);
+            showToast("登录状态异常，请重新登录");
+            return;
+        }
+
+        if (newPhone === currentPhone) {
+            showToast("新手机号不能与当前手机号相同");
+            return;
+        }
+        AndroidInterface.showToast(token)
+        if (!token) {
+            showToast("请先登录");
+            return;
+        }
+
+        // 2. 第一步：调用验证码验证接口
+        showToast("正在验证验证码...");
+        const checkCodeData = {
+            phone: newPhone, // 验证的是新手机号的验证码
+            verifyCode: verifyCode,
+            scene: "resetPhone" // 场景设为"修改手机号"
+        };
+
+        fetch("http://graywolf.top:6031/app/verifyCode/check", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "*/*"
+            },
+            body: JSON.stringify(checkCodeData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(checkResult => {
+                // 3. 验证码验证成功后，调用修改手机号接口
+                if (checkResult.code === 200) {
+                    showToast("验证码验证通过，正在修改手机号...");
+
+                    // 构建修改手机号的请求数据
+                    const updatePhoneData = {
+                        phone: newPhone // 仅传递新手机号（接口无其他必填参数）
+                    };
+
+                    // 调用修改手机号接口（需要携带token验证身份）
+                    return fetch("http://graywolf.top:6031/app/user/profile/update", {
+                        method: "PUT",
+                        headers: {
+                            "Authorization": `Bearer ${token}`,
+                            "Content-Type": "application/json",
+                            "Accept": "*/*"
+                        },
+                        body: JSON.stringify(updatePhoneData)
+                    });
+                } else {
+                    // 验证码验证失败（如过期、错误）
+                    throw new Error(checkResult.msg || "验证码错误或已过期");
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(updateResult => {
+                // 4. 修改手机号成功，更新本地存储和页面显示
+                if (updateResult.code === 200) {
+                    // 更新本地存储的用户数据
+                    const updatedUserData = {
+                        ...existingUserData,
+                        phone: newPhone // 同步更新手机号
+                    };
+                    localStorage.setItem("userData", JSON.stringify(updatedUserData));
+                    localStorage.setItem("userPhone", newPhone); // 兼容旧存储方式
+
+                    // 更新页面显示（脱敏处理）
+                    const maskedPhone = newPhone.replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2");
+                    document.getElementById("currentPhone").value = newPhone;
+                    document.getElementById("phoneDisplay").textContent = maskedPhone;
+
+                    // 清空表单
+                    document.getElementById("newPhone").value = "";
+                    document.getElementById("verifyCode").value = "";
+
+                    // 提示成功并返回
+                    showToast("手机号修改成功");
+                    goBack();
+                } else {
+                    throw new Error(updateResult.msg || "修改手机号失败，请重试");
+                }
+            })
+            .catch(error => {
+                // 统一处理所有环节的错误（验证码验证失败、修改失败、网络错误等）
+                console.error("手机号修改流程失败:", error);
+                showToast(error.message || "操作失败，请检查网络或信息");
+            });
+    }
+
+    // 更新密码
+    function updatePassword() {
+        // 获取表单数据
+        const currentPassword = document.getElementById("currentPassword").value;
+        const newPassword = document.getElementById("newPassword").value;
+        const confirmPassword = document.getElementById("confirmPassword").value;
+
+        // 前端表单验证
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            showToast("请填写完整信息");
+            return;
+        }
+
+        if (!validatePassword(newPassword)) {
+            showToast("新密码至少需要6位");
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            showToast("两次输入的新密码不一致");
+            return;
+        }
+
+        // 获取本地存储的token（用于接口身份验证）
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        // 构建请求数据
+        const requestData = {
+            oldPassword: currentPassword,  // 对应接口的oldPassword
+            newPassword: newPassword       // 对应接口的newPassword
+        };
+
+        // 显示加载状态
+        showToast("正在更新密码...");
+
+        // 调用后端更新密码接口
+        fetch('http://graywolf.top:6031/app/user/password/update', {
+            method: 'PUT',  // 接口要求使用PUT方法
+            headers: {
+                'Authorization': `Bearer ${token}`,  // 携带身份验证token
+                'Content-Type': 'application/json',
+                'Accept': '*/*'
+            },
+            body: JSON.stringify(requestData)
+        })
+            .then(response => {
+                // 处理HTTP错误状态（如401未授权、400参数错误等）
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code === 200) {
+                    // 清空表单
+                    document.getElementById("currentPassword").value = "";
+                    document.getElementById("newPassword").value = "";
+                    document.getElementById("confirmPassword").value = "";
+
+                    // 显示成功提示并返回主视图
+                    showToast(data.message);
+                    goBack();
+                } else {
+                    // 处理业务错误（如旧密码错误、新密码不符合规则等）
+                    showToast(data.message || '密码更新失败，请重试');
+                }
+            })
+            .catch(error => {
+                // 处理网络错误或接口异常
+                console.error('更新密码失败:', error);
+                showToast(error.message || '网络异常，请检查网络后重试');
+            });
+    }
+
+    // 关闭模态框
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = "none";
+    }
+
+    // 点击模态框背景关闭
+    document.addEventListener("click", function (e) {
+        if (e.target.classList.contains("modal")) {
+            e.target.style.display = "none";
+        }
+    });
+
+    // 返回上一页
+    function goBack() {
+        // 如果当前有打开的编辑区域，则关闭它并恢复默认视图
+        if (currentEditArea) {
+            const allEditAreas = document.querySelectorAll(".edit-area");
+            const pageTitle = document.querySelector(".page-title");
+            const infoSections = document.querySelectorAll(
+                ".form-section:not(:last-child)"
+            );
+
+            const profilePage = document.getElementById("profilePage");
+            const editProfilePage = document.getElementById("editProfilePage");
+            profilePage.style.display = "block";
+            editProfilePage.style.display = "none";
+
+            // 隐藏所有编辑区域
+            allEditAreas.forEach((area) => {
+                area.style.display = "none";
+            });
+
+            // 恢复默认页面标题
+            pageTitle.textContent = "修改个人信息";
+
+            // 显示所有信息区域
+            infoSections.forEach((section) => {
+                section.style.display = "block";
+            });
+
+            currentEditArea = null;
+        } else {
+            // 如果没有打开的编辑区域，则返回上一页
+            window.history.back();
+        }
+    }
+
+</script>
+</body>
+
+</html>

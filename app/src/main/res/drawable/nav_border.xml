@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 整体白色背景 -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/nav_bg"/> <!-- 白色背景 -->
+        </shape>
+    </item>
+    <!-- 中间镂空区域（对应助手按钮位置） -->
+    <item
+        android:width="@dimen/assistant_size"
+        android:height="@dimen/assistant_size"
+        android:gravity="top|center"
+        android:top="-30dp"> <!-- 向上延伸，覆盖按钮区域 -->
+        <shape android:shape="oval">
+            <solid android:color="@android:color/transparent"/> <!-- 透明 -->
+        </shape>
+    </item>
+</layer-list>

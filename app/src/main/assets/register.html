@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+<div class="app-container">
+    <!-- 状态栏 -->
+
+    <!-- 注册页面 -->
+    <div class="register-page">
+        <!-- 页面头部 -->
+        <div class="page-header">
+            <button class="back-btn" onclick="goBack()">
+                <img src="icons/danjiantouzuo.png" alt="返回">
+            </button>
+            <h1>注册</h1>
+            <div class="header-placeholder"></div>
+        </div>
+
+        <!-- 注册步骤指示器 -->
+        <div class="step-indicator">
+            <div class="step active" id="step1">
+                <div class="step-number">1</div>
+                <div class="step-label">手机验证</div>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" id="step2">
+                <div class="step-number">2</div>
+                <div class="step-label">设置密码</div>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" id="step3">
+                <div class="step-number">3</div>
+                <div class="step-label">支付密码</div>
+            </div>
+        </div>
+
+        <!-- 注册表单 -->
+        <div class="register-form">
+            <!-- 步骤1：手机验证 -->
+            <div class="step-content" id="stepContent1">
+                <div class="step-title">
+                    <h2>手机号验证</h2>
+                    <p>请输入您的手机号码，我们将发送验证码</p>
+                </div>
+
+                <div class="form-group">
+                    <label>手机号</label>
+                    <div class="input-group">
+                        <img src="icons/shoujihao.png" alt="手机" class="input-icon">
+                        <input type="tel" id="registerPhone" placeholder="请输入手机号" maxlength="11">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>验证码</label>
+                    <div class="input-group">
+                        <img src="icons/mima.png" alt="验证码" class="input-icon">
+                        <input type="text" id="phoneVerifyCode" placeholder="请输入验证码" maxlength="6"
+                               style="width:50%">
+                        <button class="send-sms-btn" onclick="sendPhoneVerifyCode()" id="phoneSmsBtn">发送验证码</button>
+                    </div>
+                </div>
+
+                <button class="next-btn" onclick="nextStep(1)">下一步</button>
+            </div>
+
+            <!-- 步骤2：设置密码 -->
+            <div class="step-content hidden" id="stepContent2">
+                <div class="step-title">
+                    <h2>设置登录密码</h2>
+                    <p>请设置您的登录密码，密码长度6-20位</p>
+                </div>
+
+                <div class="form-group">
+                    <label>登录密码</label>
+                    <div class="input-group">
+                        <img src="icons/mima.png" alt="密码" class="input-icon">
+                        <input type="password" id="registerPassword" placeholder="请输入密码">
+                        <button class="toggle-password" onclick="togglePassword('registerPassword')">
+                            <img src="icons/xianshimima.png" alt="显示密码" id="registerPasswordEye">
+                        </button>
+                    </div>
+                    <div class="password-strength" id="passwordStrength">
+                        <div class="strength-bar">
+                            <div class="strength-fill" id="strengthFill"></div>
+                        </div>
+                        <span class="strength-text" id="strengthText">密码强度：弱</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>确认密码</label>
+                    <div class="input-group">
+                        <img src="icons/mima.png" alt="密码" class="input-icon">
+                        <input type="password" id="confirmRegisterPassword" placeholder="请再次输入密码">
+                        <button class="toggle-password" onclick="togglePassword('confirmRegisterPassword')">
+                            <img src="icons/xianshimima.png" alt="显示密码" id="confirmRegisterPasswordEye">
+                        </button>
+                    </div>
+                </div>
+
+                <div class="password-tips">
+                    <h4>密码要求：</h4>
+                    <ul style="margin-left: 16px;">
+                        <li id="lengthTip">长度6-20位</li>
+                        <li id="letterTip">包含字母</li>
+                        <li id="numberTip">包含数字</li>
+                    </ul>
+                </div>
+
+                <div class="step-buttons">
+                    <button class="prev-btn" onclick="prevStep(2)">上一步</button>
+                    <button class="next-btn" onclick="nextStep(2)">下一步</button>
+                </div>
+            </div>
+
+            <!-- 步骤3：设置支付密码 -->
+            <div class="step-content hidden" id="stepContent3">
+                <div class="step-title">
+                    <h2>设置支付密码</h2>
+                    <p>请设置您的支付密码，用于交易验证，密码长度为6位数字</p>
+                </div>
+
+                <div class="form-group">
+                    <label>支付密码</label>
+                    <div class="input-group">
+                        <img src="icons/mima.png" alt="支付密码" class="input-icon">
+                        <input type="password" id="paymentPassword" placeholder="请输入6位数字支付密码" maxlength="6"
+                               pattern="[0-9]*" inputmode="numeric">
+                        <button class="toggle-password" onclick="togglePassword('paymentPassword')">
+                            <img src="icons/xianshimima.png" alt="显示密码" id="paymentPasswordEye">
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>确认支付密码</label>
+                    <div class="input-group">
+                        <img src="icons/mima.png" alt="确认支付密码" class="input-icon">
+                        <input type="password" id="confirmPaymentPassword" placeholder="请再次输入支付密码" maxlength="6"
+                               pattern="[0-9]*" inputmode="numeric">
+                        <button class="toggle-password" onclick="togglePassword('confirmPaymentPassword')">
+                            <img src="icons/xianshimima.png" alt="显示密码" id="confirmPaymentPasswordEye">
+                        </button>
+                    </div>
+                </div>
+
+                <div class="password-tips">
+                    <h4>支付密码要求：</h4>
+                    <ul style="margin-left: 16px;">
+                        <li id="paymentLengthTip">必须为6位数字</li>
+                        <li id="paymentNumberOnlyTip">只能包含数字</li>
+                    </ul>
+                </div>
+
+                <div class="step-buttons">
+                    <button class="prev-btn" onclick="prevStep(3)">上一步</button>
+                    <button class="next-btn" onclick="submitRegistration()">提交注册</button>
+                </div>
+            </div>
+
+            <!-- 用户协议 -->
+            <div class="agreement">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="agreeRegisterTerms" checked>
+                    <span class="checkmark"></span>
+                    我已阅读并同意
+                </label>
+                <a href="#" onclick="showUserAgreement()">《用户协议》</a>
+                <span>和</span>
+                <a href="#" onclick="showPrivacyPolicy()">《隐私政策》</a>
+            </div>
+
+
+        </div>
+    </div>
+
+    <!-- 注册成功模态框 -->
+    <div class="register-modal" id="successModal">
+        <div class="register-modal-content success">
+            <div class="success-icon">
+                <img src="icons/chenggong.png" alt="成功">
+            </div>
+            <h3 style="text-align: center;">注册成功</h3>
+            <p style="text-align: center;">您的账户已创建成功</p>
+            <div class="success-info">
+                <div class="info-item">
+                    <span class="info-label">注册手机：</span>
+                    <span class="info-value" id="successPhone"></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">支付密码：</span>
+                    <span class="info-value">已设置</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">预计时间：</span>
+                    <span class="info-value">1-3个工作日</span>
+                </div>
+            </div>
+            <div class="success-actions">
+                <button class="btn-primary" onclick="goToHome()">返回首页</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 隐藏的文件输入 -->
+<input type="file" id="frontFileInput" accept="image/*" style="display: none"
+       onchange="handleFileUpload('front', this)">
+<input type="file" id="backFileInput" accept="image/*" style="display: none"
+       onchange="handleFileUpload('back', this)">
+
+<script>
+    let currentStep = 1;
+    let phoneVerifyCountdown = 0;
+    let registrationData = {};
+    let paymentPasswordValid = false;
+
+    // 下一步
+    async function nextStep(step) {
+        // 等待验证结果（异步）
+        const isValid = await validateStep(step);
+        if (isValid) {
+            if (step < 3) {
+                showStep(step + 1);
+            } else if (step === 3) {
+                submitRegistration();
+            }
+        }
+    }
+
+    // 上一步
+    function prevStep(step) {
+        if (step > 1) {
+            showStep(step - 1);
+        }
+    }
+
+    // 显示指定步骤
+    function showStep(step) {
+        // 隐藏所有步骤内容
+        for (let i = 1; i <= 3; i++) {
+            document.getElementById(`stepContent${i}`).classList.add('hidden');
+            document.getElementById(`step${i}`).classList.remove('active', 'completed');
+        }
+
+        // 显示当前步骤
+        document.getElementById(`stepContent${step}`).classList.remove('hidden');
+        document.getElementById(`step${step}`).classList.add('active');
+
+        // 标记已完成的步骤
+        for (let i = 1; i < step; i++) {
+            document.getElementById(`step${i}`).classList.add('completed');
+        }
+
+        currentStep = step;
+
+        // 如果是支付密码步骤，添加输入监听
+        if (step === 3) {
+            document.getElementById('paymentPassword').addEventListener('input', validatePaymentPasswordInput);
+            document.getElementById('confirmPaymentPassword').addEventListener('input', validatePaymentPasswordInput);
+        }
+    }
+
+    // 验证步骤
+    function validateStep(step) {
+        switch (step) {
+            case 1:
+                return validatePhoneStep(); // 异步验证（返回Promise）
+            case 2:
+                return validatePasswordStep(); // 可保持同步或改为异步
+            case 3:
+                return validatePaymentPasswordStep(); // 可保持同步或改为异步
+            default:
+                return Promise.resolve(false);
+        }
+    }
+
+    function validatePhoneStep() {
+        // 返回一个Promise，让外部可以用await等待结果
+        return new Promise((resolve) => {
+            const phone = document.getElementById('registerPhone').value;
+            const code = document.getElementById('phoneVerifyCode').value;
+            const agreeTerms = document.getElementById('agreeRegisterTerms').checked;
+
+            // 前端基础验证：失败直接返回false
+            if (!phone || !validatePhoneNumber(phone)) {
+                AndroidInterface.showToast("请输入正确手机号");
+                alert('请输入正确的手机号');
+                resolve(false); // 基础验证失败，返回false
+                return; // 终止函数
+            }
+
+            if (!code || code.length !== 6) {
+                AndroidInterface.showToast("请输入6位验证码");
+                alert('请输入6位验证码');
+                resolve(false);
+                return;
+            }
+
+            if (!agreeTerms) {
+                AndroidInterface.showToast("请同意用户协议和隐私政策");
+                alert('请同意用户协议和隐私政策');
+                resolve(false);
+                return;
+            }
+
+            // 构建请求数据
+            const requestData = {
+                phone: phone,
+                verifyCode: code,
+                scene: "register"
+            };
+
+            // 调用后端验证接口
+            fetch('http://graywolf.top:6031/app/verifyCode/check', {
+                method: 'POST',
+                headers: {
+                    'accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+                .then(response => {
+                    // 处理非200状态码（如400、500等）
+                    if (!response.ok) {
+                        return response.json().then(err => { throw err; });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // 后端验证成功（假设code=200为成功）
+                    if (data.code === 200) {
+                        AndroidInterface.showToast("验证码验证成功");
+                        registrationData.phone = phone;
+                        resolve(true); // 验证成功，返回true
+                    } else {
+                        // 后端返回其他状态码（如验证码错误）
+                        const errorMsg = data.message || "验证码错误或已过期";
+                        AndroidInterface.showToast(errorMsg);
+                        alert(errorMsg);
+                        resolve(false); // 验证失败，返回false
+                    }
+                })
+                .catch(error => {
+                    // 网络错误或接口返回格式错误
+                    console.error('验证码验证失败:', error);
+                    const errorMsg = error.message || "验证码错误或已过期";
+                    AndroidInterface.showToast(errorMsg);
+                    alert(errorMsg);
+                    resolve(false); // 失败返回false
+                });
+        });
+    }
+
+    // 验证密码步骤
+
+    function validatePasswordStep() {
+        const password = document.getElementById('registerPassword').value;
+        const confirmPassword = document.getElementById('confirmRegisterPassword').value;
+
+        if (!password || password.length < 6 || password.length > 20) {
+            AndroidInterface.showToast("密码长度必须在6-20位之间");
+            alert('密码长度必须在6-20位之间');
+            return false;
+        }
+
+        if (password !== confirmPassword) {
+            AndroidInterface.showToast("两次输入的密码不一致");
+            alert('两次输入的密码不一致');
+            return false;
+        }
+
+        if (!validatePasswordStrength(password)) {
+            AndroidInterface.showToast("密码强度不够，请包含字母和数字");
+            alert('密码强度不够，请包含字母和数字');
+            return false;
+        }
+
+        registrationData.password = password;
+        return true;
+    }
+
+    // 验证手机号
+    function validatePhoneNumber(phone) {
+        const phoneRegex = /^1[3-9]\d{9}$/;
+        return phoneRegex.test(phone);
+    }
+
+    // 验证身份证号
+    function validateIdCard(idCard) {
+        const idCardRegex = /^[1-9]\d{5}(18|19|20)\d{2}((0[1-9])|(1[0-2]))(([0-2][1-9])|10|20|30|31)\d{3}[0-9Xx]$/;
+        return idCardRegex.test(idCard);
+    }
+
+    // 验证密码强度
+    function validatePasswordStrength(password) {
+        const hasLetter = /[a-zA-Z]/.test(password);
+        const hasNumber = /\d/.test(password);
+        return hasLetter && hasNumber;
+    }
+
+    // 验证支付密码步骤
+
+    function validatePaymentPasswordStep() {
+        const paymentPassword = document.getElementById('paymentPassword').value;
+        const confirmPaymentPassword = document.getElementById('confirmPaymentPassword').value;
+
+        if (!paymentPassword || paymentPassword.length !== 6) {
+            AndroidInterface.showToast("支付密码必须为6位数字");
+            alert('支付密码必须为6位数字');
+            return false;
+        }
+
+        if (!/^\d{6}$/.test(paymentPassword)) {
+            AndroidInterface.showToast("支付密码必须为纯数字");
+            alert('支付密码只能包含数字');
+            return false;
+        }
+
+        if (paymentPassword !== confirmPaymentPassword) {
+            AndroidInterface.showToast("两次输入支付密码不一致");
+            alert('两次输入的支付密码不一致');
+            return false;
+        }
+
+        registrationData.paymentPassword = paymentPassword;
+        return true;
+    }
+
+    // 实时验证支付密码输入
+    function validatePaymentPasswordInput() {
+        const paymentPassword = document.getElementById('paymentPassword').value;
+        const confirmPaymentPassword = document.getElementById('confirmPaymentPassword').value;
+        const lengthTip = document.getElementById('paymentLengthTip');
+        const numberOnlyTip = document.getElementById('paymentNumberOnlyTip');
+
+        // 检查长度
+        if (paymentPassword.length === 6) {
+            lengthTip.classList.add('valid');
+        } else {
+            lengthTip.classList.remove('valid');
+        }
+
+        // 检查是否只包含数字
+        if (/^\d*$/.test(paymentPassword)) {
+            numberOnlyTip.classList.add('valid');
+        } else {
+            numberOnlyTip.classList.remove('valid');
+        }
+
+        // 检查两次输入是否一致
+        if (paymentPassword && confirmPaymentPassword && paymentPassword === confirmPaymentPassword) {
+            paymentPasswordValid = true;
+        } else {
+            paymentPasswordValid = false;
+        }
+    }
+
+    // 发送手机验证码
+    function sendPhoneVerifyCode() {
+        const phone = document.getElementById('registerPhone').value;
+        const sendBtn = document.getElementById('phoneSmsBtn');
+
+        // 验证手机号格式
+        if (!phone || !validatePhoneNumber(phone)) {
+            AndroidInterface.showToast("请输入正确手机号");
+            alert('请输入正确的手机号');
+            return;
+        }
+
+        // 防止重复点击
+        if (phoneVerifyCountdown > 0) {
+            return;
+        }
+
+        // 构建请求URL
+        const baseUrl = 'http://graywolf.top:6031/app/verifyCode/send';
+        const url = `${baseUrl}?phone=${encodeURIComponent(phone)}&scene=register`;
+
+        // 发送请求到后端接口
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json',
+            }
+        })
+            .then(response => {
+                // 解析JSON响应
+                return response.json();
+            })
+            .then(data => {
+                // 处理接口返回结果
+                if (data.code === 200) {
+                    // 验证码发送成功
+                    console.log("接口返回完整数据：", JSON.stringify(data, null, 2));
+                    AndroidInterface.showToast(data.message || "验证码已发送到您的手机");
+                    AndroidInterface.showToast(data.data.code || "验证码已发送到您的手机2");
+                    alert(data.message || '验证码已发送到您的手机3');
+
+                    // 开始倒计时
+                    phoneVerifyCountdown = 60;
+                    updateSmsButton(sendBtn, phoneVerifyCountdown);
+
+                    const timer = setInterval(() => {
+                        phoneVerifyCountdown--;
+                        if (phoneVerifyCountdown <= 0) {
+                            clearInterval(timer);
+                            sendBtn.textContent = '发送验证码';
+                            sendBtn.disabled = false;
+                        } else {
+                            updateSmsButton(sendBtn, phoneVerifyCountdown);
+                        }
+                    }, 1000);
+                } else if (data.code === 409) {
+                    // 手机号已被注册
+                    AndroidInterface.showToast(data.message || "手机号已被注册，请更换手机号");
+                    alert(data.message || '手机号已被注册，请更换手机号');
+                } else {
+                    // 其他错误情况
+                    AndroidInterface.showToast(data.message || "发送失败，请稍后重试");
+                    alert(data.message || '发送失败，请稍后重试');
+                }
+            })
+            .catch(error => {
+                // 网络错误处理
+                console.error('发送验证码失败:', error);
+                AndroidInterface.showToast("网络异常，请检查网络设置");
+
+                AndroidInterface.showToast(url);
+                alert('网络异常，请检查网络设置');
+            });
+    }
+
+
+    // 更新短信按钮状态
+    function updateSmsButton(button, countdown) {
+        button.textContent = `${countdown}s后重发`;
+        button.disabled = true;
+    }
+
+    // 切换密码显示/隐藏
+    function togglePassword(inputId) {
+        const input = document.getElementById(inputId);
+        const eyeIcon = document.getElementById(inputId + 'Eye');
+
+        if (input.type === 'password') {
+            input.type = 'text';
+            eyeIcon.src = 'icons/yincangmima.png';
+        } else {
+            input.type = 'password';
+            eyeIcon.src = 'icons/xianshimima.png';
+        }
+    }
+
+    // 更新密码强度显示
+    function updatePasswordStrength() {
+        const password = document.getElementById('registerPassword').value;
+        const strengthFill = document.getElementById('strengthFill');
+        const strengthText = document.getElementById('strengthText');
+        const lengthTip = document.getElementById('lengthTip');
+        const letterTip = document.getElementById('letterTip');
+        const numberTip = document.getElementById('numberTip');
+
+        let strength = 0;
+        let strengthLabel = '弱';
+        let strengthColor = '#ff4444';
+
+        // 检查长度
+        if (password.length >= 6 && password.length <= 20) {
+            strength += 1;
+            lengthTip.classList.add('valid');
+        } else {
+            lengthTip.classList.remove('valid');
+        }
+
+        // 检查字母
+        if (/[a-zA-Z]/.test(password)) {
+            strength += 1;
+            letterTip.classList.add('valid');
+        } else {
+            letterTip.classList.remove('valid');
+        }
+
+        // 检查数字
+        if (/\d/.test(password)) {
+            strength += 1;
+            numberTip.classList.add('valid');
+        } else {
+            numberTip.classList.remove('valid');
+        }
+
+        // 设置强度显示
+        if (strength >= 3) {
+            strengthLabel = '强';
+            strengthColor = '#4CAF50';
+        } else if (strength >= 2) {
+            strengthLabel = '中';
+            strengthColor = '#FF9800';
+        }
+
+        strengthFill.style.width = `${(strength / 3) * 100}%`;
+        strengthFill.style.backgroundColor = strengthColor;
+        strengthText.textContent = `密码强度：${strengthLabel}`;
+        strengthText.style.color = strengthColor;
+    }
+
+    // 上传身份证正面
+    function uploadIdCardFront() {
+        document.getElementById('frontFileInput').click();
+    }
+
+    // 上传身份证反面
+    function uploadIdCardBack() {
+        document.getElementById('backFileInput').click();
+    }
+
+    // 处理文件上传
+    function handleFileUpload(type, input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        // 验证文件类型
+        if (!file.type.startsWith('image/')) {
+            alert('请选择图片文件');
+            return;
+        }
+
+        // 验证文件大小（5MB）
+        if (file.size > 5 * 1024 * 1024) {
+            alert('图片大小不能超过5MB');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const previewId = type + 'Preview';
+            const imageId = type + 'Image';
+
+            document.getElementById(previewId).classList.remove('hidden');
+            document.getElementById(imageId).src = e.target.result;
+
+            // 隐藏上传框
+            document.querySelector(`#${previewId}`).previousElementSibling.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // 提交注册
+    function submitRegistration() {
+        // 先验证最后一步（支付密码）
+        // 1. 获取支付密码和确认密码的值
+        const paymentPassword = document.getElementById('paymentPassword').value;
+        const confirmPaymentPassword = document.getElementById('confirmPaymentPassword').value;
+
+        // 2. 验证支付密码（基础校验）
+        if (!paymentPassword || paymentPassword.length !== 6) {
+            AndroidInterface.showToast("请输入6位数字支付密码");
+            alert("请输入6位数字支付密码");
+            return; // 终止函数，不继续提交
+        }
+
+        // 3. 检查两次输入的密码是否一致
+        if (paymentPassword !== confirmPaymentPassword) {
+            AndroidInterface.showToast("两次输入的支付密码不一致");
+            alert("两次输入的支付密码不一致");
+            return; // 终止函数，不继续提交
+        }
+
+        // 4. 验证通过，将密码存入 registrationData
+        registrationData.paymentPassword = paymentPassword;
+
+        // 构建注册请求数据
+        const requestData = {
+            phone: registrationData.phone,
+            loginPassword: registrationData.password,
+            payPassword: registrationData.paymentPassword
+        };
+
+        // 显示加载状态
+        AndroidInterface.showToast("正在提交注册...");
+
+        // 调用注册接口
+        fetch('http://graywolf.top:6031/app/user/register', {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(result => {
+                if (result.code === 200) {
+                    // 注册成功
+
+                    console.log("aaaa", JSON.stringify(result, null, 2));
+                    AndroidInterface.showToast(result.message || "注册成功");
+
+                    // 保存返回的用户信息（如token）
+                    if (result.data) {
+                        registrationData.userId = result.data.userId;
+                        registrationData.token = result.data.token;
+
+                        // 可以通过Android接口将token保存到原生存储
+                        AndroidInterface.saveUserToken(result.data.token, result.data.userId, result.data.phone);
+
+                        localStorage.setItem('isLoggedIn', 'true');
+                        // 完整用户数据到本地
+                        localStorage.setItem('userData', JSON.stringify(result.data));
+
+                    }
+
+                    // 显示成功页面
+                    document.getElementById('successPhone').textContent = registrationData.phone;
+                    document.getElementById('successModal').style.display = 'flex';
+
+                    console.log('注册成功:', result.data);
+                } else {
+                    // 处理其他状态码
+                    AndroidInterface.showToast(result.message || "注册失败，请重试");
+                    console.error('注册失败:', result.message);
+                }
+            })
+            .catch(error => {
+                // 处理错误
+                console.error('注册请求失败:', error);
+                const errorMsg = error.message || "网络异常，注册失败";
+                AndroidInterface.showToast(errorMsg);
+            });
+    }
+
+    // 关闭模态框
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    // 跳转到首页
+    function goToHome() {
+        window.location.href = 'index.html';
+    }
+
+    // 显示用户协议
+    function showUserAgreement() {
+        alert('用户协议内容...');
+    }
+
+    // 显示隐私政策
+    function showPrivacyPolicy() {
+        alert('隐私政策内容...');
+    }
+
+    // 返回
+    function goBack() {
+        if (currentStep > 1) {
+            prevStep(currentStep);
+        } else {
+            window.history.back();
+        }
+    }
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function () {
+        // 监听密码输入，实时更新强度
+        document.getElementById('registerPassword').addEventListener('input', updatePasswordStrength);
+    });
+
+    // 点击模态框背景关闭
+    document.addEventListener('click', function (e) {
+        if (e.target.classList.contains('register-modal')) {
+            e.target.style.display = 'none';
+        }
+    });
+</script>
+</body>
+
+</html>

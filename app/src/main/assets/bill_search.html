@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搜索 - 移动支付应用</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* 搜索页面样式 */
+        .search-page {
+            background: #f8f9fa;
+            min-height: calc(100vh - 40px);
+            padding-bottom: 20px;
+        }
+
+        /* 搜索头部样式 */
+        .search-header {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            background: white;
+            border-bottom: 1px solid #f0f0f0;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .search-back-btn {
+            background: none;
+            border: none;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        .search-back-btn img {
+            width: 20px;
+            height: 20px;
+        }
+
+        .search-input-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            border-radius: 20px;
+            padding: 8px 0px;
+        }
+
+        .search-input-container img {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            opacity: 0.6;
+        }
+
+        .search-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            outline: none;
+            font-size: 14px;
+            padding: 4px 0;
+        }
+
+        .search-clear-btn {
+            position: absolute;
+            right: 22%;
+            border: none;
+            background: transparent;
+            padding: 4px;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .search-clear-btn img {
+            width: 14px;
+            height: 14px;
+            opacity: 0.6;
+        }
+
+        .search-btn {
+            background: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        /* 搜索结果样式 */
+        .search-resultsw {
+            flex: 1;
+            padding: 10px 0;
+        }
+
+        .search-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+
+        .search-empty img {
+            width: 60px;
+            height: 60px;
+            margin-bottom: 10px;
+            opacity: 0.5;
+        }
+
+        .search-empty p {
+            font-size: 14px;
+        }
+
+        /* 账单项目样式 */
+        .bill-item {
+            display: flex;
+            align-items: center;
+            padding: 16px 20px;
+            background: white;
+            border-bottom: 1px solid #f5f5f5;
+            cursor: pointer;
+        }
+
+        .bill-item:hover {
+            background: #f8f9fa;
+        }
+
+        .bill-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+        }
+
+        .bill-icon img {
+            width: 24px;
+            height: 24px;
+        }
+
+        .bill-info {
+            flex: 1;
+        }
+
+        .bill-info h4 {
+            font-size: 15px;
+            font-weight: 500;
+            color: #333;
+            margin: 0 0 4px 0;
+        }
+
+        .bill-info p {
+            font-size: 13px;
+            color: #999;
+            margin: 0;
+        }
+
+        .bill-amount {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .bill-amount.expense {
+            color: #ff4d4f;
+        }
+
+        .bill-amount.income {
+            color: #52c41a;
+        }
+
+        .bill-category {
+            display: inline-block;
+            padding: 2px 8px;
+            background-color: #f0f2f5;
+            color: #666;
+            border-radius: 10px;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="app-container">
+    <!-- 顶部状态栏 -->
+
+    <!-- 搜索页面 -->
+    <div class="search-page">
+        <!-- 搜索头部 -->
+        <div class="search-header">
+            <button class="search-back-btn" onclick="goBack()">
+                <img src="icons/danjiantouzuo.png" alt="返回">
+            </button>
+            <div class="search-input-container">
+                <input type="text" class="search-input" id="searchInput" clearable placeholder="搜索商户名、商品名..."
+                       autofocus>
+                <button class="search-clear-btn" onclick="clearSearch()">
+                    <img src="icons/shibai.png" alt="清除">
+                </button>
+            </div>
+            <button class="search-btn" onclick="performSearch()">搜索</button>
+        </div>
+
+        <!-- 搜索结果 -->
+        <div class="search-resultsw" id="searchResults">
+            <!-- 初始状态显示空结果提示 -->
+            <div class="search-empty">
+                <img src="icons/sousuo.png" alt="搜索">
+                <p>输入关键词开始搜索</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+    // 获取搜索输入框元素
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+
+    // 页面加载时自动聚焦到搜索框
+    window.onload = function () {
+        searchInput.focus();
+    }
+
+    // 监听输入框的回车事件
+    searchInput.addEventListener('keypress', function (event) {
+        if (event.key === 'Enter') {
+            performSearch();
+        }
+    });
+
+    // 清除搜索内容
+    function clearSearch() {
+        searchInput.value = '';
+        searchInput.focus();
+        // 恢复初始状态
+        searchResults.innerHTML = `
+            <div class="search-empty">
+                <img src="icons/sousuo.png" alt="搜索">
+                <p>输入关键词开始搜索</p>
+            </div>
+        `;
+    }
+
+    // 执行搜索
+    function performSearch() {
+        const keyword = searchInput.value.trim();
+        if (!keyword) {
+            searchResults.innerHTML = `
+        <div class="search-empty">
+            <img src="icons/sousuo.png" alt="搜索">
+            <p>请输入搜索关键词</p>
+        </div>
+    `;
+            return;
+        }
+
+        // 获取token
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        // 显示加载状态
+        searchResults.innerHTML = '<div class="search-loading">搜索中...</div>';
+
+        // 构建请求URL（编码关键词）
+        const encodedKeyword = encodeURIComponent(keyword);
+        const url = `http://graywolf.top:6031/appassets/assets/bills/search?keyString=${encodedKeyword}&scene=bills`;
+
+        // 调用搜索接口
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                'Accept': '*/*'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code === 200 && Array.isArray(data.data)) {
+                    const bills = data.data;
+                    // 处理搜索结果
+                    if (bills.length === 0) {
+                        // 无结果时显示空状态
+                        searchResults.innerHTML = `
+                <div class="search-empty">
+                    <img src="icons/sousuo.png" alt="搜索">
+                    <p>未找到与"${keyword}"相关的账单</p>
+                </div>
+            `;
+                    } else {
+                        // 有结果时渲染账单列表
+                        renderSearchResults(bills);
+                    }
+                } else {
+                    showToast(data.message || '搜索失败，请重试');
+                    searchResults.innerHTML = '<div class="search-error">搜索失败，请稍后重试</div>';
+                }
+            })
+            .catch(error => {
+                console.error('搜索接口调用失败:', error);
+                showToast('网络异常，搜索失败');
+                searchResults.innerHTML = '<div class="search-error">网络异常，请检查网络后重试</div>';
+            });
+    }
+
+    /**
+     * 渲染搜索结果到页面
+     * @param {Array} bills - 搜索到的账单数据
+     */
+    function renderSearchResults(bills) {
+        if (!searchResults) return;
+
+        // 清空容器
+        searchResults.innerHTML = '';
+
+        // 生成每条账单条目
+        bills.forEach(bill => {
+            const billItem = createSearchBillItem(bill);
+            searchResults.appendChild(billItem);
+        });
+
+        // 添加"没有更多结果"提示
+        const noMore = document.createElement('div');
+        noMore.className = 'no-more-results';
+        noMore.style.textAlign = 'center';
+        noMore.style.padding = '15px';
+        noMore.style.color = '#999';
+        noMore.style.fontSize = '14px';
+        noMore.textContent = '没有更多结果了';
+        searchResults.appendChild(noMore);
+    }
+
+    /**
+     * 创建单个搜索结果的账单条目
+     * @param {Object} bill - 账单数据
+     * @returns {HTMLElement} 账单条目元素
+     */
+    function createSearchBillItem(bill) {
+        const billItem = document.createElement('div');
+        const isExpense = bill.type === 2; // 假设type=2为支出（转出），其他为收入
+        const amountSign = isExpense ? '-' : '+';
+
+        // 格式化金额（保留两位小数，添加千分位）
+        const formattedAmount = parseFloat(bill.amount).toLocaleString('zh-CN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+
+        // 格式化时间（YYYY-MM-DD HH:mm）
+        const billTime = new Date(bill.completeTime);
+        const formattedTime = `${billTime.getFullYear()}-${String(billTime.getMonth() + 1).padStart(2, '0')}-${String(billTime.getDate()).padStart(2, '0')} ${String(billTime.getHours()).padStart(2, '0')}:${String(billTime.getMinutes()).padStart(2, '0')}`;
+
+        // 图标映射（根据分类匹配）
+        const iconMap = {
+            '餐饮': 'canyin.png',
+            '出行': 'zhiyin.png',
+            '购物': 'gouwu.png',
+            '其他': isExpense ? 'a-2-lijifukuan.png' : 'shoukuanjiekou.png' // 支出用支付图标，收入用收款图标
+        };
+        const iconSrc = iconMap[bill.bizCategoryName] || (isExpense ? 'a-2-lijifukuan.png' : 'shoukuanjiekou.png');
+
+        // 设置条目属性（保存id和分类信息）
+        billItem.className = `bill-item ${isExpense ? 'expense' : 'income'}`;
+        billItem.dataset.type = isExpense ? 'expense' : 'income';
+        billItem.dataset.category = bill.bizCategoryName;
+        billItem.dataset.billId = bill.id; // 保存账单id供查看详情
+        billItem.setAttribute('onclick', 'viewBillDetail(this)');
+
+        // 填充条目内容
+        billItem.innerHTML = `
+    <div class="bill-icon">
+        <img src="icons/${iconSrc}" alt="${bill.bizCategoryName}">
+    </div>
+    <div class="bill-info">
+        <h4>${bill.remark || bill.typeName}</h4> <!-- 优先显示备注，无则显示类型名称 -->
+        <p>${bill.targetTypeName} ${isExpense ? '支付' : '收款'} • ${formattedTime}</p>
+        <span class="bill-category">${bill.bizCategoryName}</span>
+    </div>
+    <div class="bill-amount ${isExpense ? 'expense' : 'income'}">
+        ${amountSign}¥${formattedAmount}
+    </div>
+`;
+
+        return billItem;
+    }
+
+    // 查看账单详情
+    function viewBillDetail(billItem) {
+        const merchantName = billItem.querySelector('h4').textContent;
+        const amount = billItem.querySelector('.bill-amount').textContent;
+        const paymentInfo = billItem.querySelector('p').textContent;
+        const category = billItem.dataset.category || '其他';
+
+        // 保存当前账单信息到sessionStorage，以便在详情页面使用
+        const billData = {
+            merchant: merchantName,
+            amount: amount,
+            payment: paymentInfo.split(' • ')[0],
+            time: paymentInfo.split(' • ')[1],
+            orderNo: '202410221530001',
+            category: category,
+            note: ''
+        };
+        sessionStorage.setItem('currentBillData', JSON.stringify(billData));
+
+        // 跳转到详情页面
+        window.location.href = 'bill_detail.html';
+    }
+
+    // 返回上一页
+    function goBack() {
+        window.history.back();
+    }
+</script>
+</body>
+
+</html>

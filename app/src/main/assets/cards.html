@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卡包 - 移动支付应用</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 12px;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #666;
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .nav-item img {
+            width: 24px;
+            height: 24px;
+            filter: opacity(0.7);
+        }
+
+        .nav-item.active img {
+            filter: brightness(0) invert(1);
+        }
+
+        .nav-item span {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .action-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: #f5f5f5;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .action-btn img {
+            width: 20px;
+            height: 20px;
+        }
+
+        .security-notice {
+            display: flex;
+            align-items: center;
+            background-color: #FFF9E6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+            border-left: 4px solid #FFB800;
+        }
+
+        .security-notice span {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        /* 添加银行卡页面样式 */
+        .add-card-page,
+        .unbind-card-page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #f8f9fa;
+            z-index: 100;
+            overflow-y: auto;
+        }
+
+        .add-card-content,
+        .unbind-card-content {
+            padding: 20px;
+        }
+
+        .form-tips {
+            display: flex;
+            align-items: flex-start;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 16px 0;
+            font-size: 13px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .form-tips.warning {
+            background-color: #FFF3F3;
+            border-left: 4px solid #FF4D4F;
+        }
+
+        .card-info-display {
+            display: flex;
+            align-items: center;
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .bank-logo-large {
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+        }
+
+        .bank-logo-large img {
+            width: 30px;
+            height: 30px;
+        }
+
+        .card-details-large h3 {
+            font-size: 18px;
+            margin-bottom: 4px;
+            color: #333;
+        }
+
+        .card-details-large p {
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+<div class="app-container">
+    <!-- 顶部状态栏 -->
+
+    <!-- 卡包页面 -->
+    <div class="cards-page" id="cardsPage">
+        <!-- 头部 -->
+        <div class="page-header">
+            <button class="back-btn" onclick="goBack()">
+                <img src="icons/danjiantouzuo.png" alt="返回">
+            </button>
+            <h1>卡包</h1>
+            <div class="header-placeholder"></div>
+        </div>
+
+        <!-- 银行卡页面 -->
+        <div class="bank-cards-section" id="bankCardsSection">
+            <div class="section-header">
+                <h2>我的银行卡</h2>
+                <button class="add-btn" onclick="addBankCard()">
+                    <img src="icons/a-tianjia.png" alt="添加">
+                    <span>添加银行卡</span>
+                </button>
+            </div>
+
+            <div class="cards-list" id="bankCardsContainer">
+                <!-- 银行卡项 -->
+                <div class="loading" style="text-align: center;
+    padding: 20px;
+    color: #666;" id="loadingIndicator">...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加银行卡页面 -->
+    <div class="add-card-page" id="addCardPage" style="display: none;">
+        <div class="page-header">
+            <button class="back-btn" onclick="hideAddCardPage()">
+                <img src="icons/danjiantouzuo.png" alt="返回">
+            </button>
+            <h1>添加银行卡</h1>
+            <div class="header-placeholder"></div>
+        </div>
+        <div class="add-card-content">
+            <div class="form-group">
+                <label>持卡人姓名</label>
+                <input type="text" id="cardHolderName" placeholder="请输入持卡人姓名">
+            </div>
+            <div class="form-group">
+                <label>银行卡号</label>
+                <input type="text" id="cardNumber" placeholder="请输入银行卡号" maxlength="19">
+            </div>
+            <div class="form-group">
+                <label>开户行</label>
+                <input type="text" id="bankName" placeholder="请输入银行卡的开户行" >
+            </div>
+            <div class="form-group">
+                <label>手机号</label>
+                <input type="tel" id="phoneNumber" placeholder="请输入预留手机号">
+            </div>
+            <div class="form-group">
+                <label>验证码</label>
+                <div class="verification-input">
+                    <input type="text" id="verificationCode" placeholder="请输入验证码">
+                    <button class="send-code-btn" onclick="sendVerificationCode()">发送验证码</button>
+                </div>
+            </div>
+            <div class="form-tips">
+                <img src="icons/tixinglaba.png" alt="提示" style="width: 16px; height: 16px; margin-right: 8px;">
+                <span>银行卡信息仅用于支付验证，我们将严格保障您的信息安全</span>
+            </div>
+            <button class="btn-primary" onclick="confirmAddCard()">确认添加</button>
+        </div>
+    </div>
+    <!-- 解绑银行卡页面 -->
+    <div class="unbind-card-page" id="unbindCardPage" style="display: none;">
+        <div class="page-header">
+            <button class="back-btn" onclick="hideUnbindCardPage()">
+                <img src="icons/danjiantouzuo.png" alt="返回">
+            </button>
+            <h1>解绑银行卡</h1>
+            <div class="header-placeholder"></div>
+        </div>
+        <div class="unbind-card-content">
+            <div class="card-info-display">
+                <div class="bank-logo-large">
+                    <img src="icons/zhifujiekou.png" alt="银行">
+                </div>
+                <div class="card-details-large">
+                    <h3 id="unbindCardBankName">中国银行</h3>
+                    <p id="unbindCardNumber">储蓄卡 ****1234</p>
+                </div>
+            </div>
+
+            <div class="security-notice">
+                <img src="icons/tixinglaba.png" alt="提示" style="width: 20px; height: 20px; margin-right: 8px;">
+                <span>为保障账户安全，解绑银行卡需要进行身份验证</span>
+            </div>
+
+            <div class="form-group">
+                <label>验证码</label>
+                <div class="verification-input">
+                    <input type="text" id="unbindVerificationCode" placeholder="请输入验证码">
+                    <button class="send-code-btn" onclick="sendUnbindVerificationCode()">发送验证码</button>
+                </div>
+            </div>
+
+            <div class="form-tips warning">
+                <img src="icons/sanjiaojingshi-copy.png" alt="警告"
+                     style="width: 16px; height: 16px; margin-right: 8px;">
+                <span>解绑后，该银行卡将无法用于支付和提现，请谨慎操作</span>
+            </div>
+
+            <button class="btn-primary danger" onclick="confirmUnbindCard()">确认解绑</button>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+    // 卡包页面相关功能
+
+    document.addEventListener('DOMContentLoaded', function () {
+        fetchBankCards();
+    });
+    function fetchBankCards() {
+        // 1. 获取token（接口需要身份验证）
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showLoading(false);
+            showToast('登录状态异常，无法获取银行卡');
+            return;
+        }
+
+        if (!token) {
+            showLoading(false);
+            showToast('请先登录');
+            return;
+        }
+
+        // 2. 调用真实接口：http://graywolf.top:6031/appassets/assets/cards
+        showLoading(true);
+        fetch('http://graywolf.top:6031/appassets/assets/cards', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`, // 携带接口要求的Bearer token
+                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                'Accept': '*/*'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                showLoading(false);
+                // 3. 解析接口返回的data
+
+                console.log("接口返回完整数据：", JSON.stringify(data, null, 2));
+                if (data.code === 200) {
+                    const cardsList = data.data || []; // 默认为空数组
+                    if (Array.isArray(cardsList) && cardsList.length > 0) {
+                        renderBankCards(cardsList); // 有数据则渲染列表
+
+                    } else {
+                        renderEmptyState(); // 空数组时显示空状态
+                    }
+                } else {
+                    // 接口返回业务错误（如code≠200）
+                    showToast(data.message || '获取银行卡失败');
+                    renderEmptyState();
+                }
+            })
+            .catch(error => {
+                showLoading(false);
+                console.error('获取银行卡失败:', error);
+                showToast(error.message || '获取银行卡失败，请重试');
+                renderEmptyState();
+            });
+    }
+
+    /**
+     * 动态渲染银行卡列表（适配接口返回的字段）
+     * @param {Array} cards - 接口返回的cardsShowV0数组
+     */
+    function renderBankCards(cards) {
+        const container = document.getElementById('bankCardsContainer');
+        container.innerHTML = ''; // 清空容器
+
+        if (cards.length === 0) {
+            renderEmptyState();
+            return;
+        }
+
+        // 遍历接口返回的银行卡数据
+        cards.forEach(card => {
+            // 构建卡片DOM元素
+            const cardItem = document.createElement('div');
+            cardItem.className = 'card-item';
+            cardItem.dataset.cardId = card.id; // 存储卡片ID，用于后续操作
+            cardItem.dataset.cardPhone = card.cardPhone;
+
+            // 拼接卡片内容（使用接口返回的字段：bankName/typeName/lastFourDigits）
+            cardItem.innerHTML = `
+        <div class="card-info">
+            <div class="bank-logo">
+                <img src="icons/zhifujiekou.png" alt="${card.bankName}">
+            </div>
+            <div class="card-details">
+                <h3>${card.bankName}</h3>
+                <p>${card.typeName} ****${card.lastFourDigits}</p>
+                ${card.status === 1 ? '<span class="default-tag">默认</span>' : ''}
+                <!-- status=1表示默认卡 -->
+            </div>
+        </div>
+        <div class="card-actions">
+            <button class="action-btn" onclick="setDefaultCard('${card.id}')">
+                <img src="icons/a-qiehuanmoren.png" alt="设为默认">
+            </button>
+            <button class="action-btn" onclick="removeCard('${card.id}')">
+                <img src="icons/shanchu.png" alt="删除">
+            </button>
+        </div>
+    `;
+
+            container.appendChild(cardItem);
+        });
+    }
+
+    /**
+     * 渲染无银行卡的空状态
+     */
+    function renderEmptyState() {
+        const container = document.getElementById('bankCardsContainer');
+        container.innerHTML = `
+    <div class="empty-state">
+        <p style="text-align:center">暂无绑定的银行卡</p>
+    </div>
+`;
+    }
+    function showLoading(show) {
+        const loading = document.getElementById('loadingIndicator');
+        if (loading) {
+            loading.style.display = show ? 'block' : 'none';
+        }
+    }
+    function showBankCards() {
+        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+        event.target.closest('.nav-item').classList.add('active');
+        document.getElementById('bankCardsSection').style.display = 'block';
+        document.getElementById('couponsSection').style.display = 'none';
+    }
+
+    function showCoupons() {
+        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+        event.target.closest('.nav-item').classList.add('active');
+        document.getElementById('bankCardsSection').style.display = 'none';
+        document.getElementById('couponsSection').style.display = 'block';
+    }
+
+    function addBankCard() {
+        document.getElementById('cardsPage').style.display = 'none';
+        document.getElementById('addCardPage').style.display = 'block';
+    }
+
+    function hideAddCardPage() {
+        document.getElementById('addCardPage').style.display = 'none';
+        document.getElementById('cardsPage').style.display = 'block';
+    }
+
+    function addCoupon() {
+        document.getElementById('addCouponModal').style.display = 'flex';
+    }
+
+    function setDefaultCard(cardId) {
+        AndroidInterface.showToast(cardId.toString());
+        // 1. 获取token（接口需要身份验证）
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        // 2. 显示加载状态
+        showToast('正在设置默认银行卡...');
+
+        // 3. 调用后端接口（通过URL参数传递cardId）
+        fetch(`http://graywolf.top:6031/appassets/assets/cards/default?id=${cardId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                'Accept': '*/*'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code === 200) {
+                    // 4. 接口调用成功，更新页面显示
+                    updateDefaultCardUI(cardId);
+                    showToast('已设为默认支付方式');
+                } else {
+                    // 业务错误（如无权限设置）
+                    throw new Error(data.message || '设置默认银行卡失败');
+                }
+            })
+            .catch(error => {
+                console.error('设置默认银行卡失败:', error);
+                showToast(error.message || '设置失败，请重试');
+            });
+    }
+
+    /**
+     * 更新页面默认银行卡的UI显示
+     * @param {number} activeCardId - 被设置为默认的银行卡ID
+     */
+    function updateDefaultCardUI(activeCardId) {
+        // 移除所有卡片的默认标签
+        document.querySelectorAll('.default-tag').forEach(tag => tag.remove());
+
+        // 给目标卡片添加默认标签
+        const targetCard = document.querySelector(`.card-item[data-card-id="${activeCardId}"]`);
+        if (targetCard) {
+            const cardDetails = targetCard.querySelector('.card-details');
+            const defaultTag = document.createElement('span');
+            defaultTag.className = 'default-tag';
+            defaultTag.textContent = '默认';
+            cardDetails.appendChild(defaultTag);
+        }
+    }
+
+    function removeCard(cardId) {
+        // 1. 根据cardId查找对应的卡片元素（利用动态生成时设置的data-card-id属性）
+        const cardItem = document.querySelector(`.card-item[data-card-id="${cardId}"]`);
+        if (!cardItem) {
+            showToast('未找到该银行卡信息');
+            return;
+        }
+
+        // 2. 保存当前要解绑的卡片元素和cardId
+        window.currentCardToRemove = cardItem;
+        window.currentCardToRemoveId = cardId; // 额外保存cardId，便于后续接口调用
+        window.currentCardPhone = cardItem.dataset.cardPhone;
+
+        // 3. 获取卡片信息并显示在解绑页面
+        const bankName = cardItem.querySelector('.card-details h3').textContent;
+        const cardNumber = cardItem.querySelector('.card-details p').textContent;
+
+        document.getElementById('unbindCardBankName').textContent = bankName;
+        document.getElementById('unbindCardNumber').textContent = cardNumber;
+
+        // 4. 显示解绑页面，隐藏卡片列表页面
+        document.getElementById('cardsPage').style.display = 'none';
+        document.getElementById('unbindCardPage').style.display = 'block';
+    }
+
+    function hideUnbindCardPage() {
+        document.getElementById('unbindCardPage').style.display = 'none';
+        document.getElementById('cardsPage').style.display = 'block';
+    }
+
+    function confirmUnbindCard() {
+        // 1. 获取验证码并校验
+        const verificationCode = document.getElementById('unbindVerificationCode').value.trim();
+        if (!verificationCode) {
+            showToast('请输入验证码');
+            return;
+        }
+        if (verificationCode.length !== 6 || !/^\d{6}$/.test(verificationCode)) {
+            showToast('请输入6位数字验证码');
+            return;
+        }
+
+        // 2. 校验全局解绑信息是否存在
+        if (!window.currentCardToRemoveId || !window.currentCardPhone) {
+            showToast('未获取到银行卡信息，请重试');
+            return;
+        }
+
+        // 3. 获取token（接口身份验证）
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        // 4. 第一步：调用验证码验证接口
+        showToast('正在验证验证码...');
+        const verifyData = {
+            phone: window.currentCardPhone, // 预留手机号
+            verifyCode: verificationCode    // 输入的验证码
+        };
+
+        fetch('http://graywolf.top:6031/appassets/assets/cards/verifyCode', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': '*/*'
+            },
+            body: JSON.stringify(verifyData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(verifyResult => {
+                // 5. 验证码验证成功后，调用删除银行卡接口
+                if (verifyResult.code === 200) {
+                    showToast('验证码验证通过，正在解绑银行卡...');
+
+                    // 调用删除接口（通过URL参数传递cardId）
+                    return fetch(`http://graywolf.top:6031/appassets/assets/cards?id=${window.currentCardToRemoveId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                            'Accept': '*/*'
+                        }
+                    });
+                } else {
+                    // 验证码验证失败
+                    throw new Error(verifyResult.message || '验证码错误或已过期');
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(deleteResult => {
+                // 6. 解绑成功，更新页面状态
+                if (deleteResult.code === 200) {
+                    // 移除页面中的卡片元素
+                    if (window.currentCardToRemove) {
+                        window.currentCardToRemove.remove();
+                        window.currentCardToRemove = null;
+                        window.currentCardToRemoveId = null; // 清空全局变量
+                        window.currentCardPhone = null;
+                    }
+
+                    showToast('银行卡已成功解绑');
+                    hideUnbindCardPage(); // 返回卡包页面
+                    document.getElementById('unbindVerificationCode').value = ''; // 清空验证码
+
+                    // 刷新卡片列表（可选，确保数据与后端一致）
+                    fetchBankCards();
+                } else {
+                    throw new Error(deleteResult.message || '解绑银行卡失败，请重试');
+                }
+            })
+            .catch(error => {
+                // 统一处理所有错误
+                console.error('解绑银行卡失败:', error);
+                showToast(error.message || '操作失败，请检查信息或网络');
+            });
+    }
+
+    function filterCoupons(status) {
+        document.querySelectorAll('.card-filter-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+
+        const coupons = document.querySelectorAll('.coupon-item');
+        coupons.forEach(coupon => {
+            if (status === 'all' || coupon.dataset.status === status) {
+                coupon.style.display = 'flex';
+            } else {
+                coupon.style.display = 'none';
+            }
+        });
+    }
+
+    function viewCouponDetail(coupon) {
+        const amount = coupon.querySelector('.coupon-amount').textContent.replace('¥', '');
+        const condition = coupon.querySelector('.coupon-condition').textContent.replace('满', '').replace('可用', '');
+        const title = coupon.querySelector('h3').textContent;
+        const description = coupon.querySelector('p').textContent;
+        const expire = coupon.querySelector('.expire-date').textContent;
+
+        document.getElementById('detailAmount').textContent = amount;
+        document.getElementById('detailCondition').textContent = condition;
+        document.getElementById('detailTitle').textContent = title;
+        document.getElementById('detailDescription').textContent = description;
+        document.getElementById('detailExpire').textContent = expire;
+
+        document.getElementById('couponDetailModal').style.display = 'flex';
+    }
+
+    function sendVerificationCode() {
+        // 获取手机号和卡号（假设卡号输入框ID为cardNumber）
+        const phoneNumber = document.getElementById('phoneNumber').value.trim();
+        const cardNumber = document.getElementById('cardNumber').value.trim();
+        const button = event.target;
+
+        // 1. 前端表单验证
+        if (!phoneNumber) {
+            showToast('请先输入手机号');
+            return;
+        }
+        if (!cardNumber) {
+            showToast('请输入银行卡号');
+            return;
+        }
+        // 简单验证卡号格式（至少16位数字）
+        if (!/^\d{16,19}$/.test(cardNumber)) {
+            showToast('请输入正确的银行卡号（16-19位数字）');
+            return;
+        }
+
+        // 2. 避免重复发送（如果正在倒计时则退出）
+        if (button.disabled) {
+            return;
+        }
+
+        // 3. 获取token（接口需要身份验证）
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        // 4. 构建请求数据
+        const requestData = {
+            phone: phoneNumber,
+            cardNumber: cardNumber
+        };
+
+        // 5. 调用发送验证码接口
+        showToast('正在发送验证码...');
+        fetch('http://graywolf.top:6031/appassets/assets/cards/sendverifyCode', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': '*/*',
+                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)'
+            },
+            body: JSON.stringify(requestData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code === 200) {
+                    // 6. 发送成功，开始倒计时
+                    showToast('验证码已发送，请注意查收');
+                    let countdown = 60;
+                    button.disabled = true;
+                    button.textContent = `${countdown}s后重发`;
+
+                    const timer = setInterval(() => {
+                        countdown--;
+                        button.textContent = `${countdown}s后重发`;
+                        if (countdown <= 0) {
+                            clearInterval(timer);
+                            button.disabled = false;
+                            button.textContent = '发送验证码';
+                        }
+                    }, 1000);
+                    AndroidInterface.showToast(data.data.code)
+                } else {
+                    // 接口返回业务错误（如手机号与卡号不匹配）
+                    showToast(data.message || '验证码发送失败，请重试');
+                    // 恢复按钮状态
+                    button.disabled = false;
+                    button.textContent = '发送验证码';
+                }
+            })
+            .catch(error => {
+                // 处理网络错误或接口异常
+                console.error('发送验证码失败:', error);
+                showToast(error.message || '网络异常，发送失败');
+                // 恢复按钮状态
+                button.disabled = false;
+                button.textContent = '发送验证码';
+            });
+    }
+
+    function sendUnbindVerificationCode() {
+        // 1. 校验全局变量中是否存在当前解绑卡片的信息
+        if (!window.currentCardToRemoveId || !window.currentCardPhone) {
+            showToast('未获取到银行卡信息，请重试');
+            return;
+        }
+
+        // 2. 从当前解绑卡片元素中提取完整卡号（需确保动态生成时存储了完整卡号）
+        const cardItem = document.querySelector(`.card-item[data-card-id="${window.currentCardToRemoveId}"]`);
+        if (!cardItem) {
+            showToast('未找到该银行卡，请刷新页面');
+            return;
+        }
+
+
+        // 3. 获取按钮元素并处理倒计时状态
+        const button = event.target;
+        if (button.disabled) { // 避免重复发送
+            return;
+        }
+
+        // 4. 获取token用于接口身份验证
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        // 5. 构建接口请求数据
+        const requestData = {
+            phone: window.currentCardPhone, // 从全局变量获取当前卡片的预留手机号
+            cardNumber: '0123456789123456'
+        };
+
+        // 6. 调用发送验证码接口
+        showToast('正在发送验证码...');
+        fetch('http://graywolf.top:6031/appassets/assets/cards/sendverifyCode', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': '*/*',
+                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)'
+            },
+            body: JSON.stringify(requestData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code === 200) {
+                    // 接口调用成功，开始倒计时
+                    let countdown = 60;
+                    button.disabled = true;
+                    button.textContent = `${countdown}s后重发`;
+
+                    const timer = setInterval(() => {
+                        countdown--;
+                        button.textContent = `${countdown}s后重发`;
+                        if (countdown <= 0) {
+                            clearInterval(timer);
+                            button.disabled = false;
+                            button.textContent = '发送验证码';
+                        }
+                    }, 1000);
+
+                    // 显示脱敏手机号的提示
+                    const maskedPhone = window.currentCardPhone.replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2');
+                    showToast(`验证码已发送至${maskedPhone}`);
+                    AndroidInterface.showToast(data.data.code);
+                } else {
+                    // 接口返回业务错误（如手机号与卡号不匹配）
+                    throw new Error(data.message || '验证码发送失败，请重试');
+                }
+            })
+            .catch(error => {
+                console.error('发送验证码失败:', error);
+                showToast(error.message || '网络异常，发送失败');
+                // 恢复按钮状态
+                button.disabled = false;
+                button.textContent = '发送验证码';
+            });
+    }
+
+    function confirmAddCard() {
+        // 获取表单数据
+        const name = document.getElementById('cardHolderName').value.trim();
+        const cardNumber = document.getElementById('cardNumber').value.trim();
+        const phone = document.getElementById('phoneNumber').value.trim();
+        const code = document.getElementById('verificationCode').value.trim();
+        const bankName = document.getElementById('bankName').value.trim(); // 假设银行名称输入框ID为bankName
+
+        // 1. 前端表单验证
+        if (!name || !cardNumber || !phone || !code||!bankName) {
+            showToast('请填写完整信息');
+            return;
+        }
+
+        /*if (!validatePhoneNumber(phone)) {
+            showToast('请输入正确的手机号');
+            return;
+        }*/
+
+        if (!/^\d{16,19}$/.test(cardNumber)) {
+            showToast('请输入正确的银行卡号（16-19位数字）');
+            return;
+        }
+
+        if (code.length !== 6 || !/^\d{6}$/.test(code)) {
+            showToast('请输入6位数字验证码');
+            return;
+        }
+
+        // 2. 获取token（接口身份验证）
+        let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+        // 3. 第一步：调用验证码验证接口
+        showToast('正在验证验证码...');
+        const verifyData = {
+            phone: phone,
+            verifyCode: code
+        };
+
+        fetch('http://graywolf.top:6031/appassets/assets/cards/verifyCode', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': '*/*'
+            },
+            body: JSON.stringify(verifyData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(verifyResult => {
+                // 4. 验证码验证成功后，调用添加银行卡接口
+                if (verifyResult.code === 200) {
+                    showToast('验证码验证通过，正在添加银行卡...');
+
+                    // 构建添加银行卡的请求数据
+                    const addCardData = {
+                        cardName: name,         // 持卡人姓名
+                        cardPhone: phone,       // 银行预留手机号
+                        bankName: bankName,     // 银行名称
+                        cardNumber: cardNumber, // 银行卡号
+                        type: 1                 // 固定值1
+                    };
+
+                    return fetch('http://graywolf.top:6031/appassets/assets/cards', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                            'Accept': '*/*'
+                        },
+                        body: JSON.stringify(addCardData)
+                    });
+                } else {
+                    // 验证码验证失败
+                    throw new Error(verifyResult.message || '验证码错误或已过期');
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(addResult => {
+                // 5. 银行卡添加成功
+                if (addResult.code === 200) {
+                    showToast('银行卡添加成功');
+                    hideAddCardPage(); // 隐藏添加页面
+
+                    // 清空表单
+                    document.getElementById('cardHolderName').value = '';
+                    document.getElementById('cardNumber').value = '';
+                    document.getElementById('phoneNumber').value = '';
+                    document.getElementById('verificationCode').value = '';
+                    //document.getElementById('bankName').value = '';
+
+                    fetchBankCards(); // 刷新银行卡列表
+                } else {
+                    throw new Error(addResult.message || '添加银行卡失败，请重试');
+                }
+            })
+            .catch(error => {
+                // 统一处理所有环节的错误
+                console.error('添加银行卡失败:', error);
+                showToast(error.message || '操作失败，请检查信息或网络');
+            });
+    }
+
+    function addNewCardToList(name, cardNumber) {
+        // 获取卡列表容器
+        const cardsList = document.querySelector('.cards-list');
+
+        // 创建新卡片元素
+        const newCard = document.createElement('div');
+        newCard.className = 'card-item';
+
+        // 提取银行名称和卡号后四位
+        const bankName = '新增银行卡';
+        const lastFourDigits = cardNumber.slice(-4);
+
+        // 设置卡片内容
+        newCard.innerHTML = `
+            <div class="card-info">
+                <div class="bank-logo">
+                    <img src="icons/zhifujiekou.png" alt="银行">
+                </div>
+                <div class="card-details">
+                    <h3>${bankName}</h3>
+                    <p>储蓄卡 ****${lastFourDigits}</p>
+                </div>
+            </div>
+            <div class="card-actions">
+                <button class="action-btn" onclick="setDefaultCard(this)">
+                    <img src="icons/a-qiehuanmoren.png" alt="设为默认">
+                </button>
+                <button class="action-btn" onclick="removeCard(this)">
+                    <img src="icons/shanchu.png" alt="删除">
+                </button>
+            </div>
+        `;
+
+        // 添加到卡列表
+        cardsList.appendChild(newCard);
+    }
+
+    function goBack() {
+        window.history.back();
+    }
+</script>
+</body>
+
+</html>

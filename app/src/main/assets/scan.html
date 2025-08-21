@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>扫一扫</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .scan-container {
+            background: #000;
+            min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .scan-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 50px 20px 20px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+        }
+        
+        .scan-title {
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .scan-close {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        
+        .scan-close img {
+            width: 20px;
+            height: 20px;
+            filter: brightness(0) invert(1);
+        }
+        
+        .camera-view {
+            width: 100%;
+            height: 85vh;
+            background: #000;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .camera-placeholder {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #333 25%, transparent 25%), 
+                        linear-gradient(-45deg, #333 25%, transparent 25%), 
+                        linear-gradient(45deg, transparent 75%, #333 75%), 
+                        linear-gradient(-45deg, transparent 75%, #333 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .scan-frame {
+            position: absolute;
+            width: 250px;
+            height: 250px;
+            border: 2px solid #fff;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        
+        .scan-frame::before,
+        .scan-frame::after {
+            content: '';
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #00ff00;
+        }
+        
+        .scan-frame::before {
+            top: -3px;
+            left: -3px;
+            border-right: none;
+            border-bottom: none;
+        }
+        
+        .scan-frame::after {
+            bottom: -3px;
+            right: -3px;
+            border-left: none;
+            border-top: none;
+        }
+        
+        .scan-corners {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #00ff00;
+        }
+        
+        .corner-top-right {
+            top: -3px;
+            right: -3px;
+            border-left: none;
+            border-bottom: none;
+        }
+        
+        .corner-bottom-left {
+            bottom: -3px;
+            left: -3px;
+            border-right: none;
+            border-top: none;
+        }
+        
+        .scan-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(to right, transparent, #00ff00, transparent);
+            animation: scanLine 2s linear infinite;
+        }
+        
+        @keyframes scanLine {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+        
+        .scan-tips {
+            position: absolute;
+            bottom: 230px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: white;
+            z-index: 10;
+        }
+        
+        .scan-tips p {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        
+        .scan-tips small {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        .scan-actions {
+            position: absolute;
+            bottom: 130px;
+            right: 5%;
+            display: flex;
+            justify-content: center;
+            gap: 60px;
+            z-index: 10;
+        }
+        
+        .scan-action {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .scan-action:hover {
+            transform: scale(1.1);
+        }
+        
+        .action-icon {
+            width: 50px;
+            height: 50px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+        
+        .action-icon img {
+            width: 28px;
+            height: 28px;
+            filter: brightness(0) invert(1);
+        }
+        
+        .action-label {
+            color: white;
+            font-size: 14px;
+        }
+        
+        .flash-btn {
+            position: absolute;
+            top: 120px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+        }
+        
+        .flash-btn.active {
+            background: rgba(255,255,0,0.3);
+        }
+        
+        .flash-btn img {
+            width: 28px;
+            height: 28px;
+            filter: brightness(0) invert(1);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="scan-container">
+            <!-- 头部 -->
+            <div class="scan-header">
+                <div class="scan-title">扫一扫</div>
+                <button class="scan-close" onclick="goBack()">
+                    <img src="icons/danjiantouzuo.png" alt="关闭">
+                </button>
+            </div>
+
+            <!-- 手电筒按钮 -->
+            <button class="flash-btn" id="flashBtn" onclick="toggleFlash()">
+                <img src="icons/shoudiantong.png" alt="手电筒">
+            </button>
+
+            <!-- 摄像头视图 -->
+            <div class="camera-view">
+                <div class="camera-placeholder">
+                    摄像头预览区域
+                </div>
+
+                <!-- 扫描框 -->
+                <div class="scan-frame">
+                    <div class="scan-corners corner-top-right"></div>
+                    <div class="scan-corners corner-bottom-left"></div>
+                    <div class="scan-line"></div>
+                </div>
+            </div>
+
+            <!-- 扫描提示 -->
+            <div class="scan-tips">
+                <p>请对准二维码</p>
+                <small>将二维码放入框内，即可自动扫描</small>
+            </div>
+
+            <!-- 底部操作 -->
+            <div class="scan-actions">
+                <div class="scan-action" onclick="openAlbum()">
+                    <div class="action-icon">
+                        <img src="icons/shangchuan.png" alt="相册">
+                    </div>
+                    <div class="action-label">相册</div>
+                </div>
+            </div>
+
+            <!-- 扫描结果处理已移至JavaScript逻辑中 -->
+        </div>
+        
+        <!-- 底部导航 -->
+        <div class="bottom-nav">
+            <div class="nav-item" onclick="goToPage('index.html')">
+                <img src="icons/a-1-gongzuotai.png" alt="首页">
+                <span>首页</span>
+            </div>
+            <div class="nav-item active" onclick="goToPage('scan.html')">
+                <img src="icons/saoma.png" alt="扫一扫">
+                <span>扫一扫</span>
+            </div>
+            <div class="nav-item" onclick="goToPage('assistant.html')">
+                <div class="floating-assistant" onclick="goToAssistant()">
+                    <div class="voice-wave"></div>
+                    <img src="icons/kefu.png" alt="智能助手">
+                </div>
+            </div>
+            <div class="nav-item" onclick="goToPage('bills.html')">
+                <img src="icons/a-21-jiaoyizhongxin.png" alt="账单">
+                <span>账单</span>
+            </div>
+            <div class="nav-item" onclick="goToPage('profile.html')">
+                <img src="icons/a-29-gerenxinxi.png" alt="我的">
+                <span>我的</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let flashOn = false;
+        let scanTimeout;
+        let currentScanResult = null;
+        
+        // 页面加载完成后开始模拟扫描
+        document.addEventListener('DOMContentLoaded', function() {
+            startScanning();
+        });
+        
+        // 开始扫描
+        function startScanning() {
+            // 模拟10秒后超时提醒
+            scanTimeout = setTimeout(() => {
+                showScanTip('请调整角度或开启手电筒后重试');
+            }, 10000);
+            
+            // 模拟3秒后扫描到二维码
+            setTimeout(() => {
+                simulateScanResult();
+            }, 3000);
+        }
+        
+        // 模拟扫描结果
+        function simulateScanResult() {
+            // 随机生成扫描结果
+            const isValid = Math.random() > 0.5; // 50%概率扫描成功
+            
+            if (isValid) {
+                currentScanResult = {
+                    type: 'payment',
+                    merchantName: '星巴克咖啡',
+                    amount: 35.80,
+                    qrCode: 'PAY_' + Date.now()
+                };
+                showScanResult(true, '扫描成功');
+            } else {
+                showScanResult(false, '二维码无效，请重新扫码');
+            }
+        }
+        
+        // 显示扫描结果
+        function showScanResult(success, message, buttonText) {
+            // 如果扫描成功，直接跳转到支付页面
+            if (success && currentScanResult && currentScanResult.type === 'payment') {
+                showToast('扫描成功，正在跳转到支付页面...');
+                setTimeout(() => {
+                    window.location.href = `payment.html?merchant=${encodeURIComponent(currentScanResult.merchantName)}&amount=${currentScanResult.amount}`;
+                }, 1000);
+            } else {
+                // 如果扫描失败，显示错误提示
+                showToast(message, 2000);
+            }
+        }
+        
+        // 重置扫描
+        function resetScan() {
+            currentScanResult = null;
+            startScanning();
+        }
+        
+        // 切换手电筒
+        function toggleFlash() {
+            const flashBtn = document.getElementById('flashBtn');
+            flashOn = !flashOn;
+            
+            if (flashOn) {
+                flashBtn.classList.add('active');
+                showToast('手电筒已开启');
+            } else {
+                flashBtn.classList.remove('active');
+                showToast('手电筒已关闭');
+            }
+        }
+        
+        // 打开相册
+        function openAlbum() {
+            showToast('正在打开相册...');
+            
+            // 模拟相册选择
+            setTimeout(() => {
+                const hasQRCode = Math.random() > 0.5;
+                if (hasQRCode) {
+                    currentScanResult = {
+                        type: 'payment',
+                        merchantName: '便利店',
+                        amount: 12.50,
+                        qrCode: 'PAY_ALBUM_' + Date.now()
+                    };
+                    showScanResult(true, '识别成功');
+                } else {
+                    showScanResult(false, '图片中未发现二维码');
+                }
+            }, 1500);
+        }
+        
+        // 手动输入
+        function manualInput() {
+            const code = prompt('请输入二维码内容:');
+            if (code) {
+                if (code.startsWith('PAY_') || code.includes('pay')) {
+                    currentScanResult = {
+                        type: 'payment',
+                        merchantName: '手动输入商户',
+                        amount: 0,
+                        qrCode: code
+                    };
+                    showScanResult(true, '识别成功');
+                } else {
+                    showScanResult(false, '无效的支付码');
+                }
+            }
+        }
+        
+        // 显示扫描提示
+        function showScanTip(message) {
+            showToast(message, 3000);
+        }
+        
+        // 返回上一页
+        function goBack() {
+            clearTimeout(scanTimeout);
+            window.location.href = 'index.html';
+        }
+        
+        // 显示提示信息
+        function showToast(message, duration = 2000) {
+            const existingToast = document.querySelector('.toast');
+            if (existingToast) {
+                existingToast.remove();
+            }
+            
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            
+            toast.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-size: 14px;
+                z-index: 10000;
+                animation: toastFadeIn 0.3s ease;
+            `;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'toastFadeOut 0.3s ease';
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.remove();
+                    }
+                }, 300);
+            }, duration);
+        }
+        
+        // 页面卸载时清理定时器
+        window.addEventListener('beforeunload', function() {
+            clearTimeout(scanTimeout);
+        });
+        
+        // 页面跳转函数
+        function goToPage(page) {
+            window.location.href = page;
+        }
+    </script>
+</body>
+</html>
