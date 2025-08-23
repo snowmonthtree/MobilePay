@@ -388,6 +388,7 @@ let cityList = [];
         // 页面加载时的初始化
 document.addEventListener('DOMContentLoaded', function () {
     console.log('页面加载完成');
+    fetchTransitPassList();
     // 1. 先获取城市列表并渲染组件
     fetchCityList().then(() => {
         // 2. 渲染城市选择组件
@@ -399,7 +400,47 @@ document.addEventListener('DOMContentLoaded', function () {
         fetchTransitQRByCityId();
     });
 });
+function fetchTransitPassList() {
+    // 获取用户token
+    let token = '';
+    try {
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        token = userData.token || '';
+    } catch (error) {
+        console.error('解析用户token失败:', error);
+        showToast('初始化出行码失败');
+        return;
+    }
 
+    if (!token) {
+        console.error('用户token为空');
+        showToast('初始化出行码失败');
+        return;
+    }
+
+    // 调用接口
+    fetch('http://graywolf.top:6031/payment/transit/pass/list', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+            'Accept': '*/*',
+            'Host': 'graywolf.top:6031',
+            'Connection': 'keep-alive'
+        }
+    })
+    .then(response => {
+        // 只关心返回码是否为200
+        if (!response.ok) {
+            throw new Error(`HTTP状态码: ${response.status}`);
+        }
+        // 成功时不做任何提示
+    })
+    .catch(error => {
+        console.error('调用出行码列表接口失败:', error);
+        showToast('初始化出行码失败');
+    });
+}
 /**
  * 调用接口获取城市列表
  */

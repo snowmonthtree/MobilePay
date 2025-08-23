@@ -218,6 +218,7 @@
 
     // 页面加载时启动定时刷新
     document.addEventListener('DOMContentLoaded', function () {
+        initReceiveInfo();
         // 初始化二维码
 
         initRecentReceipts();
@@ -238,7 +239,45 @@
 
         startQRRefresh();
     });
+function initReceiveInfo() {
+    try {
+        // 1. 从localStorage获取用户数据
+        const userDataStr = localStorage.getItem('userData');
+        if (!userDataStr) {
+            console.log('未找到用户数据，使用默认信息');
+            return;
+        }
 
+        // 2. 解析用户数据
+        const userData = JSON.parse(userDataStr);
+        const { avatarUrl, nickName } = userData;
+
+        // 3. 更新用户头像
+        const avatarImg = document.querySelector('.receive-info .user-avatar img');
+        if (avatarImg) {
+            // 若有有效头像地址则更新，否则保持默认
+            if (avatarUrl && avatarUrl.trim() !== '') {
+                avatarImg.src = avatarUrl;
+                avatarImg.alt = nickName || '用户头像'; // 用昵称优化alt文本
+            }
+            // 头像地址为空时不操作，保留默认图标
+        }
+
+        // 4. 更新用户昵称（user-name对应nickname）
+        const userNameElement = document.querySelector('.receive-info .user-name');
+        if (userNameElement) {
+            // 处理昵称可能为空的情况
+            const displayName = nickName && nickName.trim() !== ''
+                ? nickName
+                : '用户'; // 昵称为空时显示默认文本
+            userNameElement.textContent = displayName;
+        }
+
+    } catch (error) {
+        console.error('初始化收款信息组件失败:', error);
+        // 异常时不影响组件默认显示
+    }
+}
     // 启动二维码自动刷新
     function startQRRefresh() {
         qrRefreshTimer = setInterval(function () {

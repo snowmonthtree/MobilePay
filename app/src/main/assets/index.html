@@ -440,10 +440,50 @@
             container.insertBefore(item, headerContainer.nextSibling);
         });
     }
+function initUserHeader() {
+    try {
+        // 1. 从localStorage获取用户数据
+        const userDataStr = localStorage.getItem('userData');
+        if (!userDataStr) {
+            console.log('未找到用户数据，使用默认信息');
+            return;
+        }
 
+        // 2. 解析用户数据
+        const userData = JSON.parse(userDataStr);
+        const { avatarUrl, nickName } = userData;
+
+        // 3. 更新头像
+        const avatarImg = document.querySelector('.header .avatar img');
+        if (avatarImg) {
+            // 若avatarUrl不为空且有效，则更新头像；否则保持默认
+            if (avatarUrl && avatarUrl.trim() !== '') {
+                avatarImg.src = avatarUrl;
+                // 可选：更新alt文本为用户昵称
+                avatarImg.alt = nickName || '用户头像';
+            }
+            // 为空时不做操作，保持默认图片
+        }
+
+        // 4. 更新问候语（早上好 + 昵称）
+        const greetingTitle = document.querySelector('.header .greeting h2');
+        if (greetingTitle) {
+            // 处理昵称可能为空的情况
+            const displayName = nickName && nickName.trim() !== ''
+                ? nickName
+                : '用户'; // 默认为"用户"
+            greetingTitle.textContent = `早上好，${displayName}`;
+        }
+
+    } catch (error) {
+        console.error('初始化用户信息失败:', error);
+        // 解析失败时不影响默认显示
+    }
+}
     // 页面加载时初始化近期交易
     document.addEventListener('DOMContentLoaded', function () {
         initRecentTransactions();
+        initUserHeader();
     });
 </script>
 <script src="script.js"></script>

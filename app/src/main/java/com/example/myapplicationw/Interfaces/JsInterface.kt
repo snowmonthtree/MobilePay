@@ -16,7 +16,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.myapplicationw.R
 import com.example.myapplicationw.ui.activity.AssistantActivity
-import com.example.myapplicationw.ui.activity.QrScannerActivity
+import com.example.myapplicationw.ui.activity.QRScannerActivity
 
 
 /**
@@ -180,7 +180,7 @@ class JsInterface(private val context: Context) {
         // 安全转换Context为Activity
         val activity = context as? Activity
         if (activity != null) {
-            val intent = Intent(activity, QrScannerActivity::class.java)
+            val intent = Intent(activity, QRScannerActivity::class.java)
             activity.startActivityForResult(intent, REQUEST_CODE_QR_SCAN)
         } else {
             Log.e(TAG, "启动扫描失败：Context不是Activity实例")

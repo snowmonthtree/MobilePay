@@ -47,7 +47,7 @@ import kotlinx.coroutines.withContext
  * 支持相机实时扫描和相册图片识别
  */
 @ExperimentalGetImage
-class QrScannerActivity : AppCompatActivity() {
+class QRScannerActivity : AppCompatActivity() {
     // 控件定义
     private lateinit var previewView: PreviewView
     private lateinit var ivScanLine: ImageView
@@ -67,7 +67,7 @@ class QrScannerActivity : AppCompatActivity() {
     companion object {
         private const val REQUEST_CODE_PICK_IMAGE = 1001
         private const val REQUEST_CODE_STORAGE_PERMISSION = 1002
-        private const val TAG = "QrScannerActivity"  // 日志标签常量
+        private const val TAG = "QRScannerActivity"  // 日志标签常量
         private const val SCAN_ANIMATION_DURATION = 2000  // 扫描动画时长
     }
 
@@ -267,7 +267,7 @@ class QrScannerActivity : AppCompatActivity() {
                     decodeFromGallery(uri)
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@QrScannerActivity, "识别失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@QRScannerActivity, "识别失败: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -296,7 +296,7 @@ class QrScannerActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e(TAG, "相册图片解码失败", e)
             withContext(Dispatchers.Main) {
-                Toast.makeText(this@QrScannerActivity, "识别失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@QRScannerActivity, "识别失败: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }

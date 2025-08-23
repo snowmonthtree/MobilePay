@@ -39,7 +39,7 @@ import com.example.myapplicationw.ui.fragment.ScanFragment
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContentView(R.layout.activity_main)
+        setContentView(R.layout.activity_test)
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
@@ -73,7 +73,7 @@ import com.example.myapplicationw.ui.fragment.ScanFragment
                 activity = this,
                 launcher = requestCameraPermissionLauncher,
                 onPermissionGranted = {
-                    val intent = Intent(this, QrScannerActivity::class.java)
+                    val intent = Intent(this, QRScannerActivity::class.java)
                     startActivity(intent)
                 }
             )

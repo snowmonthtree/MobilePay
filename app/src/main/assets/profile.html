@@ -207,8 +207,135 @@
     // 页面加载时初始化
     document.addEventListener('DOMContentLoaded', function () {
         initializePage();
+        initializeVerificationPage();
     });
+function initializeVerificationPage() {
+    // 显示加载状态
 
+    // 获取用户认证信息
+    let token = '';
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            token = userData.token || '';
+
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return;
+        }
+        if (!token) {
+            showToast('请先登录');
+            return;
+        }
+
+    // 调用接口获取审核状态
+    fetchAuditStatus(token)
+        .then((auditStatus) => {
+            // 更新页面状态显示
+            updateVerificationStatus(auditStatus);
+            // 显示模拟面板（实际项目可根据需求调整）
+updateAssetsOverview(auditStatus);
+        })
+        .catch((error) => {
+            console.error('获取审核状态失败:', error);
+            showToast(error.message || '获取审核状态失败，请重试');
+            // 显示默认表单
+
+
+        });
+}
+
+
+
+/**
+ * 调用接口获取审核状态
+ * @param {string} token - 用户认证token
+ * @returns {Promise<Object>} 审核状态数据
+ */
+function fetchAuditStatus(token) {
+    return new Promise((resolve, reject) => {
+        fetch('http://graywolf.top:6031/app/user/audit/status', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                'Content-Type': 'application/json',
+                'Accept': '*/*'
+            }
+        })
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error(`接口请求失败，状态码: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then((result) => {
+            if (result.code !== 200 || !result.data) {
+                throw new Error(result.message || '获取审核状态失败');
+            }
+            resolve(result.data);
+        })
+        .catch((error) => {
+            reject(error);
+        });
+    });
+}
+/**
+ * 根据审核状态更新资产概览组件的点击事件
+ * @param {string} auditStatus - 审核状态，可能值：pending（审核中）、approved（已通过）、rejected（已拒绝）
+ */
+function updateAssetsOverview(auditStatus) {
+    // 获取资产菜单项元素
+    const menuItem = document.querySelector('.assets-overview .menu-item');
+    if (!menuItem) {
+        console.error('未找到资产菜单项(.menu-item)');
+        return;
+    }
+
+    // 根据审核状态设置点击事件
+    if (auditStatus === 'approved') {
+        // 已实名：恢复默认点击事件（查看资产详情）
+        menuItem.onclick = viewAssetDetails;
+    } else {
+        // 未实名（审核中/已拒绝）：修改点击事件为提示未实名
+        menuItem.onclick = function() {
+            showToast('未实名,请先实名');
+        };
+    }
+    }
+/**
+ * 根据审核状态更新用户实名认证状态显示
+ * @param {string} auditStatus - 审核状态，可能值：pending（审核中）、approved（已通过）、rejected（已拒绝）
+ */
+function updateVerificationStatus(auditStatus) {
+    // 获取状态显示容器
+    const statusContainer = document.querySelector('.user-status');
+    if (!statusContainer) {
+        console.error('未找到状态显示容器(.user-status)');
+        return;
+    }
+
+    // 根据审核状态生成对应的HTML内容
+    let statusHtml = '';
+    switch (auditStatus) {
+        case 'approved':
+            // 已通过审核：使用verified类
+            statusHtml = '<span class="status-badge verified">已实名</span>';
+            break;
+        case 'pending':
+        case 'rejected':
+        default:
+            // 审核中、已拒绝或其他状态：使用level类
+            statusHtml = '<span class="status-badge level">未实名</span>';
+            break;
+    }
+
+    // 更新容器内容
+    statusContainer.innerHTML = statusHtml;
+
+    // 可选：添加状态日志便于调试
+
+}
     function initializePage() {
     try {
         // 从localStorage获取userData

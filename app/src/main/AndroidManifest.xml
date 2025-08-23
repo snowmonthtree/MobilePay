@@ -30,11 +30,11 @@
             android:windowSoftInputMode="adjustPan"
             android:exported="false" />
         <activity
-            android:name=".ui.activity.QrScannerActivity"
+            android:name=".ui.activity.QRScannerActivity"
             android:exported="false" />
         <activity
             android:name=".ui.activity.MainActivity"
-            android:windowSoftInputMode="adjustPan"
+            android:windowSoftInputMode="adjustResize"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
