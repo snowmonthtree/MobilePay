@@ -11,7 +11,7 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.setPadding
 import androidx.recyclerview.widget.RecyclerView
-import com.example.myapplicationw.Interfaces.ChatListener
+import com.example.myapplicationw.interfaces.ChatListener
 import com.example.myapplicationw.R
 import java.text.SimpleDateFormat
 import java.util.Date

@@ -1,4 +1,5 @@
 package com.example.myapplicationw.ui.navigation
+
 import android.content.Context
 import android.util.AttributeSet
 import android.view.View
@@ -6,19 +7,20 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.example.myapplicationw.Interfaces.OnNavItemClickListener
+import com.example.myapplicationw.interfaces.OnNavItemClickListener
 import com.example.myapplicationw.R
 
-// 导航项点击事件接口（解耦跳转逻辑）
-
-// 适配固定XML布局的导航栏组件
+/**
+ * 自定义底部导航栏组件
+ * 支持5个导航项：首页、扫一扫、智能助手、账单、我的
+ */
 class MyBottomNavView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
 ) : FrameLayout(context, attrs, defStyleAttr) {
 
-    // 导航项索引常量（与XML布局顺序对应）
+    // 导航项索引常量（与XML布局顺序严格对应）
     companion object {
         const val INDEX_HOME = 0
         const val INDEX_SCAN = 1
@@ -27,13 +29,14 @@ class MyBottomNavView @JvmOverloads constructor(
         const val INDEX_PROFILE = 4
     }
 
-    // 绑定XML中的控件（与你的XML布局ID严格对应）
+    // 导航项容器
     private lateinit var navHome: LinearLayout
     private lateinit var navScan: LinearLayout
     private lateinit var navAssistant: LinearLayout
     private lateinit var navBills: LinearLayout
     private lateinit var navProfile: LinearLayout
 
+    // 图标和文字控件
     private lateinit var ivHome: ImageView
     private lateinit var tvHome: TextView
     private lateinit var ivScan: ImageView
@@ -46,22 +49,33 @@ class MyBottomNavView @JvmOverloads constructor(
     // 状态控制变量
     private var currentSelectedIndex = INDEX_HOME
     private var listener: OnNavItemClickListener? = null
-    private val inactiveColor = context.getColor(R.color.nav_inactive)
-    private val activeColor = context.getColor(R.color.nav_active)
+    private val inactiveColor: Int by lazy { context.getColor(R.color.nav_inactive) }
+    private val activeColor: Int by lazy { context.getColor(R.color.nav_active) }
 
     init {
-
-        this.clipChildren = false  // 关闭子视图裁剪
-        this.clipToPadding = false // 关闭内边距裁剪
-        // 从XML加载布局（使用传入的上下文和当前布局）
-        View.inflate(context, R.layout.bottom_nav, this)
-        // 绑定XML中的控件
+        // 初始化布局
+        initLayout()
+        // 绑定视图
         initViews()
-        // 初始化点击事件
-        initClickListeners()
+        // 初始化事件
+        initListeners()
+        // 设置初始状态
+        updateSelectedState(INDEX_HOME)
     }
 
-    // 绑定XML中的控件（ID必须与你的XML完全一致）
+    /**
+     * 初始化布局
+     */
+    private fun initLayout() {
+        clipChildren = false  // 允许子视图超出边界（适用于中间凸起按钮）
+        clipToPadding = false
+        View.inflate(context, R.layout.bottom_nav, this)
+    }
+
+    /**
+     * 绑定XML中的视图控件
+     * 注意：ID必须与布局文件保持一致
+     */
     private fun initViews() {
         // 导航项容器
         navHome = findViewById(R.id.nav_home)
@@ -81,47 +95,34 @@ class MyBottomNavView @JvmOverloads constructor(
         tvProfile = findViewById(R.id.tv_profile)
     }
 
-    // 初始化导航项点击事件
-    private fun initClickListeners() {
-        navHome.setOnClickListener {
-            if (currentSelectedIndex != INDEX_HOME) {
-                updateSelectedState(INDEX_HOME)
-                listener?.onNavItemClick(INDEX_HOME)
-            }
-        }
+    /**
+     * 初始化点击事件监听
+     */
+    private fun initListeners() {
+        navHome.setOnClickListener { handleItemClick(INDEX_HOME) }
+        navScan.setOnClickListener { handleItemClick(INDEX_SCAN) }
+        navAssistant.setOnClickListener { handleItemClick(INDEX_ASSISTANT) }
+        navBills.setOnClickListener { handleItemClick(INDEX_BILLS) }
+        navProfile.setOnClickListener { handleItemClick(INDEX_PROFILE) }
+    }
 
-        navScan.setOnClickListener {
-            if (currentSelectedIndex != INDEX_SCAN) {
-                updateSelectedState(INDEX_SCAN)
-                listener?.onNavItemClick(INDEX_SCAN)
-            }
-        }
-
-        navAssistant.setOnClickListener {
-            if (currentSelectedIndex != INDEX_ASSISTANT) {
-                updateSelectedState(INDEX_ASSISTANT)
-                listener?.onNavItemClick(INDEX_ASSISTANT)
-            }
-        }
-
-        navBills.setOnClickListener {
-            if (currentSelectedIndex != INDEX_BILLS) {
-                updateSelectedState(INDEX_BILLS)
-                listener?.onNavItemClick(INDEX_BILLS)
-            }
-        }
-
-        navProfile.setOnClickListener {
-            if (currentSelectedIndex != INDEX_PROFILE) {
-                updateSelectedState(INDEX_PROFILE)
-                listener?.onNavItemClick(INDEX_PROFILE)
-            }
+    /**
+     * 处理导航项点击事件
+     * @param index 导航项索引
+     */
+    private fun handleItemClick(index: Int) {
+        if (currentSelectedIndex != index) {
+            updateSelectedState(index)
+            listener?.onNavItemClick(index)
         }
     }
 
-    // 更新选中状态（高亮当前项，重置其他项）
+    /**
+     * 更新选中状态（高亮当前项，重置其他项）
+     * @param index 要选中的导航项索引
+     */
     private fun updateSelectedState(index: Int) {
-        // 重置所有项为未选中
+        // 重置所有项为未选中状态
         resetAllItems()
 
         // 高亮选中项
@@ -135,7 +136,7 @@ class MyBottomNavView @JvmOverloads constructor(
                 tvScan.setTextColor(activeColor)
             }
             INDEX_ASSISTANT -> {
-                // 智能助手项可根据需求添加高亮逻辑
+                // 智能助手项的高亮逻辑（根据需求实现）
             }
             INDEX_BILLS -> {
                 ivBills.alpha = 1.0f
@@ -150,7 +151,9 @@ class MyBottomNavView @JvmOverloads constructor(
         currentSelectedIndex = index
     }
 
-    // 重置所有项为未选中状态
+    /**
+     * 重置所有项为未选中状态
+     */
     private fun resetAllItems() {
         // 首页
         ivHome.alpha = 0.6f
@@ -166,15 +169,27 @@ class MyBottomNavView @JvmOverloads constructor(
         tvProfile.setTextColor(inactiveColor)
     }
 
-    // 设置点击事件监听器（供页面调用）
+    /**
+     * 设置导航项点击事件监听器
+     * @param listener 点击事件监听器
+     */
     fun setOnNavItemClickListener(listener: OnNavItemClickListener) {
         this.listener = listener
     }
 
-    // 外部强制更新选中状态（如页面初始化时）
+    /**
+     * 外部强制更新选中状态
+     * @param index 要选中的导航项索引（0-4）
+     */
     fun setSelectedIndex(index: Int) {
-        if (index in 0..4) {
+        if (index in INDEX_HOME..INDEX_PROFILE) {
             updateSelectedState(index)
         }
     }
+
+    /**
+     * 获取当前选中的索引
+     * @return 当前选中的导航项索引
+     */
+    fun getSelectedIndex(): Int = currentSelectedIndex
 }

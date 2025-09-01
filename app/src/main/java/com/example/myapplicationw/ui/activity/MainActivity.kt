@@ -14,7 +14,7 @@ import androidx.camera.core.ExperimentalGetImage
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.myapplicationw.R
-import com.example.myapplicationw.Interfaces.JsInterface
+import com.example.myapplicationw.interfaces.JsInterface
 
 @ExperimentalGetImage class MainActivity : AppCompatActivity() {
     private var jsInterfaces=JsInterface(this)

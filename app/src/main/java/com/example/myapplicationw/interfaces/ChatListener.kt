@@ -1,4 +1,4 @@
-package com.example.myapplicationw.Interfaces
+package com.example.myapplicationw.interfaces
 
 /**
  * 聊天交互监听器

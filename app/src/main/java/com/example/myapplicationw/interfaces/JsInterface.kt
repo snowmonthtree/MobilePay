@@ -1,4 +1,4 @@
-package com.example.myapplicationw.Interfaces
+package com.example.myapplicationw.interfaces
 
 import android.app.Activity
 import android.content.Context

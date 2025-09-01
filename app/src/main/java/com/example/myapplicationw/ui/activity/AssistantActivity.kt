@@ -11,7 +11,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.myapplicationw.Interfaces.ChatListener
+import com.example.myapplicationw.interfaces.ChatListener
 import com.example.myapplicationw.R
 import com.example.myapplicationw.retrofit.RetrofitClient
 import com.example.myapplicationw.ui.adapter.MessageAdapter
