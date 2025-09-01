@@ -10,7 +10,6 @@ import androidx.camera.core.ExperimentalGetImage
 import androidx.fragment.app.Fragment
 import com.example.myapplicationw.R
 import com.example.myapplicationw.ui.activity.MainActivity
-import com.example.myapplicationw.ui.activity.TestActivity
 
 @ExperimentalGetImage class HomeFragment : Fragment() {
     private lateinit var btntest:Button
@@ -28,10 +27,10 @@ import com.example.myapplicationw.ui.activity.TestActivity
         super.onViewCreated(view, savedInstanceState)
 
         btntest=view.findViewById(R.id.buttonScan)
-        btntest.setOnClickListener {
+        /*btntest.setOnClickListener {
             val intent = Intent(requireContext(), TestActivity::class.java)
             startActivity(intent)
-        }
+        }*/
     }
 
 }

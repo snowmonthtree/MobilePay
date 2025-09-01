@@ -1,8 +1,9 @@
 package com.example.myapplicationw.ui.activity
-
 import android.Manifest.permission.CAMERA
+
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -11,9 +12,6 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
@@ -24,145 +22,149 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.myapplicationw.Interfaces.JsInterface
+import com.example.myapplicationw.Interfaces.OnNavItemClickListener
 import com.example.myapplicationw.R
+import com.example.myapplicationw.ui.activity.AssistantActivity
 import com.example.myapplicationw.ui.activity.QRScannerActivity
+import com.example.myapplicationw.ui.navigation.MyBottomNavView
 
 @ExperimentalGetImage
-class TestActivity : AppCompatActivity() {
-    // 1. WebView 核心相关
-    private lateinit var webView: WebView
-    private lateinit var jsInterfaces: JsInterface
-    private val specialPages = listOf(
-        "index.html",    // 首页（新增为特殊页面，用于返回逻辑）
-        "bills.html",
-        "profile.html"
-    ) // 特殊页面列表：首页+账单+我的
+class TestActivity : AppCompatActivity(), OnNavItemClickListener {
 
-    // 2. 底部导航相关
-    private lateinit var bottomNav: LinearLayout // 底部导航根布局（用于显示/隐藏）
-    private lateinit var navHome: LinearLayout
-    private lateinit var navScan: LinearLayout
-    private lateinit var navAssistant: LinearLayout
-    private lateinit var navBills: LinearLayout
-    private lateinit var navProfile: LinearLayout
-    private lateinit var ivHome: ImageView
-    private lateinit var tvHome: TextView
-    private lateinit var ivScan: ImageView
-    private lateinit var tvScan: TextView
-    private lateinit var ivBills: ImageView
-    private lateinit var tvBills: TextView
-    private lateinit var ivProfile: ImageView
-    private lateinit var tvProfile: TextView
-    private var currentNavIndex = 0 // 当前选中导航索引（默认首页）
+    // 常量定义
+    companion object {
+        private const val TAG = "TestActivity"
+        private const val CORS_TARGET_DOMAIN = "graywolf.top"
+        private const val NAV_INDEX_LOGIN = -1
+    }
 
-    // 3. 导航对应的 URL 列表（本地 asset 文件）
-    private val navUrlMap = listOf(
-        "file:///android_asset/index.html"    // 0: 首页（特殊页面）
-        , ""                                  // 1: 扫一扫（原生页面）
-        , ""                                  // 2: 智能助手（原生页面）
-        , "file:///android_asset/bills.html"  // 3: 账单（特殊页面）
-        , "file:///android_asset/profile.html"// 4: 我的（特殊页面）
+    // 成员变量
+    private lateinit var mWebView: WebView
+    private lateinit var mJsInterface: JsInterface
+    private lateinit var mBottomNavView: MyBottomNavView // 导航组件实例
+    private lateinit var mCameraPermissionLauncher: ActivityResultLauncher<String>
+
+    // 导航对应的URL映射
+    private val mNavUrlMap = listOf(
+        "file:///android_asset/index.html",    // 首页
+        "",                                    // 扫一扫（无URL）
+        "",                                    // 智能助手（无URL）
+        "file:///android_asset/bills.html",    // 账单
+        "file:///android_asset/profile.html"   // 我的
     )
 
-    // 4. 相机权限请求器
-    private lateinit var cameraPermissionLauncher: ActivityResultLauncher<String>
+    // 特殊页面列表（控制导航栏显示/隐藏）
+    private val mSpecialPages = listOf("index.html", "bills.html", "profile.html")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_test)
+        setContentView(R.layout.activity_test) // 假设布局中已包含bottom_nav
 
-        // 处理系统Insets
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+        // 初始化导航组件（从现有布局中获取，无需修改XML）
+        mBottomNavView = findViewById(R.id.bottom_nav)
+        mBottomNavView.setOnNavItemClickListener(this) // 设置监听器
+
+        Log.e("aaaaaaaaaaaaaa", "onCreate: 登录页加载指令已发出1")
+        // 初始化其他组件
+        initWebView()
+
+        Log.e("aaaaaaaaaaaaaa", "onCreate: 登录页加载指令已发出2")
+        initJsInterface()
+
+        Log.e("aaaaaaaaaaaaaa", "onCreate: 登录页加载指令已发出3")
+        initCameraPermissionLauncher()
+
+        Log.e("aaaaaaaaaaaaaa", "onCreate: 登录页加载指令已发出4")
+        adaptSystemNavBar()
+
+        Log.e("aaaaaaaaaaaaaa", "onCreate: 登录页加载指令已发出5")
+
+        // 初始加载首页
+
+        Log.d(TAG, "onCreate: 准备加载登录页")
+        loadWebUrlByIndex(NAV_INDEX_LOGIN)
+        Log.e("aaaaaaaaaaaaaa", "onCreate: 登录页加载指令已发出")
+        mWebView.loadUrl("file:///android_asset/login.html")
+    }
+
+    // 适配系统导航栏（避免与底部导航重合）
+    private fun adaptSystemNavBar() {
+        // 为导航栏添加底部内边距（适配手机自带按钮）
+        ViewCompat.setOnApplyWindowInsetsListener(mBottomNavView) { view, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, 0)
+            view.setPadding(
+                view.paddingLeft,
+                view.paddingTop,
+                view.paddingRight,
+                systemBars.bottom + view.paddingBottom // 保留原有paddingBottom
+            )
             insets
         }
 
-        // 初始化 JS 交互接口
-        jsInterfaces = JsInterface(this)
-
-        // 初始化相机权限请求器
-        initCameraPermissionLauncher()
-
-        // 初始化底部导航（绑定根布局，用于显示/隐藏）
-        bottomNav = findViewById(R.id.bottom_nav) // 对应 include 标签的 ID
-        initBottomNavViews()
-
-        // 初始化 WebView（核心：添加页面加载监听，控制导航显示/隐藏）
-        initWebView()
-
-        // 初始化导航点击事件
-        initNavClickListeners()
-
-        // 初始加载首页 + 显示导航栏
-        loadWebUrlByIndex(-1)
-        updateNavSelectedState(0)
-        bottomNav.visibility = View.VISIBLE
+        // 页面根容器适配
+        val mainContainer = findViewById<View>(R.id.main)
+        ViewCompat.setOnApplyWindowInsetsListener(mainContainer) { view, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(
+                systemBars.left,
+                systemBars.top,
+                systemBars.right,
+                0
+            )
+            insets
+        }
     }
 
-    /**
-     * 初始化 WebView（新增页面加载完成监听，控制导航显示/隐藏）
-     */
+    // 初始化WebView（保持原有逻辑）
     private fun initWebView() {
-        webView = findViewById(R.id.main_webview)
-
-        // 原有 WebView 配置保留
-        webView.settings.apply {
+        mWebView = findViewById(R.id.main_webview)
+        mWebView.settings.apply {
             javaScriptEnabled = true
+            javaScriptCanOpenWindowsAutomatically = false
             allowFileAccess = true
-            allowFileAccessFromFileURLs = true
-            allowUniversalAccessFromFileURLs = true
             domStorageEnabled = true
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
         }
 
-        webView.addJavascriptInterface(jsInterfaces, "AndroidInterface")
-
-        // WebViewClient 新增页面加载完成监听（控制导航显示/隐藏）
-        webView.webViewClient = object : WebViewClient() {
-            // 页面加载完成后，判断是否为特殊页面，控制导航显示/隐藏
+        mWebView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                Log.d(TAG, "开始加载 URL: $url") // 跟踪所有加载的页面
+            }
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                // 控制导航栏显示/隐藏
                 url?.let {
-                    if (isSpecialPage(it)) {
-                        bottomNav.visibility = View.VISIBLE // 特殊页面：显示导航
-                    } else {
-                        bottomNav.visibility = View.GONE // 非特殊页面：隐藏导航
-                    }
+                    val isSpecial = mSpecialPages.any { page -> it.contains(page) }
+                    mBottomNavView.visibility = if (isSpecial) View.VISIBLE else View.GONE
                 }
             }
 
-            // 原有 URL 拦截逻辑保留
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                view.loadUrl(url)
+                mWebView.loadUrl(url)
                 return true
             }
 
-            // 原有错误处理保留
             override fun onReceivedError(
                 view: WebView?,
                 request: WebResourceRequest?,
                 error: WebResourceError?
             ) {
                 super.onReceivedError(view, request, error)
-                Log.e("WebView", "资源加载错误: ${error?.description}")
+                Log.e(TAG, "WebView错误: ${error?.description}")
             }
 
-            // 原有跨域处理保留
             override fun shouldInterceptRequest(
                 view: WebView?,
                 request: WebResourceRequest
             ): WebResourceResponse? {
                 val originalResponse = super.shouldInterceptRequest(view, request)
-                if (request.url.host == "graywolf.top") {
+                if (request.url.host == CORS_TARGET_DOMAIN) {
                     val modifiedHeaders = mutableMapOf<String, String>().apply {
                         originalResponse?.responseHeaders?.let { putAll(it) }
                         put("Access-Control-Allow-Origin", "*")
-                        put("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD")
-                        put("Access-Control-Allow-Headers", "accept, Content-Type, Authorization")
-                        put("Access-Control-Max-Age", "86400")
                     }
                     return originalResponse?.let {
                         WebResourceResponse(
@@ -180,214 +182,89 @@ class TestActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * 初始化底部导航控件（绑定 XML）
-     */
-    private fun initBottomNavViews() {
-        navHome = findViewById(R.id.nav_home)
-        navScan = findViewById(R.id.nav_scan)
-        navAssistant = findViewById(R.id.nav_assistant)
-        navBills = findViewById(R.id.nav_bills)
-        navProfile = findViewById(R.id.nav_profile)
-
-        ivHome = findViewById(R.id.iv_home)
-        tvHome = findViewById(R.id.tv_home)
-        ivScan = findViewById(R.id.iv_scan)
-        tvScan = findViewById(R.id.tv_scan)
-        ivBills = findViewById(R.id.iv_bills)
-        tvBills = findViewById(R.id.tv_bills)
-        ivProfile = findViewById(R.id.iv_profile)
-        tvProfile = findViewById(R.id.tv_profile)
+    // 初始化JS交互接口
+    private fun initJsInterface() {
+        mJsInterface = JsInterface(this)
+        mWebView.addJavascriptInterface(mJsInterface, "AndroidInterface")
     }
 
-    /**
-     * 初始化导航点击事件
-     */
-    private fun initNavClickListeners() {
-        // 首页：加载首页
-        navHome.setOnClickListener {
-            if (currentNavIndex != 0) {
-                updateNavSelectedState(0)
-                loadWebUrlByIndex(0)
-            }
-        }
-
-        // 扫一扫：原生页面
-        navScan.setOnClickListener {
-            if (currentNavIndex != 1) {
-                updateNavSelectedState(1)
-                checkCameraPermission {
-                    startActivity(Intent(this, QRScannerActivity::class.java))
-                }
-            }
-        }
-
-        // 智能助手：原生页面
-        navAssistant.setOnClickListener {
-            updateNavSelectedState(2)
-            startActivity(Intent(this, AssistantActivity::class.java))
-        }
-
-        // 账单：加载账单页面
-        navBills.setOnClickListener {
-            if (currentNavIndex != 3) {
-                updateNavSelectedState(3)
-                loadWebUrlByIndex(3)
-            }
-        }
-
-        // 我的：加载我的页面
-        navProfile.setOnClickListener {
-            if (currentNavIndex != 4) {
-                updateNavSelectedState(4)
-                loadWebUrlByIndex(4)
-            }
-        }
-    }
-
-    /**
-     * 根据索引加载 URL
-     */
-    private fun loadWebUrlByIndex(index: Int) {
-        if(index==-1){
-            webView.loadUrl("file:///android_asset/login.html")
-        }
-        else {
-            val targetUrl = navUrlMap[index]
-            if (targetUrl.isNotEmpty() && webView.url != targetUrl) {
-                webView.loadUrl(targetUrl)
-            }
-        }
-    }
-
-    /**
-     * 更新导航选中状态
-     */
-    private fun updateNavSelectedState(selectedIndex: Int) {
-        val inactiveColor = ContextCompat.getColor(this, R.color.nav_inactive)
-        // 重置所有未选中状态
-        ivHome.alpha = 0.6f
-        tvHome.setTextColor(inactiveColor)
-        ivScan.alpha = 0.6f
-        tvScan.setTextColor(inactiveColor)
-        ivBills.alpha = 0.6f
-        tvBills.setTextColor(inactiveColor)
-        ivProfile.alpha = 0.6f
-        tvProfile.setTextColor(inactiveColor)
-
-        // 设置选中状态
-        when (selectedIndex) {
-            0 -> {
-                ivHome.alpha = 1.0f
-                tvHome.setTextColor(ContextCompat.getColor(this, R.color.nav_active))
-            }
-            1 -> {
-                ivScan.alpha = 1.0f
-                tvScan.setTextColor(ContextCompat.getColor(this, R.color.nav_active))
-            }
-            2 -> { /* 助手项可选高亮 */ }
-            3 -> {
-                ivBills.alpha = 1.0f
-                tvBills.setTextColor(ContextCompat.getColor(this, R.color.nav_active))
-            }
-            4 -> {
-                ivProfile.alpha = 1.0f
-                tvProfile.setTextColor(ContextCompat.getColor(this, R.color.nav_active))
-            }
-        }
-        currentNavIndex = selectedIndex
-    }
-
-    // ---------------------- 核心：特殊页面判断与返回逻辑 ----------------------
-    /**
-     * 判断当前 URL 是否为特殊页面
-     */
-    private fun isSpecialPage(url: String): Boolean {
-        return specialPages.any { url.contains(it) }
-    }
-
-    /**
-     * 判断当前页面是否为首页（index.html）
-     */
-    private fun isHomePage(): Boolean {
-        val currentUrl = webView.url ?: return false
-        return currentUrl.contains("index.html")
-    }
-
-    /**
-     * 重写返回键逻辑：
-     * - 特殊页面：非首页 → 回首页；首页 → 关Activity
-     * - 非特殊页面：正常回退（WebView 历史）
-     */
-    override fun onBackPressed() {
-        super.onBackPressed()
-        val currentUrl = webView.url ?: return
-
-        if (isSpecialPage(currentUrl)) {
-            // 1. 特殊页面逻辑
-            if (isHomePage()) {
-                // 1.1 是首页 → 关闭 Activity
-                finish()
-            } else {
-                // 1.2 非首页 → 跳转到首页
-                loadWebUrlByIndex(0)
-                updateNavSelectedState(0) // 同步导航选中状态为首页
-            }
-        } else {
-            // 2. 非特殊页面逻辑：正常回退 WebView，无历史则关Activity
-            if (webView.canGoBack()) {
-                webView.goBack()
-            } else {
-                finish()
-            }
-        }
-    }
-
-    // ---------------------- 原有辅助逻辑保留 ----------------------
+    // 初始化相机权限请求器
     private fun initCameraPermissionLauncher() {
-        cameraPermissionLauncher = registerForActivityResult(
+        mCameraPermissionLauncher = registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
             if (isGranted) {
-                Toast.makeText(this, "相机权限已开启，请再次点击扫一扫", Toast.LENGTH_SHORT).show()
+                startActivity(Intent(this, QRScannerActivity::class.java))
             } else {
-                Toast.makeText(this, "请在设置中开启相机权限", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "请开启相机权限", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun checkCameraPermission(onGranted: () -> Unit) {
-        if (ContextCompat.checkSelfPermission(this, CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            onGranted.invoke()
-        } else {
-            cameraPermissionLauncher.launch(CAMERA)
+    // 加载WebView页面
+    private fun loadWebUrlByIndex(index: Int) {
+        if (index== NAV_INDEX_LOGIN){
+            mWebView.loadUrl("file:///android_asset/login.html")
+        }
+        else {
+            val targetUrl = mNavUrlMap.getOrNull(index) ?: return
+            if (targetUrl.isNotEmpty() && mWebView.url != targetUrl) {
+                mWebView.loadUrl(targetUrl)
+            }
         }
     }
 
+    // 实现导航点击接口（处理跳转逻辑）
+    override fun onNavItemClick(index: Int) {
+        when (index) {
+            MyBottomNavView.INDEX_HOME -> loadWebUrlByIndex(MyBottomNavView.INDEX_HOME)
+            MyBottomNavView.INDEX_SCAN -> checkCameraPermission()
+            MyBottomNavView.INDEX_ASSISTANT -> startActivity(Intent(this, AssistantActivity::class.java))
+            MyBottomNavView.INDEX_BILLS -> loadWebUrlByIndex(MyBottomNavView.INDEX_BILLS)
+            MyBottomNavView.INDEX_PROFILE -> loadWebUrlByIndex(MyBottomNavView.INDEX_PROFILE)
+        }
+    }
+
+    // 相机权限检查
+    private fun checkCameraPermission() {
+        if (ContextCompat.checkSelfPermission(this, CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            startActivity(Intent(this, QRScannerActivity::class.java))
+        } else {
+            mCameraPermissionLauncher.launch(CAMERA)
+        }
+    }
+
+    // 返回键逻辑
+    override fun onBackPressed() {
+        val currentUrl = mWebView.url ?: run { super.onBackPressed(); return }
+
+        if (mSpecialPages.any { currentUrl.contains(it) }) {
+            if (currentUrl.contains("index.html")) {
+                super.onBackPressed()
+            } else {
+                loadWebUrlByIndex(MyBottomNavView.INDEX_HOME)
+                mBottomNavView.setSelectedIndex(MyBottomNavView.INDEX_HOME)
+            }
+        } else {
+            if (mWebView.canGoBack()) {
+                mWebView.goBack()
+            } else {
+                super.onBackPressed()
+            }
+        }
+    }
+
+    // 其他生命周期方法（保持原有逻辑）
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         when (requestCode) {
-            JsInterface.REQUEST_CODE_IMAGE_PICK -> jsInterfaces.handleImageResult(resultCode, data)
-            JsInterface.REQUEST_CODE_QR_SCAN -> jsInterfaces.handleScanResult(resultCode, data)
+            JsInterface.REQUEST_CODE_IMAGE_PICK -> mJsInterface.handleImageResult(resultCode, data)
+            JsInterface.REQUEST_CODE_QR_SCAN -> mJsInterface.handleScanResult(resultCode, data)
         }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        jsInterfaces.onRequestPermissionsResult(requestCode)
-    }
-
     override fun onDestroy() {
-        webView.clearCache(true)
-        webView.clearHistory()
-        webView.loadUrl("about:blank")
-        webView.pauseTimers()
-        webView.removeAllViews()
-        webView.destroy()
+        mWebView.destroy()
         super.onDestroy()
     }
 }
