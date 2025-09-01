@@ -59,6 +59,7 @@ class JsInterface(private val context: Context) {
      * @param callback JS回调函数名（用于返回图片Uri）
      * 注：需在主线程或通过Activity.runOnUiThread处理UI相关操作
      */
+
     @JavascriptInterface
     fun openImagePicker(callback: String) {
         imageSelectJsCallback = callback
@@ -118,7 +119,7 @@ class JsInterface(private val context: Context) {
 
                 activity.runOnUiThread {
                     try {
-                        val webView = activity.findViewById<WebView>(R.id.loginWebView)
+                        val webView = activity.findViewById<WebView>(R.id.main_webview)
                         // 转义Uri中的特殊字符（如单引号），避免JS语法错误
                         val escapedUri = imageUri.toString().replace("'", "\\'")
                         val jsCode = "window.$callback('$escapedUri')"
@@ -229,7 +230,7 @@ class JsInterface(private val context: Context) {
         // 主线程执行JS回调（WebView操作需在主线程）
         activity.runOnUiThread {
             try {
-                val webView = activity.findViewById<WebView>(R.id.loginWebView)
+                val webView = activity.findViewById<WebView>(R.id.main_webview)
                 // 转义特殊字符（如单引号、换行符），避免JS语法错误
                 val escapedContent = qrContent.replace("'", "\\'").replace("\n", "\\n")
                 val jsCode = "window.$callback('$escapedContent')"

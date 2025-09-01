@@ -91,14 +91,13 @@ class TestActivity : AppCompatActivity(), OnNavItemClickListener {
         // WebSettings配置（按功能分组，添加注释说明）
         webSettings.apply {
             javaScriptEnabled = true // 启用JS（必须，用于与H5交互）
-            javaScriptCanOpenWindowsAutomatically = false // 禁止JS自动打开窗口
             allowFileAccess = true // 允许访问本地文件（加载asset资源）
             domStorageEnabled = true // 启用DOM存储（H5本地存储）
-            setSupportZoom(true) // 支持缩放
-            builtInZoomControls = true // 启用内置缩放控件
             displayZoomControls = false // 隐藏缩放按钮（优化UI）
             loadsImagesAutomatically = true // 自动加载图片
-            defaultTextEncodingName = "UTF-8" // 默认编码格式
+
+            allowFileAccessFromFileURLs = true     // 允许通过 file:// URL 访问其他文件
+            allowUniversalAccessFromFileURLs = true // 允许通过 file:// URL 访问任何来源
         }
 
         // 设置WebViewClient（处理页面加载、错误、URL拦截等）
@@ -156,19 +155,24 @@ class TestActivity : AppCompatActivity(), OnNavItemClickListener {
                 view: WebView?,
                 request: WebResourceRequest
             ): WebResourceResponse? {
+                // 1. 先获取原始响应
                 val originalResponse = super.shouldInterceptRequest(view, request)
-                val requestHost = request.url.host ?: return originalResponse
-
-                // 仅对目标域名添加CORS头
-                if (requestHost == CORS_TARGET_DOMAIN) {
+                val requestUrl = request.url.toString()
+                // 2. 如果是目标接口域名（替换为你的后端域名），添加跨域头
+                if (request.url.host == "graywolf.top") {
+                    // 复制原始响应头并添加CORS相关头
                     val modifiedHeaders = mutableMapOf<String, String>().apply {
                         // 保留原始响应头
                         originalResponse?.responseHeaders?.let { putAll(it) }
-                        // 添加CORS允许跨域头
-                        put("Access-Control-Allow-Origin", "*")
-                        put("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+
+                        // 添加跨域许可头
+                        put("Access-Control-Allow-Origin", "*") // 开发环境可用*，生产环境建议指定具体前端域名
+                        put("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD")
+                        put("Access-Control-Allow-Headers", "accept, Content-Type, Authorization")
+                        put("Access-Control-Max-Age", "86400") // 预检请求缓存时间（24小时）
                     }
 
+                    // 3. 返回添加了跨域头的响应
                     return originalResponse?.let {
                         WebResourceResponse(
                             it.mimeType,
@@ -180,6 +184,8 @@ class TestActivity : AppCompatActivity(), OnNavItemClickListener {
                         )
                     }
                 }
+
+                // 非目标域名的请求，返回原始响应
                 return originalResponse
             }
         }
@@ -227,7 +233,7 @@ class TestActivity : AppCompatActivity(), OnNavItemClickListener {
                 view.paddingLeft,
                 view.paddingTop,
                 view.paddingRight,
-                systemBarsInsets.bottom + view.paddingBottom // 保留原有内边距
+                systemBarsInsets.bottom  // 保留原有内边距
             )
             insets
         }

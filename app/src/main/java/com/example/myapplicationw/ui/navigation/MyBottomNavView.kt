@@ -112,7 +112,7 @@ class MyBottomNavView @JvmOverloads constructor(
      */
     private fun handleItemClick(index: Int) {
         if (currentSelectedIndex != index) {
-            updateSelectedState(index)
+            if(index!= INDEX_SCAN&&index!= INDEX_ASSISTANT)updateSelectedState(index)
             listener?.onNavItemClick(index)
         }
     }
