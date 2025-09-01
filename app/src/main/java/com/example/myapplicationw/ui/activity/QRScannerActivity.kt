@@ -3,6 +3,7 @@ package com.example.myapplicationw.ui.activity
 import android.Manifest
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -230,6 +231,7 @@ class QRScannerActivity : AppCompatActivity() {
     /**
      * 打开图片选择器
      */
+    @SuppressLint("IntentReset")
     private fun openImagePicker() {
         val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
         intent.type = "image/*"
@@ -257,6 +259,7 @@ class QRScannerActivity : AppCompatActivity() {
     /**
      * 处理图片选择结果
      */
+    @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_CODE_PICK_IMAGE && resultCode == Activity.RESULT_OK) {
