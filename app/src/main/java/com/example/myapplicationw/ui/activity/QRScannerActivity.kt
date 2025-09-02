@@ -8,6 +8,7 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
@@ -213,18 +214,29 @@ class QRScannerActivity : AppCompatActivity() {
      * 检查存储权限并打开相册
      */
     private fun checkStoragePermissionAndOpenAlbum() {
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
+        val targetPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+：申请图片权限（仅需图片时用这个，按需替换）
+            arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
+        } else {
+            // Android 12 及以下：申请旧存储读权限
+            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+
+        // 检查权限是否已授予
+        val isPermissionGranted = targetPermissions.all { permission ->
+            ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+        }
+
+        if (isPermissionGranted) {
+            // 权限已授予，执行后续逻辑（如打开相册）
+            openImagePicker()
+        } else {
+            // 权限未授予，发起申请
             ActivityCompat.requestPermissions(
                 this,
-                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                targetPermissions,
                 REQUEST_CODE_STORAGE_PERMISSION
             )
-        } else {
-            openImagePicker()
         }
     }
 

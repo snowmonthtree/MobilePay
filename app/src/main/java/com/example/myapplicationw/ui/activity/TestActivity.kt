@@ -56,7 +56,6 @@ class TestActivity : AppCompatActivity(), OnNavItemClickListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge() // 启用Edge-to-Edge模式（Android 11+）
         setContentView(R.layout.activity_test)
 
         // 初始化顺序：先初始化基础组件，再初始化业务逻辑
@@ -233,7 +232,7 @@ class TestActivity : AppCompatActivity(), OnNavItemClickListener {
                 view.paddingLeft,
                 view.paddingTop,
                 view.paddingRight,
-                systemBarsInsets.bottom  // 保留原有内边距
+                0 // 保留原有内边距
             )
             insets
         }
@@ -331,10 +330,10 @@ class TestActivity : AppCompatActivity(), OnNavItemClickListener {
         }
 
         // 特殊页面：首页直接退出，其他特殊页面回退到首页
-        if (SPECIAL_PAGES.any { currentUrl.contains(it) }) {
-            if (currentUrl.contains("index.html")) {
+        if (SPECIAL_PAGES.any { currentUrl.contains(it) } || currentUrl.contains("login.html")) {
+            if (currentUrl.contains("index.html") ||currentUrl.contains("login.html")){
                 super.onBackPressed()
-                Log.d(TAG, "onBackPressed: 当前为首页，退出Activity")
+                Log.d(TAG, "onBackPressed: 当前不为特殊页，退出Activity")
             } else {
                 loadWebUrlByIndex(MyBottomNavView.INDEX_HOME)
                 bottomNavView.setSelectedIndex(MyBottomNavView.INDEX_HOME)
