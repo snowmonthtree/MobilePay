@@ -340,19 +340,10 @@
             </div>
 
             <!-- 模拟审核结果（仅用于原型演示） -->
-            <div class="verification-form" id="simulationPanel" style="margin-top: 20px;">
-                <h3 class="form-title">模拟审核结果（仅用于原型演示）</h3>
-                <div style="display: flex; gap: 10px;">
-                    <button class="submit-btn" style="background: #28a745;"
-                        onclick="simulateVerificationResult('verified')">模拟审核通过</button>
-                    <button class="submit-btn" style="background: #dc3545;"
-                        onclick="simulateVerificationResult('rejected')">模拟审核不通过</button>
-                </div>
-            </div>
-        </div>
 
         <!-- 底部导航 -->
 
+        </div>
     </div>
 
     <script src="script.js"></script>
@@ -391,15 +382,12 @@ function initializeVerificationPage() {
         .then((auditStatus) => {
             // 更新页面状态显示
             updateVerificationStatus(auditStatus);
-            // 显示模拟面板（实际项目可根据需求调整）
-            document.getElementById('simulationPanel').style.display = 'block';
         })
         .catch((error) => {
             console.error('获取审核状态失败:', error);
             showToast(error.message || '获取审核状态失败，请重试');
             // 显示默认表单
             document.getElementById('verificationStatus').style.display = 'none';
-            document.getElementById('simulationPanel').style.display = 'none';
         });
 }
 
@@ -948,7 +936,6 @@ function submitVerification() {
                 // 更新页面显示
                 document.getElementById('verificationStatus').style.display = 'block';
                 updateVerificationStatus('pending');
-                document.getElementById('simulationPanel').style.display = 'block';
             } else {
                 throw new Error(result.message || '提交审核失败');
             }
