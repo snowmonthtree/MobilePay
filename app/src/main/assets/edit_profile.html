@@ -428,16 +428,6 @@
     }
 
 function initializePage() {
-    // 显示当前手机号
-    const userPhone = localStorage.getItem("userPhone");
-    if (userPhone) {
-        document.getElementById("currentPhone").value = userPhone;
-        document.getElementById("phoneDisplay").textContent =
-            userPhone.replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2");
-    } else {
-        document.getElementById("currentPhone").value = "未绑定手机号";
-        document.getElementById("phoneDisplay").textContent = "未绑定";
-    }
 
     // 显示当前用户名和头像（适配实际字段）
     const userDataStr = localStorage.getItem("userData");
@@ -445,7 +435,16 @@ function initializePage() {
         try {
             const userData = JSON.parse(userDataStr);
             console.log("用户数据:", userData);
-
+            // 显示当前手机号
+            const userPhone=userData.phone.trim();
+            if (userPhone) {
+        document.getElementById("currentPhone").value = userPhone;
+        document.getElementById("phoneDisplay").textContent =
+            userPhone.replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2");
+         } else {
+        document.getElementById("currentPhone").value = "未绑定手机号";
+        document.getElementById("phoneDisplay").textContent = "未绑定";
+            }
             // 处理用户名（使用nickName字段）
             const userNameEl = document.getElementById("username");
             const userNameDisplayEl = document.getElementById("usernameDisplay");

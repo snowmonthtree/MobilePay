@@ -269,7 +269,7 @@ function updateAssetsOverview(auditStatus) {
     }
 
     // 根据审核状态设置点击事件
-    if (auditStatus === 'approved') {
+    if (auditStatus.status === 'approved') {
         // 已实名：恢复默认点击事件（查看资产详情）
         menuItem.onclick = viewAssetDetails;
     } else {
@@ -293,7 +293,9 @@ function updateVerificationStatus(auditStatus) {
 
     // 根据审核状态生成对应的HTML内容
     let statusHtml = '';
-    switch (auditStatus) {
+    console.error('aaaaaaaaaaa')
+    console.error(JSON.stringify(auditStatus))
+    switch (auditStatus.status) {
         case 'approved':
             // 已通过审核：使用verified类
             statusHtml = '<span class="status-badge verified">已实名</span>';

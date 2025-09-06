@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,7 +10,7 @@
             padding: 0 0 40px 0;
         }
 
-        /* 页面头部样式优化 */
+        /* 页面头部样式 */
         .page-header {
             padding: 16px 20px;
             color: white;
@@ -28,8 +27,7 @@
             margin: 0;
         }
 
-        .back-btn,
-        .refresh-btn {
+        .back-btn {
             background: rgba(255, 255, 255, 0.2);
             border: none;
             border-radius: 50%;
@@ -51,7 +49,7 @@
             height: 18px;
         }
 
-        /* 详情卡片样式优化 */
+        /* 详情卡片样式 */
         .detail-card {
             background: white;
             border-radius: 12px;
@@ -61,7 +59,7 @@
             position: relative;
         }
 
-        /* 金额和状态样式优化 */
+        /* 金额和状态样式 */
         .detail-header {
             text-align: center;
             margin-bottom: 28px;
@@ -111,7 +109,7 @@
             box-shadow: 0 2px 6px rgba(82, 196, 26, 0.15);
         }
 
-        /* 详情部分样式优化 */
+        /* 详情部分样式 */
         .detail-section {
             margin-bottom: 28px;
             animation-fill-mode: both;
@@ -165,7 +163,7 @@
             text-align: right;
         }
 
-        /* 分类选择器样式优化 */
+        /* 分类选择器样式 */
         .category-selector {
             width: 100%;
             margin-top: 16px;
@@ -216,7 +214,7 @@
             font-weight: 500;
         }
 
-        /* 备注输入框样式优化 */
+        /* 备注输入框样式 */
         .note-input {
             width: 100%;
             margin-top: 16px;
@@ -240,11 +238,7 @@
             outline: none;
         }
 
-        .note-input textarea::placeholder {
-            color: #bbb;
-        }
-
-        /* 按钮样式优化 */
+        /* 按钮样式 */
         .action-buttons {
             display: flex;
             gap: 16px;
@@ -260,9 +254,20 @@
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 12px 0;
         }
 
-        /* 复制按钮样式优化 */
+        .btn-primary {
+            background-color: #1890ff;
+            color: white;
+        }
+
+        .btn-primary:disabled {
+            cursor: not-allowed;
+            opacity: 0.8;
+        }
+
+        /* 复制按钮样式 */
         .copy-btn {
             background: none;
             border: none;
@@ -282,7 +287,7 @@
             height: 16px;
         }
 
-        /* Toast样式优化 */
+        /* Toast样式 */
         .toast {
             position: fixed;
             top: 50%;
@@ -299,43 +304,24 @@
         }
 
         @keyframes fadeInOut {
-            0% {
-                opacity: 0;
-                transform: translate(-50%, -40%);
-            }
-
-            15% {
-                opacity: 1;
-                transform: translate(-50%, -50%);
-            }
-
-            85% {
-                opacity: 1;
-                transform: translate(-50%, -50%);
-            }
-
-            100% {
-                opacity: 0;
-                transform: translate(-50%, -40%);
-            }
+            0% { opacity: 0; transform: translate(-50%, -40%); }
+            15% { opacity: 1; transform: translate(-50%, -50%); }
+            85% { opacity: 1; transform: translate(-50%, -50%); }
+            100% { opacity: 0; transform: translate(-50%, -40%); }
         }
     </style>
 </head>
-
 <body>
-<!-- 页面加载进度条 -->
 <div class="app-container">
-    <!-- 顶部状态栏 -->
-
     <!-- 账单详情页面 -->
     <div class="bill-detail-page" id="billDetailPage">
         <!-- 头部 -->
         <div class="page-header">
-            <button class="back-btn" onclick="goBack()">
+            <button class="back-btn" onclick="BillDetailPage.goBack()">
                 <img src="icons/danjiantouzuo.png" alt="返回">
             </button>
             <h1>账单详情</h1>
-            <div style="width: 24px;"></div> <!-- 占位元素，保持标题居中 -->
+            <div style="width: 24px;"></div> <!-- 占位元素 -->
         </div>
 
         <!-- 详情卡片 -->
@@ -364,7 +350,7 @@
                     <span class="detail-label">交易编号</span>
                     <div style="display: flex; align-items: center;">
                         <span class="detail-value" id="detailOrderNo">202410221530001</span>
-                        <button class="copy-btn" onclick="copyOrderNo()">
+                        <button class="copy-btn" onclick="BillDetailPage.copyOrderNo()">
                             <img src="icons/fuzhi.png" alt="复制">
                         </button>
                     </div>
@@ -376,27 +362,27 @@
                 <h3 class="section-title">支出分类</h3>
                 <div class="category-selector">
                     <div class="category-options">
-                        <div class="category-option" data-category="餐饮" onclick="selectCategory(this)">
+                        <div class="category-option" data-category="餐饮" onclick="BillDetailPage.selectCategory(this)">
                             <img src="icons/canyin.png" alt="餐饮" class="category-icon">
                             <span class="category-name">餐饮</span>
                         </div>
-                        <div class="category-option" data-category="出行" onclick="selectCategory(this)">
+                        <div class="category-option" data-category="出行" onclick="BillDetailPage.selectCategory(this)">
                             <img src="icons/zhiyin.png" alt="出行" class="category-icon">
                             <span class="category-name">出行</span>
                         </div>
-                        <div class="category-option" data-category="购物" onclick="selectCategory(this)">
+                        <div class="category-option" data-category="购物" onclick="BillDetailPage.selectCategory(this)">
                             <img src="icons/gouwu.png" alt="购物" class="category-icon">
                             <span class="category-name">购物</span>
                         </div>
-                        <div class="category-option" data-category="娱乐" onclick="selectCategory(this)">
+                        <div class="category-option" data-category="娱乐" onclick="BillDetailPage.selectCategory(this)">
                             <img src="icons/xiuxianyule.png" alt="娱乐" class="category-icon">
                             <span class="category-name">娱乐</span>
                         </div>
-                        <div class="category-option" data-category="生活服务" onclick="selectCategory(this)">
+                        <div class="category-option" data-category="生活服务" onclick="BillDetailPage.selectCategory(this)">
                             <img src="icons/shenghuofuwu.png" alt="生活服务" class="category-icon">
                             <span class="category-name">生活服务</span>
                         </div>
-                        <div class="category-option" data-category="其他" onclick="selectCategory(this)">
+                        <div class="category-option" data-category="其他" onclick="BillDetailPage.selectCategory(this)">
                             <img src="icons/shoukuanjiekou.png" alt="其他" class="category-icon">
                             <span class="category-name">其他</span>
                         </div>
@@ -414,380 +400,448 @@
 
             <!-- 操作按钮 -->
             <div class="action-buttons">
-                <button class="btn-primary" onclick="saveBillDetail()">保存</button>
+                <button class="btn-primary" onclick="BillDetailPage.saveBillDetail()">保存</button>
             </div>
         </div>
     </div>
 </div>
 
-<script src="script.js"></script>
 <script>
-    // 页面加载时从sessionStorage获取账单数据
-    document.addEventListener('DOMContentLoaded', function () {
-        loadBillData();
-    });
-
-
-
-    /**
-     * 加载并初始化账单详情数据到页面
-     */
-    function loadBillData() {
-        // 从sessionStorage获取账单数据
-        const billDataStr = sessionStorage.getItem('currentBillData');
-        if (!billDataStr) {
-            handleNoData();
-            return;
-        }
-
-        try {
-            const billData = JSON.parse(billDataStr);
-            // 验证核心字段是否存在
-            if (!billData.id || !billData.amount || !billData.merchant) {
-                throw new Error('账单数据不完整');
-            }
-
-            // 初始化金额及样式（修正拼写错误：detialAmount → detailAmount）
-            const detailAmount = document.getElementById("detailAmount");
-            if (detailAmount) {
-                // 移除原有样式类
-                detailAmount.classList.remove("expense", "income");
-                // 根据金额符号添加对应样式
-                if (billData.amount.startsWith("-")) {
-                    detailAmount.classList.add("expense");
-                } else {
-                    detailAmount.classList.add("income");
-                }
-                detailAmount.textContent = billData.amount || '¥0.00';
-            } else {
-                console.warn('未找到金额元素（id: detailAmount）');
-            }
-
-            // 填充其他基础信息（带默认值，避免undefined）
-            setElementContent('detailMerchant', billData.merchant || '未知商户');
-            setElementContent('detailTime', billData.time || '未知时间');
-            setElementContent('detailPayment', billData.payment || '未知支付方式');
-            setElementContent('detailOrderNo', billData.orderNo || '无');
-            setElementValue('billNote', billData.note || '');
-
-            // 初始化分类选中状态
-            selectCategoryByValue(billData.category || '其他');
-
-        } catch (error) {
-            console.error('初始化账单数据失败:', error);
-            handleNoData();
-        }
-    }
-
-    /**
-     * 安全设置元素文本内容
-     * @param {string} elementId - 元素ID
-     * @param {string} content - 要设置的内容
-     */
-    function setElementContent(elementId, content) {
-        const element = document.getElementById(elementId);
-        if (element) {
-            element.textContent = content;
-        } else {
-            console.warn(`未找到元素（id: ${elementId}）`);
-        }
-    }
-
-    /**
-     * 安全设置输入框值
-     * @param {string} elementId - 元素ID
-     * @param {string} value - 要设置的值
-     */
-    function setElementValue(elementId, value) {
-        const element = document.getElementById(elementId);
-        if (element) {
-            element.value = value;
-        } else {
-            console.warn(`未找到输入框元素（id: ${elementId}）`);
-        }
-    }
-
-    /**
-     * 根据分类值选中对应的分类选项
-     * @param {string} categoryValue - 分类值（如"餐饮"、"其他"）
-     */
-    function selectCategoryByValue(categoryValue) {
-        // 移除所有分类的active类
-        document.querySelectorAll('.category-option').forEach(option => {
-            option.classList.remove('active');
-        });
-
-        // 优先匹配精确的data-category值
-        let targetElement = document.querySelector(`.category-option[data-category="${categoryValue}"]`);
-
-        // 如果未找到精确匹配，尝试匹配包含该值的选项（容错处理）
-        if (!targetElement) {
-            const allOptions = document.querySelectorAll('.category-option');
-            targetElement = Array.from(allOptions).find(option =>
-                option.dataset.category?.includes(categoryValue)
-            );
-        }
-
-        // 如果仍未找到，默认选中"其他"
-        if (!targetElement) {
-            targetElement = document.querySelector('.category-option[data-category="其他"]');
-        }
-
-        // 添加选中样式
-        if (targetElement) {
-            targetElement.classList.add('active');
-        } else {
-            console.warn('未找到任何分类选项元素');
-        }
-    }
-
-    /**
-     * 处理无数据或数据异常的情况
-     */
-    function handleNoData() {
-        showToast('账单数据异常或已过期');
-        setTimeout(() => {
-            window.location.href = 'bills.html'; // 跳回账单列表页
-        }, 1500);
-    }
-
-    function selectCategory(element) {
-        // 如果点击的是已经选中的元素，不做任何操作
-        if (element.classList.contains('active')) {
-            return;
-        }
-
-        // 移除所有分类的active类
-        document.querySelectorAll('.category-option').forEach(option => {
-            option.classList.remove('active');
-        });
-
-        // 为当前选中的分类添加active类，并添加动画效果
-        element.classList.add('active');
-
-        // 添加轻微震动动画效果
-        element.animate([
-            { transform: 'scale(1)' },
-            { transform: 'scale(1.1)' },
-            { transform: 'scale(1)' }
-        ], {
-            duration: 300,
-            easing: 'ease-in-out'
-        });
-    }
-
-
-
-    function saveBillDetail() {
-        // 获取保存按钮并添加加载状态
-        const saveButton = document.querySelector('.btn-primary');
-        const originalText = saveButton.textContent;
-        saveButton.textContent = '保存中...';
-        saveButton.disabled = true;
-        saveButton.style.opacity = '0.8';
-
-        // 获取当前选中的分类
-        const activeCategory = document.querySelector('.category-option.active');
-        const categoryValue = activeCategory ? activeCategory.dataset.category : '其他';
-        const categoryName = activeCategory ? activeCategory.querySelector('.category-name').textContent : '其他';
-
-        // 获取备注
-        const note = document.getElementById('billNote').value;
-
-        // 从sessionStorage获取账单ID
-        const billDataStr = sessionStorage.getItem('currentBillData');
-        if (!billDataStr) {
-            showToast('未找到账单数据');
-            resetSaveButton(saveButton, originalText);
-            return;
-        }
-
-        const billData = JSON.parse(billDataStr);
-        const billId = billData.id;
-        if (!billId) {
-            showToast('账单ID不存在');
-            resetSaveButton(saveButton, originalText);
-            return;
-        }
-
-        // 获取token
-        let token = '';
-        try {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            token = userData.token || '';
-        } catch (error) {
-            console.error('获取token失败:', error);
-            showToast('登录状态异常');
-            resetSaveButton(saveButton, originalText);
-            return;
-        }
-        if (!token) {
-            showToast('请先登录');
-            resetSaveButton(saveButton, originalText);
-            return;
-        }
-
-        // 分类名称映射到bizCatogry值（1=餐饮，2=出行，3=购物，4=其他）
-        const categoryMap = {
-            '餐饮': 1,
-            '出行': 2,
-            '购物': 3,
-            '其他': 4,
-            '娱乐': 4, // 娱乐属于其他
-            '生活服务': 4 // 生活服务属于其他
-        };
-        const bizCatogry = categoryMap[categoryValue] || 4;
-
-        // 依次调用两个接口
-        updateBillCategory(billId, bizCatogry, token)
-            .then(() => updateBillRemark(billId, note, token))
-            .then(() => {
-                // 两个接口都成功后更新本地数据并跳转
-                billData.category = categoryValue;
-                billData.note = note;
-                sessionStorage.setItem('currentBillData', JSON.stringify(billData));
-
-                // 保存成功动画
-                const detailCard = document.querySelector('.detail-card');
-                detailCard.animate([
-                    { transform: 'translateY(0)', opacity: 1 },
-                    { transform: 'translateY(-20px)', opacity: 0 }
-                ], {
-                    duration: 500,
-                    easing: 'ease-in-out',
-                    fill: 'forwards'
-                });
-
-                showToast('保存成功');
-                setTimeout(() => {
-                    window.location.href = 'bills.html';
-                }, 1000);
-            })
-            .catch(error => {
-                showToast(error.message || '保存失败，请重试');
-                resetSaveButton(saveButton, originalText);
+    // 命名空间：账单详情页面功能（遵循阿里规范）
+    const BillDetailPage = {
+        // 初始化页面
+        init() {
+            document.addEventListener('DOMContentLoaded', () => {
+                this.loadBillData();
             });
-    }
+        },
 
-    /**
-     * 调用更新账单分类接口
-     * @param {string} billId - 账单ID
-     * @param {number} bizCatogry - 分类编码
-     * @param {string} token - 认证token
-     * @returns {Promise}
-     */
-    function updateBillCategory(billId, bizCatogry, token) {
-        return fetch(`http://graywolf.top:6031/appassets/assets/bills/bizCatogry?id=${billId}&bizCatogry=${bizCatogry}`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-                'Accept': '*/*'
+        /**
+         * 加载并初始化账单详情数据
+         */
+        loadBillData() {
+            const billDataStr = sessionStorage.getItem('currentBillData');
+            if (!billDataStr) {
+                this.handleNoData('未找到账单数据');
+                return;
             }
-        }).then(response => {
-            if (!response.ok) {
-                return response.json().then(err => {
-                    throw new Error(`更新分类失败: ${err.message || '网络异常'}`);
-                }).catch(() => {
-                    throw new Error('更新分类失败: 网络异常');
+
+            try {
+                const billData = JSON.parse(billDataStr);
+
+                // 验证核心字段
+                if (!billData.id || !billData.amount || !billData.merchant) {
+                    throw new Error('账单核心字段缺失');
+                }
+
+                // 填充金额信息
+                this._fillAmount(billData.amount);
+
+                // 填充基础信息
+                this._fillBaseInfo({
+                    merchant: billData.merchant || '未知商户',
+                    time: billData.time || '未知时间',
+                    payment: billData.payment || '未知支付方式',
+                    orderNo: billData.orderNo || '无',
+                    note: billData.note || ''
                 });
-            }
-            return response.json();
-        }).then(data => {
-            if (data.code !== 200) {
-                throw new Error(`更新分类失败: ${data.message || '操作失败'}`);
-            }
-            return data;
-        });
-    }
 
-    /**
-     * 调用更新账单备注接口
-     * @param {string} billId - 账单ID
-     * @param {string} remark - 备注内容
-     * @param {string} token - 认证token
-     * @returns {Promise}
-     */
-    function updateBillRemark(billId, remark, token) {
-        // 编码备注内容，处理特殊字符
-        const encodedRemark = encodeURIComponent(remark || '');
-        return fetch(`http://graywolf.top:6031/appassets/assets/bills/remark?id=${billId}&remark=${encodedRemark}`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-                'Accept': '*/*'
+                // 初始化分类选中状态
+                this.selectCategoryByValue(billData.category || '其他');
+
+            } catch (error) {
+                console.error('初始化账单数据失败:', error);
+                this.handleNoData('账单数据异常');
             }
-        }).then(response => {
+        },
+
+        /**
+         * 填充金额信息并设置样式
+         * @param {string} amount - 金额字符串
+         */
+        _fillAmount(amount) {
+            const detailAmount = document.getElementById('detailAmount');
+            if (!detailAmount) return;
+
+            // 移除原有样式类
+            detailAmount.classList.remove('expense', 'income');
+
+            // 根据金额符号添加对应样式
+            if (amount.startsWith('-')) {
+                detailAmount.classList.add('expense');
+            } else {
+                detailAmount.classList.add('income');
+            }
+            detailAmount.textContent = amount || '¥0.00';
+        },
+
+        /**
+         * 填充基础信息到页面
+         * @param {Object} info - 基础信息对象
+         */
+        _fillBaseInfo(info) {
+            this._setElementContent('detailMerchant', info.merchant);
+            this._setElementContent('detailTime', info.time);
+            this._setElementContent('detailPayment', info.payment);
+            this._setElementContent('detailOrderNo', info.orderNo);
+            this._setElementValue('billNote', info.note);
+        },
+
+        /**
+         * 安全设置元素文本内容
+         * @param {string} elementId - 元素ID
+         * @param {string} content - 内容
+         */
+        _setElementContent(elementId, content) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = content;
+            } else {
+                console.warn(`未找到元素: ${elementId}`);
+            }
+        },
+
+        /**
+         * 安全设置输入框值
+         * @param {string} elementId - 元素ID
+         * @param {string} value - 值
+         */
+        _setElementValue(elementId, value) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.value = value;
+            } else {
+                console.warn(`未找到输入框元素: ${elementId}`);
+            }
+        },
+
+        /**
+         * 根据分类值选中对应的分类选项
+         * @param {string} categoryValue - 分类值
+         */
+        selectCategoryByValue(categoryValue) {
+            // 移除所有分类的active类
+            document.querySelectorAll('.category-option').forEach(option => {
+                option.classList.remove('active');
+            });
+
+            // 查找并选中目标分类
+            let targetElement = document.querySelector(`.category-option[data-category="${categoryValue}"]`);
+
+            // 容错处理：未找到时使用包含匹配
+            if (!targetElement) {
+                const allOptions = document.querySelectorAll('.category-option');
+                targetElement = Array.from(allOptions).find(option =>
+                    option.dataset.category?.includes(categoryValue)
+                );
+            }
+
+            // 最终容错：默认选中"其他"
+            if (!targetElement) {
+                targetElement = document.querySelector('.category-option[data-category="其他"]');
+            }
+
+            if (targetElement) {
+                targetElement.classList.add('active');
+            }
+        },
+
+        /**
+         * 选择分类
+         * @param {HTMLElement} element - 分类元素
+         */
+        selectCategory(element) {
+            if (!element || element.classList.contains('active')) {
+                return;
+            }
+
+            // 移除所有分类的active类
+            document.querySelectorAll('.category-option').forEach(option => {
+                option.classList.remove('active');
+            });
+
+            // 添加选中状态
+            element.classList.add('active');
+
+            // 添加选中动画
+            element.animate([
+                { transform: 'scale(1)' },
+                { transform: 'scale(1.1)' },
+                { transform: 'scale(1)' }
+            ], {
+                duration: 300,
+                easing: 'ease-in-out'
+            });
+        },
+
+        /**
+         * 处理无数据或数据异常
+         * @param {string} message - 错误信息
+         */
+        handleNoData(message) {
+            this.showToast(message || '数据异常');
+            setTimeout(() => {
+                window.location.href = 'bills.html';
+            }, 1500);
+        },
+
+        /**
+         * 保存账单详情
+         */
+        saveBillDetail() {
+            // 获取保存按钮并设置加载状态
+            const saveButton = document.querySelector('.btn-primary');
+            const originalText = saveButton.textContent;
+            saveButton.textContent = '保存中...';
+            saveButton.disabled = true;
+
+            try {
+                // 获取表单数据
+                const formData = this._getFormData();
+
+                // 验证数据
+                if (!formData.billId) {
+                    throw new Error('账单ID不存在');
+                }
+
+                // 获取token
+                const token = this._getToken();
+                if (!token) {
+                    throw new Error('请先登录');
+                }
+
+                // 调用API保存数据
+                this._saveCategory(formData.billId, formData.categoryCode, token)
+                    .then(() => this._saveRemark(formData.billId, formData.note, token))
+                    .then(() => {
+                        // 保存成功处理
+                        this._handleSaveSuccess(formData);
+                    })
+                    .catch(error => {
+                        this.showToast(error.message || '保存失败');
+                        this._resetSaveButton(saveButton, originalText);
+                    });
+
+            } catch (error) {
+                this.showToast(error.message || '保存失败');
+                this._resetSaveButton(saveButton, originalText);
+            }
+        },
+
+        /**
+         * 获取表单数据
+         * @returns {Object} 表单数据对象
+         */
+        _getFormData() {
+            // 获取选中的分类
+            const activeCategory = document.querySelector('.category-option.active');
+            const categoryValue = activeCategory ? activeCategory.dataset.category : '其他';
+
+            // 分类映射关系
+            const categoryMap = {
+                '餐饮': 1,
+                '出行': 2,
+                '购物': 3,
+                '娱乐': 4,
+                '生活服务': 4,
+                '其他': 4
+            };
+
+            // 获取账单ID
+            let billId = '';
+            const billDataStr = sessionStorage.getItem('currentBillData');
+            if (billDataStr) {
+                const billData = JSON.parse(billDataStr);
+                billId = billData.id || '';
+            }
+
+            return {
+                billId,
+                categoryValue,
+                categoryCode: categoryMap[categoryValue] || 4,
+                note: document.getElementById('billNote').value || ''
+            };
+        },
+
+        /**
+         * 保存分类信息
+         * @param {string} billId - 账单ID
+         * @param {number} categoryCode - 分类编码
+         * @param {string} token - 认证token
+         * @returns {Promise}
+         */
+        _saveCategory(billId, categoryCode, token) {
+            return fetch(`http://graywolf.top:6031/appassets/assets/bills/bizCatogry?id=${billId}&bizCatogry=${categoryCode}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': '*/*'
+                }
+            }).then(response => this._handleResponse(response, '更新分类失败'));
+        },
+
+        /**
+         * 保存备注信息
+         * @param {string} billId - 账单ID
+         * @param {string} remark - 备注内容
+         * @param {string} token - 认证token
+         * @returns {Promise}
+         */
+        _saveRemark(billId, remark, token) {
+            const encodedRemark = encodeURIComponent(remark || '');
+            return fetch(`http://graywolf.top:6031/appassets/assets/bills/remark?id=${billId}&remark=${encodedRemark}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': '*/*'
+                }
+            }).then(response => this._handleResponse(response, '更新备注失败'));
+        },
+
+        /**
+         * 处理API响应
+         * @param {Response} response - 响应对象
+         * @param {string} errorMsg - 错误提示
+         * @returns {Promise}
+         */
+        _handleResponse(response, errorMsg) {
             if (!response.ok) {
-                return response.json().then(err => {
-                    throw new Error(`更新备注失败: ${err.message || '网络异常'}`);
-                }).catch(() => {
-                    throw new Error('更新备注失败: 网络异常');
+                return response.json()
+                    .then(err => Promise.reject(new Error(`${errorMsg}: ${err.message || '网络异常'}`)))
+                    .catch(() => Promise.reject(new Error(`${errorMsg}: 网络异常`)));
+            }
+
+            return response.json().then(data => {
+                if (data.code !== 200) {
+                    return Promise.reject(new Error(`${errorMsg}: ${data.message || '操作失败'}`));
+                }
+                return data;
+            });
+        },
+
+        /**
+         * 处理保存成功
+         * @param {Object} formData - 表单数据
+         */
+        _handleSaveSuccess(formData) {
+            // 更新本地缓存
+            const billDataStr = sessionStorage.getItem('currentBillData');
+            if (billDataStr) {
+                const billData = JSON.parse(billDataStr);
+                billData.category = formData.categoryValue;
+                billData.note = formData.note;
+                sessionStorage.setItem('currentBillData', JSON.stringify(billData));
+            }
+
+            // 显示成功提示和动画
+            this.showToast('保存成功');
+            const detailCard = document.querySelector('.detail-card');
+            detailCard.animate([
+                { transform: 'translateY(0)', opacity: 1 },
+                { transform: 'translateY(-20px)', opacity: 0 }
+            ], {
+                duration: 500,
+                easing: 'ease-in-out',
+                fill: 'forwards'
+            });
+
+            // 跳转页面
+            setTimeout(() => {
+                window.location.href = 'bills.html';
+            }, 1000);
+        },
+
+        /**
+         * 重置保存按钮状态
+         * @param {HTMLElement} button - 按钮元素
+         * @param {string} text - 原始文本
+         */
+        _resetSaveButton(button, text) {
+            button.textContent = text;
+            button.disabled = false;
+        },
+
+        /**
+         * 获取用户Token
+         * @returns {string} Token字符串
+         */
+        _getToken() {
+            try {
+                const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+                return userData.token || '';
+            } catch (error) {
+                console.error('获取token失败:', error);
+                return '';
+            }
+        },
+
+        /**
+         * 复制交易编号
+         */
+        copyOrderNo() {
+            const orderNo = document.getElementById('detailOrderNo').textContent;
+            const copyBtn = document.querySelector('.copy-btn');
+
+            // 复制按钮动画
+            copyBtn.animate([
+                { transform: 'scale(1)' },
+                { transform: 'scale(1.2)' },
+                { transform: 'scale(1)' }
+            ], {
+                duration: 300,
+                easing: 'ease-in-out'
+            });
+
+            // 复制到剪贴板
+            navigator.clipboard.writeText(orderNo)
+                .then(() => this.showToast('交易编号已复制'))
+                .catch(error => {
+                    console.error('复制失败:', error);
+                    this.showToast('复制失败，请手动复制');
                 });
+        },
+
+        /**
+         * 返回上一页
+         */
+        goBack() {
+            window.history.back();
+        },
+
+        /**
+         * 显示提示信息
+         * @param {string} message - 提示内容
+         */
+        showToast(message) {
+            // 移除已存在的toast
+            const existingToast = document.querySelector('.toast');
+            if (existingToast) {
+                existingToast.remove();
             }
-            return response.json();
-        }).then(data => {
-            if (data.code !== 200) {
-                throw new Error(`更新备注失败: ${data.message || '操作失败'}`);
-            }
-            return data;
-        });
-    }
 
-    /**
-     * 重置保存按钮状态
-     * @param {HTMLElement} button - 按钮元素
-     * @param {string} text - 原始文本
-     */
-    function resetSaveButton(button, text) {
-        button.textContent = text;
-        button.disabled = false;
-        button.style.opacity = '1';
-    }
+            // 创建新toast
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
 
-    function copyOrderNo() {
-        const orderNo = document.getElementById('detailOrderNo').textContent;
-        const copyBtn = document.querySelector('.copy-btn');
+            // 自动移除
+            setTimeout(() => {
+                toast.remove();
+            }, 2000);
+        },
 
-        // 添加按钮动画效果
-        copyBtn.animate([
-            { transform: 'scale(1)' },
-            { transform: 'scale(1.2)' },
-            { transform: 'scale(1)' }
-        ], {
-            duration: 300,
-            easing: 'ease-in-out'
-        });
+        /**
+         * 页面跳转
+         * @param {string} page - 目标页面
+         */
+        goToPage(page) {
+            window.location.href = page;
+        }
+    };
 
-        navigator.clipboard.writeText(orderNo).then(() => {
-            // 显示复制成功提示
-            showToast('交易编号已复制到剪贴板');
-        });
-    }
-
-    function goBack() {
-        window.history.back();
-    }
-
-    function showToast(message) {
-        const toast = document.createElement('div');
-        toast.className = 'toast';
-        toast.textContent = message;
-        // 使用CSS类而不是内联样式
-        document.body.appendChild(toast);
-
-        // 2秒后自动移除
-        setTimeout(() => {
-            document.body.removeChild(toast);
-        }, 2000);
-    }
-
-    // 页面跳转函数
-    function goToPage(page) {
-        window.location.href = page;
-    }
+    // 初始化页面
+    BillDetailPage.init();
 </script>
 </body>
-
 </html>

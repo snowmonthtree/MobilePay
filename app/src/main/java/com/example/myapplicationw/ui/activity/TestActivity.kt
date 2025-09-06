@@ -291,7 +291,7 @@ class TestActivity : AppCompatActivity(), OnNavItemClickListener {
 
         if (hasPermission) {
             // 已有权限：直接跳转扫码页
-            startActivity(Intent(this, QRScannerActivity::class.java))
+            jsInterface.startQrScannerActivity("parseCodeAndRedirect")
         } else {
             // 无权限：请求权限
             Log.d(TAG, "checkCameraPermission: 无相机权限，发起权限请求")
