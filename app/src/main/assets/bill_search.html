@@ -217,222 +217,277 @@
 
 <script src="script.js"></script>
 <script>
-    // 获取搜索输入框元素
-    const searchInput = document.getElementById('searchInput');
-    const searchResults = document.getElementById('searchResults');
+    // 1. 全局变量统一管理（避免散定义，保留原有类名与DOM关联）
+ const SearchModule = {
+     // DOM元素缓存（仅查询一次，提升性能）
+     elements: {
+         searchInput: null,
+         searchResults: null
+     },
 
-    // 页面加载时自动聚焦到搜索框
-    window.onload = function () {
-        searchInput.focus();
-    }
+     // 初始化：页面加载后执行，绑定基础逻辑
+     init() {
+         // 获取DOM元素并缓存
+         this.elements.searchInput = document.getElementById('searchInput');
+         this.elements.searchResults = document.getElementById('searchResults');
 
-    // 监听输入框的回车事件
-    searchInput.addEventListener('keypress', function (event) {
-        if (event.key === 'Enter') {
-            performSearch();
-        }
-    });
+         // 校验关键DOM元素是否存在（避免后续报错）
+         if (!this.elements.searchInput || !this.elements.searchResults) {
+             console.error('搜索模块：关键DOM元素缺失，无法正常初始化');
+             return;
+         }
 
-    // 清除搜索内容
-    function clearSearch() {
-        searchInput.value = '';
-        searchInput.focus();
-        // 恢复初始状态
-        searchResults.innerHTML = `
-            <div class="search-empty">
-                <img src="icons/sousuo.png" alt="搜索">
-                <p>输入关键词开始搜索</p>
-            </div>
-        `;
-    }
+         // 页面加载自动聚焦（保留原有逻辑）
+         this.bindPageLoadFocus();
+         // 绑定输入框回车事件（保留原有逻辑）
+         this.bindEnterEvent();
+     },
 
-    // 执行搜索
-    function performSearch() {
-        const keyword = searchInput.value.trim();
-        if (!keyword) {
-            searchResults.innerHTML = `
-        <div class="search-empty">
-            <img src="icons/sousuo.png" alt="搜索">
-            <p>请输入搜索关键词</p>
-        </div>
-    `;
-            return;
-        }
+     // 页面加载后聚焦搜索框
+     bindPageLoadFocus() {
+         window.onload = () => {
+             this.elements.searchInput.focus();
+         };
+     },
 
-        // 获取token
-        let token = '';
-        try {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            token = userData.token || '';
+     // 绑定输入框回车触发搜索
+     bindEnterEvent() {
+         this.elements.searchInput.addEventListener('keypress', (event) => {
+             if (event.key === 'Enter') {
+                 this.performSearch();
+             }
+         });
+     },
 
-        } catch (error) {
-            console.error('获取token失败:', error);
-            showToast('登录状态异常，请重新登录');
-            return;
-        }
-        if (!token) {
-            showToast('请先登录');
-            return;
-        }
+     // 清除搜索内容（保留原有样式与逻辑）
+     clearSearch() {
+         const { searchInput, searchResults } = this.elements;
+         searchInput.value = '';
+         searchInput.focus();
+         // 恢复初始空状态（保持原有HTML结构与类名）
+         searchResults.innerHTML = `
+             <div class="search-empty">
+                 <img src="icons/sousuo.png" alt="搜索">
+                 <p>输入关键词开始搜索</p>
+             </div>
+         `;
+     },
 
-        // 显示加载状态
-        searchResults.innerHTML = '<div class="search-loading">搜索中...</div>';
+     // 执行搜索（核心逻辑，保留原有接口与样式）
+     performSearch() {
+         const { searchInput, searchResults } = this.elements;
+         const keyword = searchInput.value.trim();
 
-        // 构建请求URL（编码关键词）
-        const encodedKeyword = encodeURIComponent(keyword);
-        const url = `http://graywolf.top:6031/appassets/assets/bills/search?keyString=${encodedKeyword}&scene=bills`;
+         // 无关键词时显示提示（保持原有样式）
+         if (!keyword) {
+             searchResults.innerHTML = `
+                 <div class="search-empty">
+                     <img src="icons/sousuo.png" alt="搜索">
+                     <p>请输入搜索关键词</p>
+                 </div>
+             `;
+             return;
+         }
 
-        // 调用搜索接口
-        fetch(url, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-                'Accept': '*/*'
-            }
-        })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => { throw err; });
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.code === 200 && Array.isArray(data.data)) {
-                    const bills = data.data;
-                    // 处理搜索结果
-                    if (bills.length === 0) {
-                        // 无结果时显示空状态
-                        searchResults.innerHTML = `
-                <div class="search-empty">
-                    <img src="icons/sousuo.png" alt="搜索">
-                    <p>未找到与"${keyword}"相关的账单</p>
-                </div>
-            `;
-                    } else {
-                        // 有结果时渲染账单列表
-                        renderSearchResults(bills);
-                    }
-                } else {
-                    showToast(data.message || '搜索失败，请重试');
-                    searchResults.innerHTML = '<div class="search-error">搜索失败，请稍后重试</div>';
-                }
-            })
-            .catch(error => {
-                console.error('搜索接口调用失败:', error);
-                showToast('网络异常，搜索失败');
-                searchResults.innerHTML = '<div class="search-error">网络异常，请检查网络后重试</div>';
-            });
-    }
+         // 获取Token（保留原有逻辑，增加异常捕获兜底）
+         let token = '';
+         try {
+             const userDataStr = localStorage.getItem('userData') || '{}';
+             const userData = JSON.parse(userDataStr);
+             token = userData.token || '';
+         } catch (error) {
+             console.error('获取token失败:', error);
+             window.showToast?.('登录状态异常，请重新登录');
+             return;
+         }
 
-    /**
-     * 渲染搜索结果到页面
-     * @param {Array} bills - 搜索到的账单数据
-     */
-    function renderSearchResults(bills) {
-        if (!searchResults) return;
+         // 未登录提示（保留原有逻辑）
+         if (!token) {
+             window.showToast?.('请先登录');
+             return;
+         }
 
-        // 清空容器
-        searchResults.innerHTML = '';
+         // 显示加载状态（保持原有类名）
+         searchResults.innerHTML = '<div class="search-loading">搜索中...</div>';
 
-        // 生成每条账单条目
-        bills.forEach(bill => {
-            const billItem = createSearchBillItem(bill);
-            searchResults.appendChild(billItem);
-        });
+         // 构建请求URL（保留原有接口地址与参数）
+         const encodedKeyword = encodeURIComponent(keyword);
+         const url = `http://graywolf.top:6031/appassets/assets/bills/search?keyString=${encodedKeyword}&scene=bills`;
 
-        // 添加"没有更多结果"提示
-        const noMore = document.createElement('div');
-        noMore.className = 'no-more-results';
-        noMore.style.textAlign = 'center';
-        noMore.style.padding = '15px';
-        noMore.style.color = '#999';
-        noMore.style.fontSize = '14px';
-        noMore.textContent = '没有更多结果了';
-        searchResults.appendChild(noMore);
-    }
+         // 调用搜索接口（保留原有请求头与响应处理逻辑）
+         fetch(url, {
+             method: 'GET',
+             headers: {
+                 'Authorization': `Bearer ${token}`,
+                 'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                 'Accept': '*/*'
+             }
+         })
+             .then(response => {
+                 if (!response.ok) {
+                     return response.json().then(err => { throw err; });
+                 }
+                 return response.json();
+             })
+             .then(data => {
+                 if (data.code === 200 && Array.isArray(data.data)) {
+                     const bills = data.data;
+                     // 无结果时显示空状态（保持原有样式）
+                     if (bills.length === 0) {
+                         searchResults.innerHTML = `
+                             <div class="search-empty">
+                                 <img src="icons/sousuo.png" alt="搜索">
+                                 <p>未找到与"${keyword}"相关的账单</p>
+                             </div>
+                         `;
+                     } else {
+                         // 渲染搜索结果（调用子方法）
+                         this.renderSearchResults(bills);
+                     }
+                 } else {
+                     window.showToast?.(data.message || '搜索失败，请重试');
+                     searchResults.innerHTML = '<div class="search-error">搜索失败，请稍后重试</div>';
+                 }
+             })
+             .catch(error => {
+                 console.error('搜索接口调用失败:', error);
+                 window.showToast?.('网络异常，搜索失败');
+                 searchResults.innerHTML = '<div class="search-error">网络异常，请检查网络后重试</div>';
+             });
+     },
 
-    /**
-     * 创建单个搜索结果的账单条目
-     * @param {Object} bill - 账单数据
-     * @returns {HTMLElement} 账单条目元素
-     */
-    function createSearchBillItem(bill) {
-        const billItem = document.createElement('div');
-        const isExpense = bill.type === 2; // 假设type=2为支出（转出），其他为收入
-        const amountSign = isExpense ? '-' : '+';
+     /**
+      * 渲染搜索结果到页面（保留原有DOM结构与类名）
+      * @param {Array} bills - 搜索到的账单数据
+      */
+     renderSearchResults(bills) {
+         const { searchResults } = this.elements;
+         if (!searchResults) return;
 
-        // 格式化金额（保留两位小数，添加千分位）
-        const formattedAmount = parseFloat(bill.amount).toLocaleString('zh-CN', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        });
+         // 清空容器
+         searchResults.innerHTML = '';
 
-        // 格式化时间（YYYY-MM-DD HH:mm）
-        const billTime = new Date(bill.completeTime);
-        const formattedTime = `${billTime.getFullYear()}-${String(billTime.getMonth() + 1).padStart(2, '0')}-${String(billTime.getDate()).padStart(2, '0')} ${String(billTime.getHours()).padStart(2, '0')}:${String(billTime.getMinutes()).padStart(2, '0')}`;
+         // 生成每条账单条目（调用子方法）
+         bills.forEach(bill => {
+             const billItem = this.createSearchBillItem(bill);
+             searchResults.appendChild(billItem);
+         });
 
-        // 图标映射（根据分类匹配）
-        const iconMap = {
-            '餐饮': 'canyin.png',
-            '出行': 'zhiyin.png',
-            '购物': 'gouwu.png',
-            '其他': isExpense ? 'a-2-lijifukuan.png' : 'shoukuanjiekou.png' // 支出用支付图标，收入用收款图标
-        };
-        const iconSrc = iconMap[bill.bizCategoryName] || (isExpense ? 'a-2-lijifukuan.png' : 'shoukuanjiekou.png');
+         // 添加"没有更多结果"提示（保留原有内联样式，不修改视觉）
+         const noMore = document.createElement('div');
+         noMore.className = 'no-more-results';
+         noMore.style.textAlign = 'center';
+         noMore.style.padding = '15px';
+         noMore.style.color = '#999';
+         noMore.style.fontSize = '14px';
+         noMore.textContent = '没有更多结果了';
+         searchResults.appendChild(noMore);
+     },
 
-        // 设置条目属性（保存id和分类信息）
-        billItem.className = `bill-item ${isExpense ? 'expense' : 'income'}`;
-        billItem.dataset.type = isExpense ? 'expense' : 'income';
-        billItem.dataset.category = bill.bizCategoryName;
-        billItem.dataset.billId = bill.id; // 保存账单id供查看详情
-        billItem.setAttribute('onclick', 'viewBillDetail(this)');
+     /**
+      * 创建单个搜索结果的账单条目（完全保留原有逻辑与样式）
+      * @param {Object} bill - 账单数据
+      * @returns {HTMLElement} 账单条目元素
+      */
+     createSearchBillItem(bill) {
+         const billItem = document.createElement('div');
+         const isExpense = bill.type === 2; // 保留原有支出判断逻辑
+         const amountSign = isExpense ? '-' : '+';
 
-        // 填充条目内容
-        billItem.innerHTML = `
-    <div class="bill-icon">
-        <img src="icons/${iconSrc}" alt="${bill.bizCategoryName}">
-    </div>
-    <div class="bill-info">
-        <h4>${bill.remark || bill.typeName}</h4> <!-- 优先显示备注，无则显示类型名称 -->
-        <p>${bill.targetTypeName} ${isExpense ? '支付' : '收款'} • ${formattedTime}</p>
-        <span class="bill-category">${bill.bizCategoryName}</span>
-    </div>
-    <div class="bill-amount ${isExpense ? 'expense' : 'income'}">
-        ${amountSign}¥${formattedAmount}
-    </div>
-`;
+         // 格式化金额（保留原有逻辑）
+         const formattedAmount = parseFloat(bill.amount).toLocaleString('zh-CN', {
+             minimumFractionDigits: 2,
+             maximumFractionDigits: 2
+         });
 
-        return billItem;
-    }
+         // 格式化时间（保留原有逻辑，增加无效时间兜底）
+         const billTime = new Date(bill.completeTime);
+         const formattedTime = isNaN(billTime.getTime())
+             ? '未知时间'
+             : `${billTime.getFullYear()}-${String(billTime.getMonth() + 1).padStart(2, '0')}-${String(billTime.getDate()).padStart(2, '0')} ${String(billTime.getHours()).padStart(2, '0')}:${String(billTime.getMinutes()).padStart(2, '0')}`;
 
-    // 查看账单详情
-    function viewBillDetail(billItem) {
-        const merchantName = billItem.querySelector('h4').textContent;
-        const amount = billItem.querySelector('.bill-amount').textContent;
-        const paymentInfo = billItem.querySelector('p').textContent;
-        const category = billItem.dataset.category || '其他';
+         // 图标映射（保留原有逻辑）
+         const iconMap = {
+             '餐饮': 'canyin.png',
+             '出行': 'zhiyin.png',
+             '购物': 'gouwu.png',
+             '其他': isExpense ? 'a-2-lijifukuan.png' : 'shoukuanjiekou.png'
+         };
+         const iconSrc = iconMap[bill.bizCategoryName] || (isExpense ? 'a-2-lijifukuan.png' : 'shoukuanjiekou.png');
 
-        // 保存当前账单信息到sessionStorage，以便在详情页面使用
-        const billData = {
-            merchant: merchantName,
-            amount: amount,
-            payment: paymentInfo.split(' • ')[0],
-            time: paymentInfo.split(' • ')[1],
-            orderNo: '202410221530001',
-            category: category,
-            note: ''
-        };
-        sessionStorage.setItem('currentBillData', JSON.stringify(billData));
+         // 设置条目属性（保留原有dataset与onclick）
+         billItem.className = `bill-item ${isExpense ? 'expense' : 'income'}`;
+         billItem.dataset.type = isExpense ? 'expense' : 'income';
+         billItem.dataset.category = bill.bizCategoryName || '其他';
+         billItem.dataset.billId = bill.id || '';
+         billItem.setAttribute('onclick', 'viewBillDetail(this)');
 
-        // 跳转到详情页面
-        window.location.href = 'bill_detail.html';
-    }
+         // 填充条目内容（完全保留原有HTML结构与类名）
+         billItem.innerHTML = `
+             <div class="bill-icon">
+                 <img src="icons/${iconSrc}" alt="${bill.bizCategoryName || '账单图标'}">
+             </div>
+             <div class="bill-info">
+                 <h4>${bill.remark || bill.typeName || '未知账单'}</h4>
+                 <p>${bill.targetTypeName || '未知账户'} ${isExpense ? '支付' : '收款'} • ${formattedTime}</p>
+                 <span class="bill-category">${bill.bizCategoryName || '其他'}</span>
+             </div>
+             <div class="bill-amount ${isExpense ? 'expense' : 'income'}">
+                 ${amountSign}¥${formattedAmount}
+             </div>
+         `;
 
-    // 返回上一页
-    function goBack() {
-        window.history.back();
-    }
+         return billItem;
+     }
+ };
+
+ /**
+  * 查看账单详情（保留原有逻辑，增加DOM获取兜底）
+  * @param {HTMLElement} billItem - 账单条目元素
+  */
+ function viewBillDetail(billItem) {
+     // 增加元素存在性校验，避免报错
+     if (!billItem) return;
+
+     const merchantName = billItem.querySelector('h4')?.textContent || '未知商户';
+     const amount = billItem.querySelector('.bill-amount')?.textContent || '¥0.00';
+     const paymentInfo = billItem.querySelector('p')?.textContent || '';
+     const category = billItem.dataset.category || '其他';
+
+     // 拆分支付信息（增加兜底，避免数组越界）
+     const [payment = '未知账户', time = '未知时间'] = paymentInfo.split(' • ');
+
+     // 保存账单信息到sessionStorage（保留原有逻辑）
+     const billData = {
+         merchant: merchantName,
+         amount: amount,
+         payment: payment,
+         time: time,
+         orderNo: '202410221530001', // 保留原有订单号
+         category: category,
+         note: ''
+     };
+     sessionStorage.setItem('currentBillData', JSON.stringify(billData));
+
+     // 跳转到详情页面（保留原有逻辑）
+     window.location.href = 'bill_detail.html';
+ }
+
+ /**
+  * 返回上一页（保留原有逻辑）
+  */
+ function goBack() {
+     window.history.back();
+ }
+
+ // 页面DOM加载完成后初始化搜索模块（确保DOM存在后执行）
+ document.addEventListener('DOMContentLoaded', () => {
+     SearchModule.init();
+     // 暴露clearSearch到全局，确保外部可调用（如按钮onclick）
+     window.clearSearch = () => SearchModule.clearSearch();
+     // 暴露performSearch到全局，确保外部可调用（如搜索按钮onclick）
+     window.performSearch = () => SearchModule.performSearch();
+ });
 </script>
 </body>
 

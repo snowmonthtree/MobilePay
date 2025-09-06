@@ -724,295 +724,448 @@
 
     <script src="script.js"></script>
     <script>
-        // 筛选记录
-        function filterRecords(type) {
-            // 更新筛选按钮状态
-            document.querySelectorAll('.filter-tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            event.target.classList.add('active');
+        // 出行记录列表模块：统一封装记录加载、筛选、渲染等核心功能
+ const TransitRecordsModule = {
+     // 1. 状态管理：存储模块核心配置、DOM元素缓存与临时数据
+     state: {
+         // API配置
+         apiConfig: {
+             recordsUrl: "http://graywolf.top:6031/payment/transit/records",
+             headers: {
+                 "User-Agent": "Apifox/1.0.0 (https://apifox.com)",
+                 "Accept": "*/*"
+             }
+         },
 
-            // 模拟筛选效果
-            const recordItems = document.querySelectorAll('.record-item');
+         // DOM元素缓存
+         elements: {
+             recordsList: null,        // 记录列表容器
+             datePickerModal: null,    // 日期选择弹窗
+             errorHandleModal: null    // 异常处理弹窗
+         },
 
-            if (type === 'all') {
-                recordItems.forEach(item => {
-                    item.style.display = 'block';
-                });
-            } else if (type === 'normal') {
-                recordItems.forEach(item => {
-                    const status = item.querySelector('.record-status');
-                    item.style.display = !status.classList.contains('error') ? 'block' : 'none';
-                });
-            } else if (type === 'error') {
-                recordItems.forEach(item => {
-                    const status = item.querySelector('.record-status');
-                    item.style.display = status.classList.contains('error') ? 'block' : 'none';
-                });
-            }
+         // 临时数据
+         currentFilter: "all",       // 当前筛选类型（all/normal/error）
+         currentDateRange: "7days"   // 当前日期范围
+     },
 
-            // 检查是否有记录显示
-            checkEmptyRecords();
-        }
+     // 2. 初始化：页面加载后执行DOM缓存、事件绑定与记录加载
+     init() {
+         document.addEventListener("DOMContentLoaded", () => {
+             this.cacheDomElements();  // 缓存DOM元素
+             this.bindGlobalMethods(); // 暴露全局方法（兼容HTML onclick）
+             this.initTransitRecords(); // 初始化记录列表
+         });
+     },
 
-        // 检查是否有记录显示
-        function checkEmptyRecords() {
-            // 获取所有记录项
-            const recordItems = document.querySelectorAll('.record-item');
-            // 过滤出实际可见的记录
-            const visibleRecords = Array.from(recordItems).filter(item => {
-                return window.getComputedStyle(item).display !== 'none';
-            });
-            const recordsList = document.getElementById('recordsList');
-            const existingEmpty = document.querySelector('.empty-records');
+     // 缓存DOM元素引用，减少重复查询
+     cacheDomElements() {
+         this.state.elements.recordsList = document.getElementById("recordsList");
+         this.state.elements.datePickerModal = document.getElementById("datePickerModal");
+         this.state.elements.errorHandleModal = document.getElementById("errorHandleModal");
+     },
 
-            if (visibleRecords.length === 0 && !existingEmpty) {
-                const emptyElement = document.createElement('div');
-                emptyElement.className = 'empty-records';
-                emptyElement.innerHTML = `
-                    <img src="icons/a-27-lishishuju.png" alt="无记录">
-                    <p>暂无出行记录</p>
-                `;
-                recordsList.appendChild(emptyElement);
-            } else if (visibleRecords.length > 0 && existingEmpty) {
-                existingEmpty.remove();
-            }
-        }
+     // 暴露全局方法到window对象（兼容HTML中的onclick调用）
+     bindGlobalMethods() {
+         window.filterRecords = (type) => this.filterRecords(type);
+         window.showFilterOptions = () => this.showFilterOptions();
+         window.showDatePicker = () => this.showDatePicker();
+         window.selectDateRange = (range) => this.selectDateRange(range);
+         window.showCustomDatePicker = () => this.showCustomDatePicker();
+         window.navigateToDetail = (transactionId) => this.navigateToDetail(transactionId);
+         window.handleErrorRecord = () => this.handleErrorRecord();
+         window.contactCustomerService = () => this.contactCustomerService();
+         window.payNow = () => this.payNow();
+         window.closeModal = (modalId) => this.closeModal(modalId);
+     },
 
-        // 显示筛选选项
-        function showFilterOptions() {
-            showToast('筛选功能');
-        }
+     // 3. 记录列表初始化与加载
+     /**
+      * 初始化交通出行记录列表（加载并渲染记录）
+      */
+     initTransitRecords() {
+         const { recordsList } = this.state.elements;
+         if (!recordsList) {
+             console.error("未找到记录列表容器");
+             return;
+         }
 
-        // 显示日期选择器
-        function showDatePicker() {
-            document.getElementById('datePickerModal').style.display = 'flex';
-        }
+         // 显示加载状态
+         recordsList.innerHTML = '<div class="records-loading">加载记录中...</div>';
 
-        // 选择日期范围
-        function selectDateRange(range) {
-            let rangeText = '';
+         // 获取用户Token（验证登录状态）
+         const token = this.getUserToken();
+         if (!token) {
+             recordsList.innerHTML = '<div class="records-error">请先登录</div>';
+             return;
+         }
 
-            switch (range) {
-                case '7days':
-                    rangeText = '最近7天';
-                    break;
-                case '30days':
-                    rangeText = '最近30天';
-                    break;
-                case '90days':
-                    rangeText = '最近90天';
-                    break;
-                default:
-                    rangeText = '自定义';
-            }
+         // 调用记录列表接口
+         fetch(`${this.state.apiConfig.recordsUrl}?limit=100`, {
+             method: "GET",
+             headers: {
+                 ...this.state.apiConfig.headers,
+                 "Authorization": `Bearer ${token}`
+             }
+         })
+             .then(response => {
+                 if (!response.ok) throw new Error(`请求失败: ${response.status}`);
+                 return response.json();
+             })
+             .then(result => {
+                 if (result.code !== 200 || !Array.isArray(result.data)) {
+                     throw new Error(result.message || "获取记录失败");
+                 }
+                 // 渲染记录列表
+                 this.renderTransitRecords(result.data);
+             })
+             .catch(error => {
+                 console.error("加载记录出错:", error);
+                 recordsList.innerHTML = `<div class="records-error">${error.message || "加载失败，请重试"}</div>`;
+             });
+     },
 
-            document.querySelector('.date-filter span').textContent = rangeText;
-            closeModal('datePickerModal');
+     /**
+      * 渲染交通记录列表到页面
+      * @param {Array} records - 记录数据数组
+      */
+     renderTransitRecords(records) {
+         const { recordsList } = this.state.elements;
+         if (!recordsList) return;
 
-            // 模拟加载新数据
-            const loading = showLoading();
-            setTimeout(() => {
-                hideLoading(loading);
-                showToast(`已加载${rangeText}数据`);
-            }, 1000);
-        }
+         // 清空容器
+         recordsList.innerHTML = "";
 
-        // 显示自定义日期选择器
-        function showCustomDatePicker() {
-            showToast('自定义日期选择');
-            closeModal('datePickerModal');
-        }
+         // 处理无记录场景
+         if (records.length === 0) {
+             recordsList.innerHTML = `
+                 <div class="empty-records">
+                     <img src="icons/a-27-lishishuju.png" alt="无记录">
+                     <p>暂无出行记录</p>
+                 </div>
+             `;
+             return;
+         }
 
-        // 跳转到记录详情页面
-        function navigateToDetail(transactionId) {
-            // 跳转到详情页面并传递记录ID
-            window.location.href = `transit_detail.html?id=${transactionId}`;
-        }
+         // 遍历记录生成DOM
+         records.forEach(record => {
+             // 数据预处理
+             const isAbnormal = record.status === 2; // status=2为异常状态
+             const modeText = record.mode === "SUBWAY" ? "北京地铁" : "公共交通";
+             const statusText = isAbnormal ? "异常" : "正常";
+             const statusClass = isAbnormal ? "error" : "";
+             const timeSource = record.exitTime || record.entryTime; // 优先显示出站时间
+             const formattedTime = this.formatRecordTime(timeSource);
+             const entrySite = record.entrySiteName || "未记录";
+             const exitSite = record.exitSiteName || "未记录";
+             const amount = this.formatAmount(record.actualAmount);
 
-        // 处理异常记录 - 已移至详情页面
-        function handleErrorRecord() {
-            document.getElementById('errorHandleModal').style.display = 'flex';
-        }
+             // 创建记录项元素
+             const recordItem = document.createElement("div");
+             recordItem.className = "record-item";
+             recordItem.dataset.transactionId = record.transactionId || ""; // 存储记录ID
+             recordItem.addEventListener("click", () => this.handleRecordClick(record.transactionId));
 
-        // 联系客服
-        function contactCustomerService() {
-            closeModal('errorHandleModal');
-            showToast('正在连接客服...');
-        }
+             // 填充记录内容
+             recordItem.innerHTML = `
+                 <div class="record-header">
+                     <div class="record-title">${modeText}</div>
+                     <div class="record-status ${statusClass}">${statusText}</div>
+                 </div>
+                 <div class="record-info">
+                     <div class="info-item">
+                         <span class="info-label">进站：</span>
+                         <span class="info-value">${entrySite}（${record.entrySiteLine || ""}）</span>
+                     </div>
+                     <div class="info-item">
+                         <span class="info-label">出站：</span>
+                         <span class="info-value">${exitSite}（${record.exitSiteLine || ""}）</span>
+                     </div>
+                     <div class="info-item">
+                         <span class="info-label">费用：</span>
+                         <span class="info-value amount">¥${amount}</span>
+                     </div>
+                 </div>
+                 <div class="record-time">${formattedTime}</div>
+             `;
 
-        // 立即补缴
-        function payNow() {
-            closeModal('errorHandleModal');
-            showToast('正在准备支付...');
-            setTimeout(() => {
-                window.location.href = 'payment.html?amount=3&merchant=出行补缴';
-            }, 1000);
-        }
+             recordsList.appendChild(recordItem);
+         });
+     },
 
-        // 关闭弹窗
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
-        }
-        /**
- * 初始化交通出行记录列表
- */
-function initTransitRecords() {
-    const recordsContainer = document.getElementById('recordsList');
-    if (!recordsContainer) {
-        console.error('未找到记录列表容器');
-        return;
-    }
+     // 4. 记录筛选与日期过滤
+     /**
+      * 筛选记录（全部/正常/异常）
+      * @param {string} type - 筛选类型（all/normal/error）
+      */
+     filterRecords(type) {
+         // 验证事件源与筛选类型
+         if (!event || !["all", "normal", "error"].includes(type)) return;
 
-    // 显示加载状态
-    recordsContainer.innerHTML = '<div class="records-loading">加载记录中...</div>';
+         // 更新筛选按钮状态
+         document.querySelectorAll(".filter-tab").forEach(tab => {
+             tab.classList.remove("active");
+         });
+         event.target.classList.add("active");
+         this.state.currentFilter = type;
 
-    // 获取用户token
-    let token = '';
-    try {
-        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-        token = userData.token || '';
+         // 执行筛选逻辑
+         const recordItems = document.querySelectorAll(".record-item");
+         recordItems.forEach(item => {
+             const status = item.querySelector(".record-status");
+             const isError = status?.classList.contains("error") || false;
 
-    } catch (error) {
-        console.error('获取token失败:', error);
-        recordsContainer.innerHTML = '<div class="records-error">登录状态异常</div>';
-        return;
-    }
+             // 根据筛选类型设置显示状态
+             if (type === "all") {
+                 item.style.display = "block";
+             } else if (type === "normal") {
+                 item.style.display = !isError ? "block" : "none";
+             } else if (type === "error") {
+                 item.style.display = isError ? "block" : "none";
+             }
+         });
 
-    if (!token) {
-        recordsContainer.innerHTML = '<div class="records-error">请先登录</div>';
-        return;
-    }
+         // 检查筛选后是否有可见记录
+         this.checkEmptyRecords();
+     },
 
-    // 调用接口获取记录
-    fetch('http://graywolf.top:6031/payment/transit/records?limit=100', {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-            'Accept': '*/*'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`请求失败: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(result => {
-        if (result.code !== 200 || !Array.isArray(result.data)) {
-            throw new Error(result.message || '获取记录失败');
-        }
+     /**
+      * 检查筛选后是否有可见记录（无记录则显示空状态）
+      */
+     checkEmptyRecords() {
+         const { recordsList } = this.state.elements;
+         if (!recordsList) return;
 
-        const records = result.data;
-        renderTransitRecords(recordsContainer, records);
-    })
-    .catch(error => {
-        console.error('加载记录出错:', error);
-        recordsContainer.innerHTML = `<div class="records-error">${error.message || '加载失败，请重试'}</div>`;
-    });
-}
+         // 获取所有可见记录
+         const visibleRecords = Array.from(document.querySelectorAll(".record-item"))
+             .filter(item => window.getComputedStyle(item).display !== "none");
 
-/**
- * 渲染交通记录列表
- * @param {HTMLElement} container - 容器元素
- * @param {Array} records - 记录数据数组
- */
-function renderTransitRecords(container, records) {
-    container.innerHTML = '';
+         const existingEmpty = document.querySelector(".empty-records");
 
-    if (records.length === 0) {
-        container.innerHTML = '<div class="no-records">暂无出行记录</div>';
-        return;
-    }
+         // 无可见记录且无空状态元素时，添加空状态
+         if (visibleRecords.length === 0 && !existingEmpty) {
+             const emptyElement = document.createElement("div");
+             emptyElement.className = "empty-records";
+             emptyElement.innerHTML = `
+                 <img src="icons/a-27-lishishuju.png" alt="无记录">
+                 <p>暂无出行记录</p>
+             `;
+             recordsList.appendChild(emptyElement);
+         }
+         // 有可见记录但有空状态元素时，移除空状态
+         else if (visibleRecords.length > 0 && existingEmpty) {
+             existingEmpty.remove();
+         }
+     },
 
-    // 遍历记录生成DOM
-    records.forEach(record => {
-        // 1. 处理基础状态
-        const isAbnormal = record.status === 2; // status=2为异常
-        const modeText = record.mode === 'SUBWAY' ? '北京地铁' : '公共交通'; // 根据mode显示标题
-        const statusText = isAbnormal ? '异常' : '正常';
-        const statusClass = isAbnormal ? 'error' : '';
+     /**
+      * 显示日期选择器弹窗
+      */
+     showDatePicker() {
+         const { datePickerModal } = this.state.elements;
+         if (datePickerModal) {
+             datePickerModal.style.display = "flex";
+         }
+     },
 
-        // 2. 处理时间（优先显示出站时间，无则显示进站时间）
-        const timeSource = record.exitTime || record.entryTime;
-        const formattedTime = formatRecordTime(timeSource);
+     /**
+      * 选择日期范围并更新显示
+      * @param {string} range - 日期范围标识（7days/30days/90days/custom）
+      */
+     selectDateRange(range) {
+         // 映射范围标识到显示文本
+         const rangeMap = {
+             "7days": "最近7天",
+             "30days": "最近30天",
+             "90days": "最近90天",
+             "custom": "自定义"
+         };
+         const rangeText = rangeMap[range] || "自定义";
 
-        // 3. 处理站点信息
-        const entrySite = record.entrySiteName || '未记录';
-        const exitSite = record.exitSiteName || '未记录';
+         // 更新日期筛选显示
+         const dateFilter = document.querySelector(".date-filter span");
+         if (dateFilter) {
+             dateFilter.textContent = rangeText;
+         }
 
-        // 4. 处理费用信息
-        const amount = record.actualAmount !== null ?
-            parseFloat(record.actualAmount).toFixed(2) : '0.00';
+         // 关闭弹窗并模拟加载数据
+         this.closeModal("datePickerModal");
+         this.state.currentDateRange = range;
 
-        // 5. 创建记录项元素
-        const recordItem = document.createElement('div');
-        recordItem.className = 'record-item';
-        // 保存transactionId到data属性
-        recordItem.dataset.transactionId = record.transactionId || '';
-        // 绑定点击事件
-        recordItem.addEventListener('click', function() {
-            const transactionId = this.dataset.transactionId;
-            if (transactionId) {
-                navigateToDetail(transactionId);
-            }
-        });
+         // 模拟加载新数据（实际项目中可调用接口）
+         const loading = this.showLoading();
+         setTimeout(() => {
+             this.hideLoading(loading);
+             this.showToast(`已加载${rangeText}数据`);
+         }, 1000);
+     },
 
-        // 6. 填充记录内容
-        recordItem.innerHTML = `
-            <div class="record-header">
-                <div class="record-title">${modeText}</div>
-                <div class="record-status ${statusClass}">${statusText}</div>
-            </div>
-            <div class="record-info">
-                <div class="info-item">
-                    <span class="info-label">进站：</span>
-                    <span class="info-value">${entrySite}（${record.entrySiteLine || ''}）</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">出站：</span>
-                    <span class="info-value">${exitSite}（${record.exitSiteLine || ''}）</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">费用：</span>
-                    <span class="info-value amount">¥${amount}</span>
-                </div>
-            </div>
-            <div class="record-time">${formattedTime}</div>
-        `;
+     /**
+      * 显示筛选选项（预留功能）
+      */
+     showFilterOptions() {
+         this.showToast("筛选功能");
+     },
 
-        container.appendChild(recordItem);
-    });
-}
+     /**
+      * 显示自定义日期选择器（预留功能）
+      */
+     showCustomDatePicker() {
+         this.showToast("自定义日期选择");
+         this.closeModal("datePickerModal");
+     },
 
-/**
- * 格式化时间为 "YYYY-MM-DD HH:mm"
- * @param {string} timeStr - 接口返回的时间字符串（如2025-08-07T17:56:27）
- * @returns {string} 格式化后的时间
- */
-function formatRecordTime(timeStr) {
-    if (!timeStr) return '未知时间';
+     // 5. 记录交互与异常处理
+     /**
+      * 处理记录项点击（跳转到详情页）
+      * @param {string} transactionId - 记录ID
+      */
+     handleRecordClick(transactionId) {
+         if (transactionId) {
+             this.navigateToDetail(transactionId);
+         }
+     },
 
-    try {
-        const date = new Date(timeStr);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
+     /**
+      * 跳转到记录详情页面
+      * @param {string} transactionId - 记录ID
+      */
+     navigateToDetail(transactionId) {
+         if (transactionId) {
+             window.location.href = `transit_detail.html?id=${transactionId}`;
+         }
+     },
 
-        return `${year}-${month}-${day} ${hours}:${minutes}`;
-    } catch (error) {
-        console.error('时间格式化失败:', error);
-        return timeStr.replace('T', ' ').split(':').slice(0, 2).join(':');
-    }
-}
+     /**
+      * 处理异常记录（显示异常处理弹窗）
+      */
+     handleErrorRecord() {
+         const { errorHandleModal } = this.state.elements;
+         if (errorHandleModal) {
+             errorHandleModal.style.display = "flex";
+         }
+     },
 
+     /**
+      * 联系客服（处理异常记录时）
+      */
+     contactCustomerService() {
+         this.closeModal("errorHandleModal");
+         this.showToast("正在连接客服...");
+         // 实际项目中可添加跳转客服页面逻辑
+     },
 
+     /**
+      * 立即补缴（处理异常记录时）
+      */
+     payNow() {
+         this.closeModal("errorHandleModal");
+         this.showToast("正在准备支付...");
+         // 延迟跳转支付页面，模拟加载过程
+         setTimeout(() => {
+             window.location.href = "payment.html?amount=3&merchant=出行补缴";
+         }, 1000);
+     },
 
-// 页面加载完成后初始化记录列表
-document.addEventListener('DOMContentLoaded', initTransitRecords);
+     /**
+      * 关闭弹窗
+      * @param {string} modalId - 弹窗ID
+      */
+     closeModal(modalId) {
+         const modal = document.getElementById(modalId);
+         if (modal) {
+             modal.style.display = "none";
+         }
+     },
+
+     // 6. 通用工具方法
+     /**
+      * 获取用户Token（从本地存储解析）
+      * @returns {string} 用户Token（空字符串表示获取失败）
+      */
+     getUserToken() {
+         try {
+             const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+             return userData.token || "";
+         } catch (error) {
+             console.error("解析用户token失败:", error);
+             return "";
+         }
+     },
+
+     /**
+      * 格式化记录时间（转为 "YYYY-MM-DD HH:mm" 格式）
+      * @param {string} timeStr - 原始时间字符串
+      * @returns {string} 格式化后的时间
+      */
+     formatRecordTime(timeStr) {
+         if (!timeStr) return "未知时间";
+
+         try {
+             const date = new Date(timeStr);
+             return `${date.getFullYear()}-${
+                 String(date.getMonth() + 1).padStart(2, "0")
+             }-${
+                 String(date.getDate()).padStart(2, "0")
+             } ${
+                 String(date.getHours()).padStart(2, "0")
+             }:${
+                 String(date.getMinutes()).padStart(2, "0")
+             }`;
+         } catch (error) {
+             console.error("时间格式化失败:", error);
+             // 降级处理：移除T分隔符并保留时分
+             return timeStr.replace("T", " ").split(":").slice(0, 2).join(":");
+         }
+     },
+
+     /**
+      * 格式化金额（保留2位小数）
+      * @param {number|null} amount - 原始金额
+      * @returns {string} 格式化后的金额
+      */
+     formatAmount(amount) {
+         if (amount === null || isNaN(amount)) return "0.00";
+         return parseFloat(amount).toFixed(2);
+     },
+
+     /**
+      * 显示加载状态
+      * @returns {HTMLElement} 加载元素
+      */
+     showLoading() {
+         const loading = document.createElement("div");
+         loading.className = "loading";
+         loading.textContent = "加载中...";
+         document.body.appendChild(loading);
+         return loading;
+     },
+
+     /**
+      * 隐藏加载状态
+      * @param {HTMLElement} loading - 加载元素
+      */
+     hideLoading(loading) {
+         if (loading && loading.parentNode) {
+             loading.parentNode.removeChild(loading);
+         }
+     },
+
+     /**
+      * 显示提示信息（兼容Android原生与Web环境）
+      * @param {string} message - 提示内容
+      */
+     showToast(message) {
+         if (window.AndroidInterface && typeof window.AndroidInterface.showToast === "function") {
+             window.AndroidInterface.showToast(message);
+         } else {
+             alert(message); // Web环境降级使用alert
+         }
+     }
+ };
+
+ // 初始化出行记录列表模块
+ TransitRecordsModule.init();
     </script>
 </body>
 

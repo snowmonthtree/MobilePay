@@ -178,605 +178,665 @@
 
 <script src="script.js"></script>
 <script>
-    let smsCountdown = 0;
-    let resetSmsCountdown = 0;
-    let currentTab = 'password';
-
-    // 切换登录方式
-    function switchTab(tabType) {
-        const passwordTab = document.getElementById('passwordTab');
-        const smsTab = document.getElementById('smsTab');
-        const passwordLogin = document.getElementById('passwordLogin');
-        const smsLogin = document.getElementById('smsLogin');
-
-        if (tabType === 'password') {
-            passwordTab.classList.add('active');
-            smsTab.classList.remove('active');
-            passwordLogin.classList.remove('hidden');
-            smsLogin.classList.add('hidden');
-            currentTab = 'password';
-        } else {
-            smsTab.classList.add('active');
-            passwordTab.classList.remove('active');
-            smsLogin.classList.remove('hidden');
-            passwordLogin.classList.add('hidden');
-            currentTab = 'sms';
+    // 登录与密码管理模块：统一封装，消除全局变量，集中管理状态与功能
+const AuthModule = {
+    // 1. 状态管理：存储模块内关键数据（避免全局变量污染）
+    state: {
+        apiConfig: {
+            baseUrl: "http://graywolf.top:6031/app",
+            headers: {
+                "User-Agent": "Apifox/1.0.0 (https://apifox.com)",
+                "Accept": "*/*"
+            }
+        },
+        countdowns: {
+            sms: 0,    // 登录验证码倒计时
+            reset: 0   // 重置密码验证码倒计时
+        },
+        currentTab: "password",  // 当前激活的登录标签（password/sms）
+        timerIds: {
+            sms: null,  // 登录验证码倒计时定时器
+            reset: null // 重置密码验证码倒计时定时器
         }
-    }
+    },
 
-    // 切换密码显示/隐藏
-    function togglePassword(inputId) {
+    // 2. 初始化：页面加载后执行所有初始化逻辑
+    init() {
+        document.addEventListener("DOMContentLoaded", () => {
+            this.checkLoginStatus();  // 检查登录状态
+            this.bindModalCloseEvent(); // 绑定模态框背景关闭事件
+        });
+
+        // 暴露全局方法：兼容HTML中的onclick调用
+        this.exposeGlobalMethods();
+    },
+
+    // 暴露全局方法：确保外部可调用模块内功能
+    exposeGlobalMethods() {
+        window.switchTab = (tabType) => this.switchTab(tabType);
+        window.togglePassword = (inputId) => this.togglePassword(inputId);
+        window.sendSmsCode = () => this.sendSmsCode();
+        window.sendResetSmsCode = () => this.sendResetSmsCode();
+        window.passwordLogin = () => this.passwordLogin();
+        window.smsLogin = () => this.smsLogin();
+        window.wechatLogin = () => this.wechatLogin();
+        window.alipayLogin = () => this.alipayLogin();
+        window.forgotPassword = () => this.forgotPassword();
+        window.resetPassword = () => this.resetPassword();
+        window.closeModal = (modalId) => this.closeModal(modalId);
+        window.showUserAgreement = () => this.showUserAgreement();
+        window.showPrivacyPolicy = () => this.showPrivacyPolicy();
+        window.goBack = () => this.goBack();
+        window.loadUserProfile = () => this.loadUserProfile();
+    },
+
+    // 3. 登录标签切换（密码/验证码登录）
+    /**
+     * 切换登录方式标签
+     * @param {string} tabType - 标签类型（password/sms）
+     */
+    switchTab(tabType) {
+        // 获取DOM元素
+        const passwordTab = document.getElementById("passwordTab");
+        const smsTab = document.getElementById("smsTab");
+        const passwordLogin = document.getElementById("passwordLogin");
+        const smsLogin = document.getElementById("smsLogin");
+
+        if (!passwordTab || !smsTab || !passwordLogin || !smsLogin) {
+            console.error("登录标签切换相关DOM元素缺失");
+            return;
+        }
+
+        // 更新标签激活状态
+        if (tabType === "password") {
+            passwordTab.classList.add("active");
+            smsTab.classList.remove("active");
+            passwordLogin.classList.remove("hidden");
+            smsLogin.classList.add("hidden");
+        } else {
+            smsTab.classList.add("active");
+            passwordTab.classList.remove("active");
+            smsLogin.classList.remove("hidden");
+            passwordLogin.classList.add("hidden");
+        }
+
+        // 更新当前标签状态
+        this.state.currentTab = tabType;
+    },
+
+    // 4. 密码显示/隐藏切换
+    /**
+     * 切换密码输入框的显示/隐藏状态
+     * @param {string} inputId - 密码输入框ID
+     */
+    togglePassword(inputId) {
         const input = document.getElementById(inputId);
-        const eyeIcon = document.getElementById(inputId + 'Eye');
+        const eyeIcon = document.getElementById(`${inputId}Eye`);
 
-        if (input.type === 'password') {
-            input.type = 'text';
-            eyeIcon.src = 'icons/yincangmima.png';
+        if (!input || !eyeIcon) {
+            console.error(`密码切换相关DOM元素缺失（inputId: ${inputId}）`);
+            return;
+        }
+
+        // 切换输入框类型与图标
+        if (input.type === "password") {
+            input.type = "text";
+            eyeIcon.src = "icons/yincangmima.png";
         } else {
-            input.type = 'password';
-            eyeIcon.src = 'icons/xianshimima.png';
+            input.type = "password";
+            eyeIcon.src = "icons/xianshimima.png";
         }
-    }
+    },
 
-    // 发送短信验证码
-    function sendSmsCode() {
-        const phone = document.getElementById('smsPhoneNumber').value;
-        const sendBtn = document.getElementById('sendSmsBtn');
+    // 5. 验证码发送与倒计时
+    /**
+     * 发送登录验证码
+     */
+    sendSmsCode() {
+        const phone = document.getElementById("smsPhoneNumber").value;
+        const sendBtn = document.getElementById("sendSmsBtn");
 
-        if (!phone || !validatePhoneNumber(phone)) {
-            AndroidInterface.showToast('请输入正确的手机号');
+        // 基础验证
+        if (!this.validatePhoneNumber(phone)) {
+            this.showToast("请输入正确的手机号");
             return;
         }
+        if (this.state.countdowns.sms > 0) return;
 
-        if (smsCountdown > 0) {
+        // 发送验证码请求
+        this.sendVerifyCodeRequest(phone, "login", sendBtn, "sms");
+    },
+
+    /**
+     * 发送重置密码验证码
+     */
+    sendResetSmsCode() {
+        const phone = document.getElementById("resetPhoneNumber").value;
+        const sendBtn = document.getElementById("resetSmsBtn");
+
+        // 基础验证
+        if (!this.validatePhoneNumber(phone)) {
+            this.showToast("请输入正确的手机号");
             return;
         }
-        // 构建请求URL
-        const baseUrl = 'http://graywolf.top:6031/app/verifyCode/send';
-        const url = `${baseUrl}?phone=${encodeURIComponent(phone)}&scene=login`;
-        // 模拟发送验证码
-        fetch(url, {
-            method: 'GET',
-            headers: {
-                'accept': 'application/json',
-            }
+        if (this.state.countdowns.reset > 0) return;
+
+        // 发送验证码请求
+        this.sendVerifyCodeRequest(phone, "reset", sendBtn, "reset");
+    },
+
+    /**
+     * 统一发送验证码请求（复用逻辑，减少重复代码）
+     * @param {string} phone - 手机号
+     * @param {string} scene - 场景（login/reset）
+     * @param {HTMLElement} sendBtn - 发送按钮DOM
+     * @param {string} countdownType - 倒计时类型（sms/reset）
+     */
+    sendVerifyCodeRequest(phone, scene, sendBtn, countdownType) {
+        const url = new URL(`${this.state.apiConfig.baseUrl}/verifyCode/send`);
+        url.searchParams.append("phone", encodeURIComponent(phone));
+        url.searchParams.append("scene", scene);
+
+        fetch(url.toString(), {
+            method: "GET",
+            headers: { ...this.state.apiConfig.headers }
         })
-            .then(response => {
-                // 解析JSON响应
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
-                // 处理接口返回结果
                 if (data.code === 200) {
-                    // 验证码发送成功
-                    console.log("接口返回完整数据：", JSON.stringify(data, null, 2));
-                    AndroidInterface.showToast(data.message || "验证码已发送到您的手机1");
-                    AndroidInterface.showToast(data.data.code || "验证码已发送到您的手机2");
-                    alert(data.message || '验证码已发送到您的手机3');
-
-                    // 开始倒计时
-                    smsCountdown = 60;
-                    updateSmsButton(sendBtn, smsCountdown);
-
-                    const timer = setInterval(() => {
-                        smsCountdown--;
-                        if (smsCountdown <= 0) {
-                            clearInterval(timer);
-                            sendBtn.textContent = '发送验证码';
-                            sendBtn.disabled = false;
-                        } else {
-                            updateSmsButton(sendBtn, smsCountdown);
-                        }
-                    }, 1000);
+                    this.showToast(data.message || "验证码已发送到您的手机");
+                    // 开启倒计时
+                    this.startCountdown(countdownType, sendBtn);
                 } else if (data.code === 409) {
-                    // 手机号已被注册
-                    AndroidInterface.showToast(data.message || "手机号已被注册，请更换手机号");
-                    alert(data.message || '手机号已被注册，请更换手机号');
+                    this.showToast(data.message || "手机号已被注册，请更换手机号");
                 } else {
-                    // 其他错误情况
-                    AndroidInterface.showToast(data.message || "发送失败，请稍后重试");
-                    alert(data.message || '发送失败，请稍后重试');
+                    this.showToast(data.message || "发送失败，请稍后重试");
                 }
             })
             .catch(error => {
-                // 网络错误处理
-                console.error('发送验证码失败:', error);
-                AndroidInterface.showToast("网络异常，请检查网络设置");
-
-                AndroidInterface.showToast(url);
-                alert('网络异常，请检查网络设置');
+                console.error(`发送${scene}验证码失败:", error`);
+                this.showToast("网络异常，请检查网络设置");
             });
-    }
+    },
 
-    // 发送重置密码验证码
-    function sendResetSmsCode() {
-        const phone = document.getElementById('resetPhoneNumber').value;
-        const sendBtn = document.getElementById('resetSmsBtn');
-
-        if (!phone || !validatePhoneNumber(phone)) {
-            AndroidInterface.showToast('请输入正确的手机号');
-            return;
+    /**
+     * 开启验证码倒计时（统一处理，支持登录/重置密码场景）
+     * @param {string} type - 倒计时类型（sms/reset）
+     * @param {HTMLElement} btn - 倒计时按钮DOM
+     */
+    startCountdown(type, btn) {
+        // 清除之前的定时器（避免重复计时）
+        if (this.state.timerIds[type]) {
+            clearInterval(this.state.timerIds[type]);
         }
 
-        if (resetSmsCountdown > 0) {
-            return;
-        }
+        // 初始化倒计时（60秒）
+        this.state.countdowns[type] = 60;
+        this.updateSmsButton(btn, this.state.countdowns[type]);
 
-        // 模拟发送验证码
-        // 构建请求URL
-        const baseUrl = 'http://graywolf.top:6031/app/verifyCode/send';
-        const url = `${baseUrl}?phone=${encodeURIComponent(phone)}&scene=reset`;
-        // 模拟发送验证码
-        fetch(url, {
-            method: 'GET',
-            headers: {
-                'accept': 'application/json',
+        // 启动定时器
+        this.state.timerIds[type] = setInterval(() => {
+            this.state.countdowns[type]--;
+            if (this.state.countdowns[type] <= 0) {
+                clearInterval(this.state.timerIds[type]);
+                this.state.timerIds[type] = null;
+                btn.textContent = "发送验证码";
+                btn.disabled = false;
+            } else {
+                this.updateSmsButton(btn, this.state.countdowns[type]);
             }
-        })
-            .then(response => {
-                // 解析JSON响应
-                return response.json();
-            })
-            .then(data => {
-                // 处理接口返回结果
-                if (data.code === 200) {
-                    // 验证码发送成功
-                    console.log("接口返回完整数据：", JSON.stringify(data, null, 2));
-                    AndroidInterface.showToast(data.message || "验证码已发送到您的手机1");
-                    AndroidInterface.showToast(data.data.code || "验证码已发送到您的手机2");
-                    alert(data.message || '验证码已发送到您的手机3');
+        }, 1000);
+    },
 
-                    // 开始倒计时
-                    resetSmsCountdown = 60;
-                    updateSmsButton(sendBtn, resetSmsCountdown);
-
-                    const timer = setInterval(() => {
-                        resetSmsCountdown--;
-                        if (resetSmsCountdown <= 0) {
-                            clearInterval(timer);
-                            sendBtn.textContent = '发送验证码';
-                            sendBtn.disabled = false;
-                        } else {
-                            updateSmsButton(sendBtn, resetSmsCountdown);
-                        }
-                    }, 1000);
-                } else if (data.code === 409) {
-                    // 手机号已被注册
-                    AndroidInterface.showToast(data.message || "手机号已被注册，请更换手机号");
-                    alert(data.message || '手机号已被注册，请更换手机号');
-                } else {
-                    // 其他错误情况
-                    AndroidInterface.showToast(data.message || "发送失败，请稍后重试");
-                    alert(data.message || '发送失败，请稍后重试');
-                }
-            })
-            .catch(error => {
-                // 网络错误处理
-                console.error('发送验证码失败:', error);
-                AndroidInterface.showToast("网络异常，请检查网络设置");
-
-                AndroidInterface.showToast(url);
-                alert('网络异常，请检查网络设置');
-            });
-    }
-
-    // 更新短信按钮状态
-    function updateSmsButton(button, countdown) {
+    /**
+     * 更新验证码按钮状态（倒计时显示）
+     * @param {HTMLElement} button - 按钮DOM元素
+     * @param {number} countdown - 剩余倒计时秒数
+     */
+    updateSmsButton(button, countdown) {
         button.textContent = `${countdown}s后重发`;
         button.disabled = true;
-    }
+    },
 
-    // 验证手机号
-    function validatePhoneNumber(phone) {
-        const phoneRegex = /^1[3-9]\d{9}$/;
-        return phoneRegex.test(phone);
-    }
-
-    // 密码登录
-    // 密码登录
-    function passwordLogin() {
+    // 6. 登录功能（密码/验证码登录）
+    /**
+     * 密码登录
+     */
+    passwordLogin() {
         // 获取表单数据
-        const phoneNumber = document.getElementById('phoneNumber').value;
-        const password = document.getElementById('password').value;
-        const agreeTerms = document.getElementById('agreeTerms').checked;
+        const phone = document.getElementById("phoneNumber").value;
+        const password = document.getElementById("password").value;
+        const agreeTerms = document.getElementById("agreeTerms").checked;
 
-        // 前端表单验证
-        if (!phoneNumber || !validatePhoneNumber(phoneNumber)) {
-            AndroidInterface.showToast('请输入正确的手机号');
-            return;
-        }
-
-        if (!password || password.length < 6) {
-            AndroidInterface.showToast('请输入至少6位密码');
-            return;
-        }
-
-        if (!agreeTerms) {
-            AndroidInterface.showToast('请同意用户协议和隐私政策');
-            return;
-        }
+        // 前端验证
+        if (!this.validateLoginForm(phone, password, agreeTerms)) return;
 
         // 构建请求数据
         const requestData = {
-            phone: phoneNumber,
+            phone,
             loginType: "password",
             loginPassword: password,
             verifyCode: ""
         };
 
-        // 显示加载状态
+        // 发起登录请求
+        this.loginRequest(requestData);
+    },
 
-        // 调用后端登录接口
-        fetch('http://graywolf.top:6031/app/user/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': '*/*'
-            },
-            body: JSON.stringify(requestData)
-        })
-            .then(response => {
-                // 处理HTTP错误状态
-                if (!response.ok) {
-                    return response.json().then(err => { throw err; });
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.code === 200) {
-                    // 登录成功，保存用户数据
-                    const userData = data.data;
-
-                    // 保存到localStorage
-                    localStorage.setItem('isLoggedIn', 'true');
-                    localStorage.setItem('userData', JSON.stringify(userData));
-
-                    // 调用原生方法保存到Android端
-                    if (typeof AndroidInterface !== 'undefined') {
-                        // 假设userData中包含token、userId、phone字段
-                        AndroidInterface.saveUserToken(
-                            userData.token || '',
-                            userData.userId || '',
-                            userData.phone || ''
-                        );
-                    }
-
-                    AndroidInterface.showToast('登录成功！');
-                    // 跳转到首页
-
-                    loadUserProfile();
-                } else {
-                    // 接口返回成功但数据异常
-                    AndroidInterface.showToast(data.message || '登录失败，请重试');
-                }
-            })
-            .catch(error => {
-                // 处理请求错误或接口返回的业务错误
-                console.error('登录失败:', error);
-                AndroidInterface.showToast(error.message || '登录失败，请检查网络或账号信息');
-            });
-    }
-
-    // 验证码登录
-    function smsLogin() {
+    /**
+     * 验证码登录
+     */
+    smsLogin() {
         // 获取表单数据
-        const phoneNumber = document.getElementById('smsPhoneNumber').value;
-        const smsCode = document.getElementById('smsCode').value;
-        const agreeTerms = document.getElementById('agreeTerms').checked;
+        const phone = document.getElementById("smsPhoneNumber").value;
+        const smsCode = document.getElementById("smsCode").value;
+        const agreeTerms = document.getElementById("agreeTerms").checked;
 
-        // 前端表单验证
-        if (!phoneNumber || !validatePhoneNumber(phoneNumber)) {
-            AndroidInterface.showToast('请输入正确的手机号');
-            return;
-        }
+        // 前端验证
+        if (!this.validateLoginForm(phone, smsCode, agreeTerms, true)) return;
 
-        if (!smsCode || smsCode.length !== 6) {
-            AndroidInterface.showToast('请输入6位验证码');
-            return;
-        }
-
-        if (!agreeTerms) {
-            AndroidInterface.showToast('请同意用户协议和隐私政策');
-            return;
-        }
-
-        // 构建请求数据（loginType固定为verifyCode）
+        // 构建请求数据
         const requestData = {
-            phone: phoneNumber,
+            phone,
             loginType: "verifyCode",
             verifyCode: smsCode,
             loginPassword: ""
         };
 
-        // 显示加载状态
-        AndroidInterface.showToast('正在登录中...');
+        // 发起登录请求
+        this.loginRequest(requestData);
+    },
 
-        // 调用后端登录接口（与密码登录共用同一个接口）
-        fetch('http://graywolf.top:6031/app/user/login', {
-            method: 'POST',
+    /**
+     * 统一登录请求（复用逻辑，支持密码/验证码登录）
+     * @param {Object} requestData - 登录请求数据
+     */
+    loginRequest(requestData) {
+        this.showToast("正在登录中...");
+
+        fetch(`${this.state.apiConfig.baseUrl}/user/login`, {
+            method: "POST",
             headers: {
-                'Content-Type': 'application/json',
-                'Accept': '*/*'
+                ...this.state.apiConfig.headers,
+                "Content-Type": "application/json"
             },
             body: JSON.stringify(requestData)
         })
             .then(response => {
-                // 处理HTTP错误状态
                 if (!response.ok) {
                     return response.json().then(err => { throw err; });
                 }
                 return response.json();
             })
             .then(data => {
-                if (data.code === 200) {
-                    // 登录成功，保存用户数据
-                    const userData = data.data;
-
-                    // 保存到localStorage
-                    localStorage.setItem('isLoggedIn', 'true');
-                    localStorage.setItem('userPhone', phoneNumber);
-                    localStorage.setItem('userData', JSON.stringify(userData));
-
-                    // 调用原生方法保存到Android端
-                    if (typeof AndroidInterface !== 'undefined') {
-                        AndroidInterface.saveUserToken(
-                            userData.token || '',
-                            userData.userId || '',
-                            userData.phone || ''
-                        );
-                    }
-
-                    AndroidInterface.showToast('登录成功！');
-                    loadUserProfile();
-                    // 跳转到首页
+                if (data.code === 200 && data.data) {
+                    this.handleLoginSuccess(data.data, requestData.phone);
                 } else {
-                    // 接口返回业务错误（如验证码过期、错误等）
-                    AndroidInterface.showToast(data.message || '登录失败，请重试');
+                    this.showToast(data.message || "登录失败，请重试");
                 }
             })
             .catch(error => {
-                // 处理网络错误或接口异常
-                console.error('验证码登录失败:', error);
-                AndroidInterface.showToast(error.message || '登录失败，请检查网络');
+                console.error("登录失败:", error);
+                this.showToast(error.message || "登录失败，请检查网络或账号信息");
             });
-    }
+    },
 
-    // 微信登录
-    function wechatLogin() {
-        alert('微信登录功能开发中...');
-    }
+    /**
+     * 登录成功后的处理（保存数据+跳转）
+     * @param {Object} userData - 接口返回的用户数据
+     * @param {string} phone - 登录手机号
+     */
+    handleLoginSuccess(userData, phone) {
+        // 保存到localStorage
+        localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("userPhone", phone);
+        localStorage.setItem("userData", JSON.stringify(userData));
 
-    // 支付宝登录
-    function alipayLogin() {
-        alert('支付宝登录功能开发中...');
-    }
-
-    // 忘记密码
-    function forgotPassword() {
-        document.getElementById('forgotPasswordModal').style.display = 'flex';
-    }
-
-    // 重置密码
-    function resetPassword() {
-    const phoneNumber = document.getElementById('resetPhoneNumber').value.trim();
-    const smsCode = document.getElementById('resetSmsCode').value.trim();
-    const newPassword = document.getElementById('newPassword').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-
-    // 表单验证
-    if (!phoneNumber || !/^1[3-9]\d{9}$/.test(phoneNumber)) {
-        showToast('请输入正确的手机号');
-        return;
-    }
-
-    if (!smsCode || smsCode.length !== 6) {
-        showToast('请输入6位验证码');
-        return;
-    }
-
-    if (!newPassword || newPassword.length < 6) {
-        showToast('请输入至少6位新密码');
-        return;
-    }
-
-    if (newPassword !== confirmPassword) {
-        showToast('两次输入的密码不一致');
-        return;
-    }
-
-    // 显示加载提示
-    showToast ('正在重置密码...');
-
-    // 构造请求参数
-    const requestData = {
-        phone: phoneNumber,
-        verifyCode: smsCode,
-        newPassword: newPassword
-    };
-
-    // 调用接口重置密码
-    fetch('http://graywolf.top:6031/app/user/password/reset', {
-        method: 'POST',
-        headers: {
-            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-            'Content-Type': 'application/json',
-            'Accept': '*/*'
-        },
-        body: JSON.stringify(requestData)
-    })
-    .then(response => {
-        // 移除加载提示
-
-        if (!response.ok) {
-            // 打印详细错误日志
-            console.error('密码重置失败:', {
-                status: response.status,
-                statusText: response.statusText,
-                url: response.url
-            });
-            showToast(`网络请求失败 (${response.status} - ${response.statusText})`);
-            return;
+        // 调用原生方法保存到Android端（若支持）
+        if (window.AndroidInterface) {
+            AndroidInterface.saveUserToken(
+                userData.token || "",
+                userData.userId || "",
+                userData.phone || phone
+            );
         }
 
-        return response.json();
-    })
-    .then(result => {
-        if (result.code === 200) {
-            showToast('密码重置成功！请使用新密码登录');
-            closeModal('forgotPasswordModal');
-            // 重置表单
-            document.getElementById('resetPhoneNumber').value = '';
-            document.getElementById('resetSmsCode').value = '';
-            document.getElementById('newPassword').value = '';
-            document.getElementById('confirmPassword').value = '';
-        } else {
-            showToast(result.message || '密码重置失败，请重试');
-        }
-    })
-    .catch(error => {
-        // 移除加载提示
-        console.error('密码重置异常:', error);
-        showToast('重置密码时发生错误，请稍后重试');
-    });
-}
+        this.showToast("登录成功！");
+        this.loadUserProfile(); // 加载用户资料后跳转首页
+    },
 
-    // 关闭模态框
-    function closeModal(modalId) {
-        document.getElementById(modalId).style.display = 'none';
-    }
-
-    // 显示用户协议
-    function showUserAgreement() {
-        alert('用户协议内容...');
-    }
-
-    // 显示隐私政策
-    function showPrivacyPolicy() {
-        alert('隐私政策内容...');
-    }
-
-    // 返回
-    function goBack() {
-        window.history.back();
-    }
-    function loadUserProfile() {
-        // 1. 获取本地存储的token（用于身份验证）
-        let token = '';
-        try {
-            const existingUserData = JSON.parse(localStorage.getItem('userData') || '{}');
-            token = existingUserData.token || '';
-        } catch (error) {
-            console.error('获取本地token失败:', error);
-            console.log('登录状态异常，无法获取用户资料');
-            return;
+    /**
+     * 验证登录表单（统一验证逻辑，支持密码/验证码场景）
+     * @param {string} phone - 手机号
+     * @param {string} inputVal - 密码/验证码
+     * @param {boolean} agreeTerms - 是否同意协议
+     * @param {boolean} isSmsLogin - 是否为验证码登录
+     * @returns {boolean} 验证是否通过
+     */
+    validateLoginForm(phone, inputVal, agreeTerms, isSmsLogin = false) {
+        // 手机号验证
+        if (!this.validatePhoneNumber(phone)) {
+            this.showToast("请输入正确的手机号");
+            return false;
         }
 
-        if (!token) {
-            console.log('未检测到登录状态，无法获取用户资料');
-            return;
-        }
-
-        // 2. 调用用户资料接口
-        fetch('http://graywolf.top:6031/app/user/profile', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`, // 携带token进行身份验证
-                'Accept': '*/*',
-                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)'
+        // 密码/验证码验证
+        if (isSmsLogin) {
+            if (!inputVal || inputVal.length !== 6) {
+                this.showToast("请输入6位验证码");
+                return false;
             }
+        } else {
+            if (!inputVal || inputVal.length < 6) {
+                this.showToast("请输入至少6位密码");
+                return false;
+            }
+        }
+
+        // 协议同意验证
+        if (!agreeTerms) {
+            this.showToast("请同意用户协议和隐私政策");
+            return false;
+        }
+
+        return true;
+    },
+
+    // 7. 第三方登录（微信/支付宝）
+    /**
+     * 微信登录（待开发）
+     */
+    wechatLogin() {
+        this.showToast("微信登录功能开发中...");
+    },
+
+    /**
+     * 支付宝登录（待开发）
+     */
+    alipayLogin() {
+        this.showToast("支付宝登录功能开发中...");
+    },
+
+    // 8. 密码重置功能
+    /**
+     * 打开忘记密码模态框
+     */
+    forgotPassword() {
+        const modal = document.getElementById("forgotPasswordModal");
+        if (modal) modal.style.display = "flex";
+    },
+
+    /**
+     * 重置密码（表单验证+接口请求）
+     */
+    resetPassword() {
+        // 获取表单数据
+        const phone = document.getElementById("resetPhoneNumber").value.trim();
+        const smsCode = document.getElementById("resetSmsCode").value.trim();
+        const newPassword = document.getElementById("newPassword").value;
+        const confirmPassword = document.getElementById("confirmPassword").value;
+
+        // 前端验证
+        if (!this.validateResetPasswordForm(phone, smsCode, newPassword, confirmPassword)) {
+            return;
+        }
+
+        // 构建请求数据
+        const requestData = { phone, verifyCode: smsCode, newPassword };
+
+        // 发起重置请求
+        this.showToast("正在重置密码...");
+        fetch(`${this.state.apiConfig.baseUrl}/user/password/reset`, {
+            method: "POST",
+            headers: {
+                ...this.state.apiConfig.headers,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(requestData)
         })
             .then(response => {
-                // 处理HTTP错误状态（如401未授权）
                 if (!response.ok) {
-                    return response.json().then(err => { throw err; });
+                    console.error("密码重置失败:", {
+                        status: response.status,
+                        statusText: response.statusText
+                    });
+                    this.showToast(`网络请求失败 (${response.status} - ${response.statusText})`);
+                    return null;
                 }
                 return response.json();
             })
             .then(data => {
-                // 3. 验证接口返回是否成功
-                if (data.code === 200 && data.data) {
-                    const newProfileData = data.data; // 接口返回的用户资料
-
-                    // 4. 获取本地已有的userData（若无则初始化为空对象）
-                    let existingUserData = {};
-                    try {
-                        existingUserData = JSON.parse(localStorage.getItem('userData') || '{}');
-                    } catch (error) {
-                        console.error('解析本地userData失败，使用空对象初始化:', error);
-                        existingUserData = {};
-                    }
-
-                    // 5. 增量更新：仅用接口返回的字段覆盖本地数据，本地独有的字段保留
-                    const updatedUserData = {
-                        ...existingUserData, // 保留本地原有数据
-                        ...newProfileData    // 用接口返回的新数据覆盖相同字段
-                    };
-
-                    // 6. 保存更新后的数据到localStorage
-                    localStorage.setItem('userData', JSON.stringify(updatedUserData));
-                    console.log('用户资料更新成功:', JSON.stringify(updatedUserData,null,2));
-
-                    window.location.href = 'index.html';
-                } else {
-                    console.log('获取用户资料失败:', data.msg || '接口返回异常');
+                if (data && data.code === 200) {
+                    this.showToast("密码重置成功！请使用新密码登录");
+                    this.closeModal("forgotPasswordModal");
+                    this.clearResetPasswordForm(); // 清空表单
+                } else if (data) {
+                    this.showToast(data.message || "密码重置失败，请重试");
                 }
             })
             .catch(error => {
-                // 处理网络错误或接口异常
-                console.error('获取用户资料请求失败:', error);
+                console.error("密码重置异常:", error);
+                this.showToast("重置密码时发生错误，请稍后重试");
             });
-    }
+    },
 
-    // 页面加载完成后检查登录状态
-    document.addEventListener('DOMContentLoaded', function () {
-        // 检查登录状态逻辑
-        checkLoginStatus();
-    });
-
-    // 封装登录状态检查逻辑，便于维护
-    function checkLoginStatus() {
-        // 优先检查 localStorage（兼容前端本地登录状态）
-
-
-        // 检查是否存在 Android 交互接口
-        if (typeof AndroidInterface === 'undefined') {
-            console.log('非 Android 环境，不检查原生登录状态');
-            return;
+    /**
+     * 验证重置密码表单
+     * @param {string} phone - 手机号
+     * @param {string} smsCode - 验证码
+     * @param {string} newPassword - 新密码
+     * @param {string} confirmPassword - 确认密码
+     * @returns {boolean} 验证是否通过
+     */
+    validateResetPasswordForm(phone, smsCode, newPassword, confirmPassword) {
+        if (!this.validatePhoneNumber(phone)) {
+            this.showToast("请输入正确的手机号");
+            return false;
         }
+        if (!smsCode || smsCode.length !== 6) {
+            this.showToast("请输入6位验证码");
+            return false;
+        }
+        if (!newPassword || newPassword.length < 6) {
+            this.showToast("请输入至少6位新密码");
+            return false;
+        }
+        if (newPassword !== confirmPassword) {
+            this.showToast("两次输入的密码不一致");
+            return false;
+        }
+        return true;
+    },
 
-        try {
-            // 调用原生方法获取用户数据（使用之前定义的 getUserData，返回 JSON 字符串）
-            const userDataStr = AndroidInterface.getUserData();
+    /**
+     * 清空重置密码表单
+     */
+    clearResetPasswordForm() {
+        document.getElementById("resetPhoneNumber").value = "";
+        document.getElementById("resetSmsCode").value = "";
+        document.getElementById("newPassword").value = "";
+        document.getElementById("confirmPassword").value = "";
 
-            // 解析 JSON 数据（处理可能的格式错误）
-            const userData = JSON.parse(userDataStr);
+        // 重置重置密码倒计时
+        if (this.state.timerIds.reset) {
+            clearInterval(this.state.timerIds.reset);
+            this.state.timerIds.reset = null;
+            this.state.countdowns.reset = 0;
+            const resetBtn = document.getElementById("resetSmsBtn");
+            if (resetBtn) {
+                resetBtn.textContent = "发送验证码";
+                resetBtn.disabled = false;
+                }
+        },
 
-            // 验证 token 是否有效（非空且不为空字符串）
-            if (userData && userData.token && userData.token.trim() !== '') {
+        /**
+         * 关闭模态框
+         * @param {string} modalId - 模态框ID
+         */
+        closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) modal.style.display = "none";
+        },
 
-                // 更新本地登录状态
-                localStorage.setItem('isLoggedIn', 'true');
-                // 可选：保存完整用户数据到本地
-                localStorage.setItem('userData', JSON.stringify(userData));
-                loadUserProfile()
-                // 跳转到首页
-            } else {
-                console.log('未检测到有效 token，保持在登录页');
+        // 9. 用户协议与隐私政策
+        /**
+         * 显示用户协议
+         */
+        showUserAgreement() {
+            this.showToast("用户协议内容...");
+        },
+
+        /**
+         * 显示隐私政策
+         */
+        showPrivacyPolicy() {
+            this.showToast("隐私政策内容...");
+        },
+
+        // 10. 页面导航与用户资料加载
+        /**
+         * 返回上一页
+         */
+        goBack() {
+            window.history.back();
+        },
+
+        /**
+         * 加载用户资料并跳转首页
+         */
+        loadUserProfile() {
+            // 获取本地存储的token
+            const token = this.getAuthToken();
+            if (!token) {
+                console.log("未检测到登录状态，无法获取用户资料");
+                return;
             }
-        } catch (error) {
-            // 捕获所有可能的错误（解析失败、方法未定义等）
-            console.error('检查登录状态失败：', error);
-            // 不中断流程，保持在登录页
-        }
-    }
 
+            // 调用用户资料接口
+            fetch(`${this.state.apiConfig.baseUrl}/user/profile`, {
+                method: "GET",
+                headers: {
+                    ...this.state.apiConfig.headers,
+                    "Authorization": `Bearer ${token}`
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { throw err; });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.code === 200 && data.data) {
+                        this.updateUserData(data.data); // 更新用户数据
+                        window.location.href = "index.html"; // 跳转到首页
+                    } else {
+                        console.log("获取用户资料失败:", data.msg || "接口返回异常");
+                    }
+                })
+                .catch(error => {
+                    console.error("获取用户资料请求失败:", error);
+                });
+        },
 
-    // 点击模态框背景关闭
-    document.addEventListener('click', function (e) {
-        if (e.target.classList.contains('modal')) {
-            e.target.style.display = 'none';
+        /**
+         * 更新用户数据（合并本地与接口数据）
+         * @param {Object} newProfileData - 接口返回的新用户资料
+         */
+        updateUserData(newProfileData) {
+            try {
+                // 获取本地已有数据
+                const existingUserData = JSON.parse(localStorage.getItem("userData") || "{}");
+
+                // 合并数据（接口数据覆盖本地相同字段，保留本地独有字段）
+                const updatedUserData = {
+                    ...existingUserData,
+                    ...newProfileData
+                };
+
+                // 保存更新后的数据
+                localStorage.setItem("userData", JSON.stringify(updatedUserData));
+                console.log("用户资料更新成功:", updatedUserData);
+            } catch (error) {
+                console.error("更新用户资料失败:", error);
+            }
+        },
+
+        // 11. 登录状态检查
+        /**
+         * 检查登录状态（页面加载时执行）
+         */
+        checkLoginStatus() {
+            // 检查Android原生登录状态（优先）
+            if (window.AndroidInterface) {
+                try {
+                    const userDataStr = AndroidInterface.getUserData();
+                    const userData = JSON.parse(userDataStr);
+
+                    // 验证token有效性
+                    if (userData && userData.token && userData.token.trim() !== "") {
+                        localStorage.setItem("isLoggedIn", "true");
+                        localStorage.setItem("userData", JSON.stringify(userData));
+                        this.loadUserProfile(); // 加载资料后跳转
+                    }
+                } catch (error) {
+                    console.error("检查原生登录状态失败:", error);
+                }
+            }
+        },
+
+        // 12. 工具方法
+        /**
+         * 验证手机号格式
+         * @param {string} phone - 手机号
+         * @returns {boolean} 验证是否通过
+         */
+        validatePhoneNumber(phone) {
+            return /^1[3-9]\d{9}$/.test(phone);
+        },
+
+        /**
+         * 显示提示信息（兼容原生与Web）
+         * @param {string} message - 提示内容
+         */
+        showToast(message) {
+            // 优先使用原生Toast（若支持）
+            if (window.AndroidInterface && typeof AndroidInterface.showToast === "function") {
+                AndroidInterface.showToast(message);
+            } else {
+                // Web环境下的简易Toast
+                alert(message);
+            }
+        },
+
+        /**
+         * 绑定模态框背景点击关闭事件
+         */
+        bindModalCloseEvent() {
+            document.addEventListener("click", (e) => {
+                if (e.target.classList.contains("modal")) {
+                    e.target.style.display = "none";
+                }
+            });
+        },
+
+        /**
+         * 获取用户Token（统一封装）
+         * @returns {string} Token或空字符串
+         */
+        getAuthToken() {
+            try {
+                const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+                return userData.token || "";
+            } catch (error) {
+                console.error("获取Token失败:", error);
+                return "";
+            }
         }
-    });
+    };
+
+    // 初始化登录模块
+    AuthModule.init();
 </script>
 </body>
 

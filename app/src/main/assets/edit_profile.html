@@ -405,408 +405,692 @@
 
 <script src="script.js"></script>
 <script>
-    let codeCountdown = 0;
-    let verificationCode = "";
-    let avatarChanged = false;
-    let selectedAvatar = "icons/a-29-gerenxinxi.png";
-    let currentEditArea = null;
+    // 个人信息管理模块：统一封装，避免全局变量污染，保持功能完整性
+const ProfileModule = {
+    // 1. 状态管理：集中存储模块内关键状态（替代全局变量）
+    state: {
+        codeCountdown: 0,
+        verificationCode: "",
+        avatarChanged: false,
+        selectedAvatar: "icons/a-29-gerenxinxi.png",
+        currentEditArea: null,
+        // 接口基础配置：便于后续维护与修改
+        apiConfig: {
+            baseUrl: "http://graywolf.top:6031/app",
+            defaultAvatar: "icons/default-avatar.png",
+            headers: {
+                "User-Agent": "Apifox/1.0.0 (https://apifox.com)",
+                "Accept": "*/*"
+            }
+        }
+    },
 
-    // 页面加载时初始化
-    document.addEventListener("DOMContentLoaded", function () {
-        initializePage();
-        // 更新状态栏时间
-        updateTime();
-        setInterval(updateTime, 60000); // 每分钟更新一次时间
-    });
+    // 2. 初始化：页面加载后执行所有初始化逻辑
+    init() {
+        // DOM加载完成后初始化
+        document.addEventListener("DOMContentLoaded", () => {
+            this.initializePage();
+            this.updateTime(); // 初始化状态栏时间
+            this.startTimeUpdateTimer(); // 启动时间更新定时器
+        });
 
-    // 更新状态栏时间
-    function updateTime() {
+        // 暴露全局方法：兼容原有HTML中的onclick调用
+        this.exposeGlobalMethods();
+
+        // 绑定模态框背景点击关闭事件
+        this.bindModalCloseEvent();
+    },
+
+    // 暴露全局方法：确保HTML中onclick可正常触发
+    exposeGlobalMethods() {
+        window.toggleEditArea = (areaId) => this.toggleEditArea(areaId);
+        window.changeAvatar = () => this.changeAvatar();
+        window.saveUsername = () => this.saveUsername();
+        window.togglePassword = (inputId) => this.togglePassword(inputId);
+        window.sendVerifyCode = () => this.sendVerifyCode();
+        window.updatePhone = () => this.updatePhone();
+        window.updatePassword = () => this.updatePassword();
+        window.closeModal = (modalId) => this.closeModal(modalId);
+        window.goBack = () => this.goBack();
+    },
+
+    // 3. 页面基础功能
+    /**
+     * 初始化页面：加载用户信息（用户名、头像、手机号）
+     */
+    initializePage() {
+        const userDataStr = localStorage.getItem("userData");
+        if (userDataStr) {
+            try {
+                const userData = JSON.parse(userDataStr);
+                console.log("用户数据:", userData);
+
+                // 初始化手机号显示
+                this.initPhoneDisplay(userData);
+                // 初始化用户名显示
+                this.initUsernameDisplay(userData);
+                // 初始化头像显示
+                this.initAvatarDisplay(userData);
+
+            } catch (error) {
+                console.error("解析用户数据失败:", error);
+                this.setDefaultUserInfo(); // 解析失败用默认值
+            }
+        } else {
+            this.setDefaultUserInfo(); // 无用户数据用默认值
+        }
+    },
+
+    /**
+     * 设置默认用户信息（统一默认值管理）
+     */
+    setDefaultUserInfo() {
+        // 默认用户名
+        document.getElementById("username").value = "用户";
+        document.getElementById("usernameDisplay").textContent = "用户";
+
+        // 默认头像
+        const defaultAvatar = this.state.apiConfig.defaultAvatar;
+        document.getElementById("userAvatar")?.setAttribute("src", defaultAvatar);
+        document.getElementById("userAvatarLarge")?.setAttribute("src", defaultAvatar);
+        this.state.selectedAvatar = defaultAvatar;
+
+        // 默认手机号
+        document.getElementById("currentPhone").value = "未绑定手机号";
+        document.getElementById("phoneDisplay").textContent = "未绑定";
+    },
+
+    /**
+     * 初始化手机号显示（含脱敏处理）
+     * @param {Object} userData - 用户数据对象
+     */
+    initPhoneDisplay(userData) {
+        const userPhone = userData.phone?.trim() || "";
+        if (userPhone) {
+            document.getElementById("currentPhone").value = userPhone;
+            document.getElementById("phoneDisplay").textContent = this.maskPhoneNumber(userPhone);
+        } else {
+            document.getElementById("currentPhone").value = "未绑定手机号";
+            document.getElementById("phoneDisplay").textContent = "未绑定";
+        }
+    },
+
+    /**
+     * 初始化用户名显示
+     * @param {Object} userData - 用户数据对象
+     */
+    initUsernameDisplay(userData) {
+        const userName = userData.nickName?.trim() || "未知用户";
+        document.getElementById("username").value = userName;
+        document.getElementById("usernameDisplay").textContent = userName;
+    },
+
+    /**
+     * 初始化头像显示（含加载失败兜底）
+     * @param {Object} userData - 用户数据对象
+     */
+    initAvatarDisplay(userData) {
+        const avatarUrl = userData.avatarUrl?.trim() || this.state.apiConfig.defaultAvatar;
+        const avatarElements = [
+            document.getElementById("userAvatar"),
+            document.getElementById("userAvatarLarge")
+        ];
+
+        avatarElements.forEach(el => {
+            if (el) {
+                el.src = avatarUrl;
+                // 加载失败时使用默认头像
+                el.onerror = () => {
+                    el.src = this.state.apiConfig.defaultAvatar;
+                };
+            }
+        });
+
+        this.state.selectedAvatar = avatarUrl;
+    },
+
+    /**
+     * 更新状态栏时间
+     */
+    updateTime() {
         const now = new Date();
         const hours = now.getHours().toString().padStart(2, "0");
         const minutes = now.getMinutes().toString().padStart(2, "0");
         document.querySelector(".time").textContent = `${hours}:${minutes}`;
-    }
+    },
 
-function initializePage() {
+    /**
+     * 启动时间更新定时器（每分钟更新一次）
+     */
+    startTimeUpdateTimer() {
+        setInterval(() => this.updateTime(), 60000);
+    },
 
-    // 显示当前用户名和头像（适配实际字段）
-    const userDataStr = localStorage.getItem("userData");
-    if (userDataStr) {
-        try {
-            const userData = JSON.parse(userDataStr);
-            console.log("用户数据:", userData);
-            // 显示当前手机号
-            const userPhone=userData.phone.trim();
-            if (userPhone) {
-        document.getElementById("currentPhone").value = userPhone;
-        document.getElementById("phoneDisplay").textContent =
-            userPhone.replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2");
-         } else {
-        document.getElementById("currentPhone").value = "未绑定手机号";
-        document.getElementById("phoneDisplay").textContent = "未绑定";
-            }
-            // 处理用户名（使用nickName字段）
-            const userNameEl = document.getElementById("username");
-            const userNameDisplayEl = document.getElementById("usernameDisplay");
-            const userName = userData.nickName?.trim() || "未知用户";
-
-            if (userNameEl) userNameEl.value = userName;
-            if (userNameDisplayEl) userNameDisplayEl.textContent = userName;
-
-            // 处理头像（使用avatarUrl字段）
-            const avatarUrl = userData.avatarUrl?.trim();
-            const avatarElements = [
-                document.getElementById("userAvatar"),
-                document.getElementById("userAvatarLarge")
-            ];
-
-            avatarElements.forEach(el => {
-                if (el) {
-                    // 有头像则使用，否则保持默认
-                    if (avatarUrl) {
-                        el.src = avatarUrl;
-                        // 加载失败时使用默认头像（假设默认路径为icons/default-avatar.png）
-                        el.onerror = () => {
-                            el.src = "icons/default-avatar.png";
-                        };
-                    }
-                }
-            });
-
-            // 记录选中的头像
-            window.selectedAvatar = avatarUrl || "icons/default-avatar.png";
-
-        } catch (error) {
-            console.error("解析用户数据失败:", error);
-            // 解析失败时使用默认值
-            setDefaultUserInfo();
-        }
-    } else {
-        // 无用户数据时使用默认值
-        setDefaultUserInfo();
-    }
-}
-
-/**
- * 设置默认用户信息（抽取为函数，避免重复代码）
- */
-function setDefaultUserInfo() {
-    document.getElementById("username").value = "用户";
-    document.getElementById("usernameDisplay").textContent = "用户";
-
-    const defaultAvatar = "icons/default-avatar.png";
-    document.getElementById("userAvatar")?.setAttribute("src", defaultAvatar);
-    document.getElementById("userAvatarLarge")?.setAttribute("src", defaultAvatar);
-    window.selectedAvatar = defaultAvatar;
-}
-
-
-    // 切换编辑区域显示/隐藏
-    function toggleEditArea(areaId) {
+    // 4. 编辑区域切换功能
+    /**
+     * 切换编辑区域显示/隐藏（头像、用户名、手机号、密码）
+     * @param {string} areaId - 编辑区域ID
+     */
+    toggleEditArea(areaId) {
         const editArea = document.getElementById(areaId);
+        if (!editArea) return;
+
         const allEditAreas = document.querySelectorAll(".edit-area");
         const pageTitle = document.querySelector(".page-title");
-        const infoSections = document.querySelectorAll(
-            ".form-section:not(:last-child)"
-        );
-
+        const infoSections = document.querySelectorAll(".form-section:not(:last-child)");
         const profilePage = document.getElementById("profilePage");
         const editProfilePage = document.getElementById("editProfilePage");
+
+        // 切换页面容器显示
         profilePage.style.display = "none";
         editProfilePage.style.display = "block";
 
         // 隐藏所有编辑区域
-        allEditAreas.forEach((area) => {
+        allEditAreas.forEach(area => {
             area.style.display = "none";
         });
 
-        // 根据选择的编辑区域更新页面标题
-        if (areaId === "avatarEdit") {
-            pageTitle.textContent = "修改头像";
-        } else if (areaId === "usernameEdit") {
-            pageTitle.textContent = "修改用户名";
-        } else if (areaId === "phoneEdit") {
-            pageTitle.textContent = "修改手机号";
-        } else if (areaId === "passwordEdit") {
-            pageTitle.textContent = "修改密码";
-        } else {
-            pageTitle.textContent = "修改个人信息";
-        }
+        // 更新页面标题（根据编辑类型）
+        this.updateEditPageTitle(pageTitle, areaId);
 
-        // 如果当前编辑区域已经显示，则恢复默认视图
-        if (
-            currentEditArea === editArea &&
-            editArea.style.display === "block"
-        ) {
+        // 处理当前编辑区域状态（显示/隐藏）
+        if (this.state.currentEditArea === editArea && editArea.style.display === "block") {
+            // 已显示则隐藏，恢复默认视图
             editArea.style.display = "none";
-            currentEditArea = null;
+            this.state.currentEditArea = null;
             pageTitle.textContent = "修改个人信息";
-
-            // 显示所有信息区域
-            infoSections.forEach((section) => {
+            infoSections.forEach(section => {
                 section.style.display = "block";
             });
         } else {
-            // 否则显示选中的编辑区域，隐藏其他信息区域
+            // 显示选中编辑区域，隐藏其他信息区域
             editArea.style.display = "block";
-            currentEditArea = editArea;
-
-            // 隐藏所有信息区域
-            infoSections.forEach((section) => {
+            this.state.currentEditArea = editArea;
+            infoSections.forEach(section => {
                 section.style.display = "none";
             });
         }
-    }
+    },
 
-    // 更换头像（使用相册选择和上传接口）
-function changeAvatar() {
-    // 检查是否支持原生交互
-    if (!window.AndroidInterface) {
-        showToast('不支持图片选择功能');
-        return;
-    }
+    /**
+     * 根据编辑类型更新页面标题
+     * @param {HTMLElement} pageTitle - 标题元素
+     * @param {string} areaId - 编辑区域ID
+     */
+    updateEditPageTitle(pageTitle, areaId) {
+        const titleMap = {
+            "avatarEdit": "修改头像",
+            "usernameEdit": "修改用户名",
+            "phoneEdit": "修改手机号",
+            "passwordEdit": "修改密码"
+        };
+        pageTitle.textContent = titleMap[areaId] || "修改个人信息";
+    },
 
-    // 定义图片选择成功后的回调函数
-    window.onImageSelected = function(imageUri) {
-        if (!imageUri) {
-            showToast('未选择图片');
+    // 5. 头像管理功能
+    /**
+     * 更换头像（调用原生相册选择+上传接口）
+     */
+    changeAvatar() {
+        // 检查原生交互支持
+        if (!window.AndroidInterface) {
+            this.showToast("不支持图片选择功能");
             return;
         }
 
-        // 显示加载提示
-        showToast('正在上传头像...', 0);
+        // 定义图片选择成功回调（挂载到window供原生调用）
+        window.onImageSelected = (imageUri) => {
+            if (!imageUri) {
+                this.showToast("未选择图片");
+                return;
+            }
 
-        // 调用上传接口
-        uploadAvatarToServer(imageUri)
-            .then(newAvatarUrl => {
-                // 上传成功，更新头像显示
-                selectedAvatar = newAvatarUrl;
-                document.getElementById("userAvatar").src = selectedAvatar;
-                document.getElementById("userAvatarLarge").src = selectedAvatar;
-
-                // 保存头像更改记录
-                showToast("头像已更换");
-            })
-            .catch(error => {
-                showToast(error.message || '头像上传失败');
-            });
-    };
-
-    // 调用原生方法打开相册选择图片
-    try {
-        AndroidInterface.openImagePicker("onImageSelected");
-    } catch (error) {
-        console.error('调用相册选择失败:', error);
-        showToast('打开相册失败，请重试');
-    }
-}
-
-/**
- * 将选中的图片上传到服务器
- * @param {string} imageUri - 原生传递的图片Uri
- * @returns {Promise} - 包含新头像URL的Promise
- */
-function uploadAvatarToServer(imageUri) {
-    return new Promise((resolve, reject) => {
-        // 获取用户token
-        let token = '';
-        try {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            token = userData.token || '';
-        } catch (error) {
-            reject(new Error('登录状态异常'));
-            return;
-        }
-
-        if (!token) {
-            reject(new Error('请先登录'));
-            return;
-        }
-
-        // 将Uri转换为Blob对象（适配WebView）
-        convertUriToBlob(imageUri)
-            .then(blob => {
-                // 构建FormData
-                const formData = new FormData();
-                // 注意：filename参数建议包含扩展名（如.jpg）
-                formData.append('file', blob, `avatar_${Date.now()}.jpg`);
-
-                // 调用上传接口
-                fetch('http://graywolf.top:6031/app/user/avatar/upload', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-                        'Accept': '*/*'
-                        // 不要手动设置Content-Type，FormData会自动处理
-                    },
-                    body: formData
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`上传失败: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(result => {
-                    if (result.code === 200 && result.data) {
-                        // 假设接口返回data中包含新头像的URL
-                        // 根据实际接口返回结构调整
-                        const newAvatarUrl = result.data.avatarUrl || '';
-                        if (newAvatarUrl) {
-
-                saveUserData("avatar", result.data.avatarUrl);
-                            resolve(newAvatarUrl);
-                        } else {
-                            reject(new Error('未获取到头像地址'));
-                        }
-                    } else {
-                        reject(new Error(result.message || '上传失败'));
-                    }
+            this.showToast("正在上传头像...");
+            // 上传头像到服务器
+            this.uploadAvatarToServer(imageUri)
+                .then(newAvatarUrl => {
+                    // 上传成功，更新头像显示
+                    this.state.selectedAvatar = newAvatarUrl;
+                    document.getElementById("userAvatar").src = newAvatarUrl;
+                    document.getElementById("userAvatarLarge").src = newAvatarUrl;
+                    // 保存头像到本地存储
+                    this.saveUserData("avatar", newAvatarUrl);
+                    this.showToast("头像已更换");
                 })
                 .catch(error => {
-                    reject(error);
+                    this.showToast(error.message || "头像上传失败");
                 });
-            })
-            .catch(error => {
-                reject(new Error('图片处理失败: ' + error.message));
-            });
-    });
-}
+        };
 
-/**
- * 将图片Uri转换为Blob对象
- * @param {string} uri - 图片Uri
- * @returns {Promise} - 包含Blob的Promise
- */
-function convertUriToBlob(uri) {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', uri, true);
-        xhr.responseType = 'blob';
+        // 调用原生方法打开相册
+        try {
+            window.AndroidInterface.openImagePicker("onImageSelected");
+        } catch (error) {
+            console.error("调用相册选择失败:", error);
+            this.showToast("打开相册失败，请重试");
+        }
+    },
 
-        xhr.onload = () => {
-            if (xhr.status === 200) {
-                resolve(xhr.response);
-            } else {
-                reject(new Error(`获取图片失败: ${xhr.statusText}`));
+    /**
+     * 上传头像到服务器
+     * @param {string} imageUri - 原生传递的图片URI
+     * @returns {Promise<string>} - 新头像URL
+     */
+    uploadAvatarToServer(imageUri) {
+        return new Promise((resolve, reject) => {
+            // 获取用户Token
+            const token = this.getAuthToken();
+            if (!token) {
+                reject(new Error("请先登录"));
+                return;
             }
-        };
 
-        xhr.onerror = () => {
-            reject(new Error('图片请求失败，请检查权限'));
-        };
+            // 转换URI为Blob（适配WebView上传）
+            this.convertUriToBlob(imageUri)
+                .then(blob => {
+                    // 构建FormData
+                    const formData = new FormData();
+                    formData.append("file", blob, `avatar_${Date.now()}.jpg`);
 
-        xhr.send();
-    });
-}
+                    // 调用上传接口
+                    fetch(`${this.state.apiConfig.baseUrl}/user/avatar/upload`, {
+                        method: "POST",
+                        headers: {
+                            ...this.state.apiConfig.headers,
+                            "Authorization": `Bearer ${token}`
+                            // 不手动设置Content-Type，FormData自动处理
+                        },
+                        body: formData
+                    })
+                        .then(response => this.handleApiResponse(response))
+                        .then(data => {
+                            const newAvatarUrl = data.data?.avatarUrl || "";
+                            if (!newAvatarUrl) {
+                                reject(new Error("未获取到头像地址"));
+                                return;
+                            }
+                            resolve(newAvatarUrl);
+                        })
+                        .catch(error => {
+                            reject(error);
+                        });
+                })
+                .catch(error => {
+                    reject(new Error("图片处理失败: " + error.message));
+                });
+        });
+    },
 
-    // 保存用户名
-    function saveUsername() {
+    /**
+     * 将图片URI转换为Blob对象
+     * @param {string} uri - 图片URI
+     * @returns {Promise<Blob>} - 转换后的Blob
+     */
+    convertUriToBlob(uri) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("GET", uri, true);
+            xhr.responseType = "blob";
+
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    resolve(xhr.response);
+                } else {
+                    reject(new Error(`获取图片失败: ${xhr.statusText}`));
+                }
+            };
+
+            xhr.onerror = () => {
+                reject(new Error("图片请求失败，请检查权限"));
+            };
+
+            xhr.send();
+        });
+    },
+
+    // 6. 用户名管理功能
+    /**
+     * 保存用户名（验证+调用接口更新）
+     */
+    saveUsername() {
         const username = document.getElementById("username").value.trim();
 
         // 前端验证
         if (!username) {
-            showToast("用户名不能为空");
+            this.showToast("用户名不能为空");
             return;
         }
 
-        // 获取本地存储的token和用户数据
-        let token = '';
-        let existingUserData = {};
-        try {
-            existingUserData = JSON.parse(localStorage.getItem('userData') || '{}');
-            token = existingUserData.token || '';
-        } catch (error) {
-            console.error('获取用户信息失败:', error);
-            showToast('登录状态异常，请重新登录');
-            return;
-        }
+        // 获取用户Token和现有数据
+        const { token, userData } = this.getAuthTokenAndData();
+        if (!token) return;
 
-        if (!token) {
-            showToast('请先登录');
-            return;
-        }
+        // 构建请求数据（仅传递nickName字段）
+        const requestData = { nickName: username };
 
-        // 构建请求数据（仅传递需要更新的nickName字段）
-        const requestData = {
-            nickName: username // 接口使用nickName字段接收用户名
-        };
-
-        // 显示加载状态
-        showToast("正在保存用户名...");
-
-        // 调用后端更新接口
-        fetch('http://graywolf.top:6031/app/user/profile/update', {
-            method: 'PUT',
+        this.showToast("正在保存用户名...");
+        // 调用更新接口
+        fetch(`${this.state.apiConfig.baseUrl}/user/profile/update`, {
+            method: "PUT",
             headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                'Accept': '*/*'
+                ...this.state.apiConfig.headers,
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json"
             },
             body: JSON.stringify(requestData)
         })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => { throw err; });
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.code === 200) {
-                    // 1. 更新本地存储的userData
-                    const updatedUserData = {
-                        ...existingUserData,
-                        userName: username // 同步更新本地的userName字段
-                    };
-                    localStorage.setItem('userData', JSON.stringify(updatedUserData));
-
-                    // 2. 更新页面显示
-                    document.getElementById("usernameDisplay").textContent = username;
-
-                    // 3. 提示成功并返回
-                    showToast("用户名已更换");
-                    goBack();
-                } else {
-                    // 处理业务错误
-                    showToast(data.msg || '保存失败，请重试');
-                }
+            .then(response => this.handleApiResponse(response))
+            .then(() => {
+                // 更新本地存储
+                const updatedUserData = { ...userData, userName: username };
+                localStorage.setItem("userData", JSON.stringify(updatedUserData));
+                // 更新页面显示
+                document.getElementById("usernameDisplay").textContent = username;
+                this.showToast("用户名已更换");
+                this.goBack(); // 返回上一页
             })
             .catch(error => {
-                console.error('保存用户名失败:', error);
-                showToast(error.message || '网络异常，请检查网络后重试');
+                console.error("保存用户名失败:", error);
+                this.showToast(error.message || "网络异常，请检查网络后重试");
             });
-    }
+    },
 
-    // 保存用户数据
-    function saveUserData(field, newValue) {
-    // 获取本地存储的用户数据，默认为空对象
-    let userData = localStorage.getItem("userData");
-    let parsedData = userData ? JSON.parse(userData) : {};
+    // 7. 手机号管理功能
+    /**
+     * 发送验证码（修改手机号场景）
+     */
+    sendVerifyCode() {
+        const newPhone = document.getElementById("newPhone").value.trim();
+        const sendBtn = document.getElementById("sendCodeBtn");
+        if (!sendBtn) return;
 
-    // 根据不同字段进行更新
-    if (field === "username") {
-        const username = document.getElementById("username").value;
-        if (username && username !== parsedData.nickName) {
-            parsedData.nickName = username; // 对应数据结构中的nickName字段
-            showToast("用户名修改成功");
+        // 前端验证
+        if (!this.validatePhoneNumber(newPhone)) {
+            this.showToast("请输入正确的手机号");
+            return;
         }
-    } else if (field === "avatar") {
-        // 接收服务器返回的头像URL并更新
-        if (newValue) {
-            parsedData.avatarUrl = newValue; // 对应数据结构中的avatarUrl字段
-            showToast("头像已同步更新");
+
+        // 检查新手机号是否与当前一致
+        const { userData } = this.getAuthTokenAndData();
+        const currentPhone = userData.phone?.trim() || "";
+        if (newPhone === currentPhone) {
+            this.showToast("新手机号不能与当前手机号相同");
+            return;
         }
-    }
 
-    // 保存更新后的用户数据到本地存储
-    localStorage.setItem("userData", JSON.stringify(parsedData));
-}
+        // 避免重复发送（倒计时中）
+        if (this.state.codeCountdown > 0) return;
 
-    // 切换密码显示/隐藏
-    function togglePassword(inputId) {
+        // 构建接口参数（场景：修改手机号）
+        const params = new URLSearchParams();
+        params.append("phone", newPhone);
+        params.append("scene", "resetPhone");
+        const url = `${this.state.apiConfig.baseUrl}/verifyCode/send?${params.toString()}`;
+
+        this.showToast("正在发送验证码...");
+        // 调用发送验证码接口
+        fetch(url, {
+            method: "GET",
+            headers: this.state.apiConfig.headers
+        })
+            .then(response => this.handleApiResponse(response))
+            .then(data => {
+                // 发送成功，启动倒计时
+                this.showToast("验证码已发送到新手机，请注意查收");
+                // 兼容原生Toast显示验证码
+                if (window.AndroidInterface && typeof window.AndroidInterface.showToast === "function") {
+                    window.AndroidInterface.showToast(data.data?.code || "");
+                }
+                this.state.codeCountdown = 60;
+                this.updateCodeButton(sendBtn);
+
+                // 倒计时定时器
+                const timer = setInterval(() => {
+                    this.state.codeCountdown--;
+                    if (this.state.codeCountdown <= 0) {
+                        clearInterval(timer);
+                        sendBtn.textContent = "发送验证码";
+                        sendBtn.disabled = false;
+                    } else {
+                        this.updateCodeButton(sendBtn);
+                    }
+                }, 1000);
+            })
+            .catch(error => {
+                console.error("发送验证码失败:", error);
+                this.showToast(error.message || "网络异常，发送失败");
+            });
+    },
+
+    /**
+     * 更新验证码按钮状态（倒计时显示）
+     * @param {HTMLElement} sendBtn - 发送按钮元素
+     */
+    updateCodeButton(sendBtn) {
+        sendBtn.textContent = `${this.state.codeCountdown}s后重发`;
+        sendBtn.disabled = true;
+    },
+
+    /**
+     * 更新手机号（验证验证码+调用接口）
+     */
+    updatePhone() {
+        // 获取表单数据
+        const newPhone = document.getElementById("newPhone").value.trim();
+        const verifyCode = document.getElementById("verifyCode").value.trim();
+
+        // 前端基础验证
+        if (!newPhone || !verifyCode) {
+            this.showToast("请填写完整信息");
+            return;
+        }
+        if (!this.validatePhoneNumber(newPhone)) {
+            this.showToast("请输入正确的手机号");
+            return;
+        }
+
+        // 获取Token和现有用户数据
+        const { token, userData } = this.getAuthTokenAndData();
+        if (!token) return;
+
+        // 检查新手机号是否与当前一致
+        const currentPhone = userData.phone?.trim() || "";
+        if (newPhone === currentPhone) {
+            this.showToast("新手机号不能与当前手机号相同");
+            return;
+        }
+
+        // 第一步：验证验证码
+        this.showToast("正在验证验证码...");
+        const checkCodeData = {
+            phone: newPhone,
+            verifyCode: verifyCode,
+            scene: "resetPhone"
+        };
+
+        fetch(`${this.state.apiConfig.baseUrl}/verifyCode/check`, {
+            method: "POST",
+            headers: {
+                ...this.state.apiConfig.headers,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(checkCodeData)
+        })
+            .then(response => this.handleApiResponse(response))
+            .then(() => {
+                // 验证码验证通过，调用修改手机号接口
+                this.showToast("验证码验证通过，正在修改手机号...");
+                const updatePhoneData = { phone: newPhone };
+
+                return fetch(`${this.state.apiConfig.baseUrl}/user/profile/update`, {
+                    method: "PUT",
+                    headers: {
+                        ...this.state.apiConfig.headers,
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(updatePhoneData)
+                });
+            })
+            .then(response => this.handleApiResponse(response))
+            .then(() => {
+                // 更新成功，同步本地存储和页面显示
+                const updatedUserData = { ...userData, phone: newPhone };
+                localStorage.setItem("userData", JSON.stringify(updatedUserData));
+                localStorage.setItem("userPhone", newPhone); // 兼容旧存储
+
+                // 脱敏显示新手机号
+                const maskedPhone = this.maskPhoneNumber(newPhone);
+                document.getElementById("currentPhone").value = newPhone;
+                document.getElementById("phoneDisplay").textContent = maskedPhone;
+
+                // 清空表单
+                document.getElementById("newPhone").value = "";
+                document.getElementById("verifyCode").value = "";
+
+                this.showToast("手机号修改成功");
+                this.goBack();
+            })
+            .catch(error => {
+                console.error("手机号修改失败:", error);
+                this.showToast(error.message || "操作失败，请检查网络或信息");
+            });
+    },
+
+    // 8. 密码管理功能
+    /**
+     * 更新密码（验证+调用接口）
+     */
+    updatePassword() {
+        // 获取表单数据
+        const currentPassword = document.getElementById("currentPassword").value;
+        const newPassword = document.getElementById("newPassword").value;
+        const confirmPassword = document.getElementById("confirmPassword").value;
+
+        // 前端验证
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            this.showToast("请填写完整信息");
+            return;
+        }
+        if (!this.validatePassword(newPassword)) {
+            this.showToast("新密码至少需要6位");
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            this.showToast("两次输入的新密码不一致");
+            return;
+        }
+
+        // 获取Token
+        const token = this.getAuthToken();
+        if (!token) return;
+
+        // 构建请求数据
+        const requestData = {
+            oldPassword: currentPassword,
+            newPassword: newPassword
+        };
+
+        this.showToast("正在更新密码...");
+        // 调用更新密码接口
+        fetch(`${this.state.apiConfig.baseUrl}/user/password/update`, {
+            method: "PUT",
+            headers: {
+                ...this.state.apiConfig.headers,
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(requestData)
+        })
+            .then(response => this.handleApiResponse(response))
+            .then(data => {
+                // 清空表单
+                document.getElementById("currentPassword").value = "";
+                document.getElementById("newPassword").value = "";
+                document.getElementById("confirmPassword").value = "";
+
+                this.showToast(data.message || "密码更新成功");
+                this.goBack();
+            })
+            .catch(error => {
+                console.error("更新密码失败:", error);
+                this.showToast(error.message || "网络异常，请检查网络后重试");
+            });
+    },
+
+    // 9. 通用功能与工具方法
+    /**
+     * 显示Toast提示
+     * @param {string} message - 提示内容
+     * @param {number} duration - 显示时长（毫秒，默认2000）
+     */
+    showToast(message, duration = 2000) {
+        // 移除现有Toast
+        const existingToast = document.querySelector(".toast");
+        if (existingToast) {
+            document.body.removeChild(existingToast);
+        }
+
+        // 创建新Toast
+        const toast = document.createElement("div");
+        toast.className = "toast";
+        toast.textContent = message;
+        // 保留原有样式
+        toast.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            z-index: 10000;
+            font-size: 14px;
+        `;
+
+        document.body.appendChild(toast);
+        // 自动移除
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, duration);
+    },
+
+    /**
+     * 手机号脱敏处理（138****1234）
+     * @param {string} phone - 手机号
+     * @returns {string} 脱敏后的手机号
+     */
+    maskPhoneNumber(phone) {
+        return phone.replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2");
+    },
+
+    /**
+     * 验证手机号格式（11位数字，以1开头）
+     * @param {string} phone - 手机号
+     * @returns {boolean} 是否验证通过
+     */
+    validatePhoneNumber(phone) {
+        return /^1[3-9]\d{9}$/.test(phone);
+    },
+
+    /**
+     * 验证密码格式（至少6位）
+     * @param {string} password - 密码
+     * @returns {boolean} 是否验证通过
+     */
+    validatePassword(password) {
+        return password && password.length >= 6;
+    },
+
+    /**
+     * 切换密码显示/隐藏
+     * @param {string} inputId - 密码输入框ID
+     */
+    togglePassword(inputId) {
         const input = document.getElementById(inputId);
         const eyeIcon = document.getElementById(inputId + "Eye");
+        if (!input || !eyeIcon) return;
 
         if (input.type === "password") {
             input.type = "text";
@@ -815,371 +1099,145 @@ function convertUriToBlob(uri) {
             input.type = "password";
             eyeIcon.src = "icons/xianshimima.png";
         }
-    }
+    },
 
-    // 发送验证码
-    function sendVerifyCode() {
-        const newPhone = document.getElementById("newPhone").value.trim();
-        const sendBtn = document.getElementById("sendCodeBtn");
+    /**
+     * 关闭模态框
+     * @param {string} modalId - 模态框ID
+     */
+    closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) modal.style.display = "none";
+    },
 
-        // 1. 前端验证
-        if (!newPhone || !validatePhoneNumber(newPhone)) {
-            showToast("请输入正确的手机号");
-            return;
-        }
-
-        // 从本地存储获取当前手机号（更可靠）
-        let currentPhone = "";
-        try {
-            const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-            currentPhone = userData.phone || "";
-        } catch (error) {
-            console.error("获取当前手机号失败:", error);
-            // 不阻断发送，仅打印日志
-        }
-
-        if (newPhone === currentPhone) {
-            showToast("新手机号不能与当前手机号相同");
-            return;
-        }
-
-        // 避免重复发送（倒计时中）
-        if (codeCountdown > 0) {
-            return;
-        }
-
-        // 2. 构建接口参数（scene固定为resetPhone，对应修改手机号场景）
-        const params = new URLSearchParams();
-        params.append("phone", newPhone);
-        params.append("scene", "resetPhone");
-        const url = `http://graywolf.top:6031/app/verifyCode/send?${params.toString()}`;
-
-        // 3. 调用后端发送验证码接口
-        showToast("正在发送验证码...");
-        fetch(url, {
-            method: "GET",
-            headers: {
-                "User-Agent": "Apifox/1.0.0 (https://apifox.com)",
-                "Accept": "*/*"
+    /**
+     * 绑定模态框背景点击关闭事件
+     */
+    bindModalCloseEvent() {
+        document.addEventListener("click", (e) => {
+            if (e.target.classList.contains("modal")) {
+                e.target.style.display = "none";
             }
-        })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => { throw err; });
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.code === 200) {
-                    // 4. 发送成功，开始倒计时
-                    showToast("验证码已发送到新手机，请注意查收");
-                    AndroidInterface.showToast(data.data.code)
-                    codeCountdown = 60;
-                    updateCodeButton(sendBtn); // 传入按钮实例，避免重复获取
+        });
+    },
 
-                    // 倒计时定时器
-                    const timer = setInterval(() => {
-                        codeCountdown--;
-                        if (codeCountdown <= 0) {
-                            clearInterval(timer);
-                            sendBtn.textContent = "发送验证码";
-                            sendBtn.disabled = false;
-                        } else {
-                            updateCodeButton(sendBtn);
-                        }
-                    }, 1000);
-                } else {
-                    // 后端返回业务错误（如手机号已被占用、发送频繁等）
-                    showToast(data.msg || "验证码发送失败，请重试");
-                }
-            })
-            .catch(error => {
-                // 处理网络错误或接口异常
-                console.error("发送验证码失败:", error);
-                showToast(error.message || "网络异常，发送失败");
-            });
-    }
-
-    // 更新验证码按钮状态
-    function updateCodeButton() {
-        const sendBtn = document.getElementById("sendCodeBtn");
-        sendBtn.textContent = `${codeCountdown}s后重发`;
-        sendBtn.disabled = true;
-    }
-
-    // 验证手机号
-    function validatePhoneNumber(phone) {
-        const phoneRegex = /^1[3-9]\d{9}$/;
-        return phoneRegex.test(phone);
-    }
-
-    // 验证密码
-    function validatePassword(password) {
-        return password && password.length >= 6;
-    }
-
-    // 更新手机号
-    function updatePhone() {
-        // 获取表单数据
-        const newPhone = document.getElementById("newPhone").value.trim();
-        const verifyCode = document.getElementById("verifyCode").value.trim();
-
-        // 1. 前端基础验证
-        if (!newPhone || !verifyCode) {
-            showToast("请填写完整信息");
-            return;
-        }
-
-        if (!validatePhoneNumber(newPhone)) {
-            showToast("请输入正确的手机号");
-            return;
-        }
-
-        // 从本地存储获取当前手机号（更可靠，避免页面数据过时）
-        let currentPhone = "";
-        let existingUserData = {};
-        let token = "";
-        try {
-            existingUserData = JSON.parse(localStorage.getItem("userData") || "{}");
-            currentPhone = existingUserData.phone || "";
-            token = existingUserData.token || "";
-        } catch (error) {
-            console.error("获取用户信息失败:", error);
-            showToast("登录状态异常，请重新登录");
-            return;
-        }
-
-        if (newPhone === currentPhone) {
-            showToast("新手机号不能与当前手机号相同");
-            return;
-        }
-        AndroidInterface.showToast(token)
-        if (!token) {
-            showToast("请先登录");
-            return;
-        }
-
-        // 2. 第一步：调用验证码验证接口
-        showToast("正在验证验证码...");
-        const checkCodeData = {
-            phone: newPhone, // 验证的是新手机号的验证码
-            verifyCode: verifyCode,
-            scene: "resetPhone" // 场景设为"修改手机号"
-        };
-
-        fetch("http://graywolf.top:6031/app/verifyCode/check", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Accept": "*/*"
-            },
-            body: JSON.stringify(checkCodeData)
-        })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => { throw err; });
-                }
-                return response.json();
-            })
-            .then(checkResult => {
-                // 3. 验证码验证成功后，调用修改手机号接口
-                if (checkResult.code === 200) {
-                    showToast("验证码验证通过，正在修改手机号...");
-
-                    // 构建修改手机号的请求数据
-                    const updatePhoneData = {
-                        phone: newPhone // 仅传递新手机号（接口无其他必填参数）
-                    };
-
-                    // 调用修改手机号接口（需要携带token验证身份）
-                    return fetch("http://graywolf.top:6031/app/user/profile/update", {
-                        method: "PUT",
-                        headers: {
-                            "Authorization": `Bearer ${token}`,
-                            "Content-Type": "application/json",
-                            "Accept": "*/*"
-                        },
-                        body: JSON.stringify(updatePhoneData)
-                    });
-                } else {
-                    // 验证码验证失败（如过期、错误）
-                    throw new Error(checkResult.msg || "验证码错误或已过期");
-                }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => { throw err; });
-                }
-                return response.json();
-            })
-            .then(updateResult => {
-                // 4. 修改手机号成功，更新本地存储和页面显示
-                if (updateResult.code === 200) {
-                    // 更新本地存储的用户数据
-                    const updatedUserData = {
-                        ...existingUserData,
-                        phone: newPhone // 同步更新手机号
-                    };
-                    localStorage.setItem("userData", JSON.stringify(updatedUserData));
-                    localStorage.setItem("userPhone", newPhone); // 兼容旧存储方式
-
-                    // 更新页面显示（脱敏处理）
-                    const maskedPhone = newPhone.replace(/^(\d{3})\d{4}(\d{4})$/, "$1****$2");
-                    document.getElementById("currentPhone").value = newPhone;
-                    document.getElementById("phoneDisplay").textContent = maskedPhone;
-
-                    // 清空表单
-                    document.getElementById("newPhone").value = "";
-                    document.getElementById("verifyCode").value = "";
-
-                    // 提示成功并返回
-                    showToast("手机号修改成功");
-                    goBack();
-                } else {
-                    throw new Error(updateResult.msg || "修改手机号失败，请重试");
-                }
-            })
-            .catch(error => {
-                // 统一处理所有环节的错误（验证码验证失败、修改失败、网络错误等）
-                console.error("手机号修改流程失败:", error);
-                showToast(error.message || "操作失败，请检查网络或信息");
-            });
-    }
-
-    // 更新密码
-    function updatePassword() {
-        // 获取表单数据
-        const currentPassword = document.getElementById("currentPassword").value;
-        const newPassword = document.getElementById("newPassword").value;
-        const confirmPassword = document.getElementById("confirmPassword").value;
-
-        // 前端表单验证
-        if (!currentPassword || !newPassword || !confirmPassword) {
-            showToast("请填写完整信息");
-            return;
-        }
-
-        if (!validatePassword(newPassword)) {
-            showToast("新密码至少需要6位");
-            return;
-        }
-
-        if (newPassword !== confirmPassword) {
-            showToast("两次输入的新密码不一致");
-            return;
-        }
-
-        // 获取本地存储的token（用于接口身份验证）
-        let token = '';
-        try {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            token = userData.token || '';
-        } catch (error) {
-            console.error('获取token失败:', error);
-            showToast('登录状态异常，请重新登录');
-            return;
-        }
-
-        if (!token) {
-            showToast('请先登录');
-            return;
-        }
-
-        // 构建请求数据
-        const requestData = {
-            oldPassword: currentPassword,  // 对应接口的oldPassword
-            newPassword: newPassword       // 对应接口的newPassword
-        };
-
-        // 显示加载状态
-        showToast("正在更新密码...");
-
-        // 调用后端更新密码接口
-        fetch('http://graywolf.top:6031/app/user/password/update', {
-            method: 'PUT',  // 接口要求使用PUT方法
-            headers: {
-                'Authorization': `Bearer ${token}`,  // 携带身份验证token
-                'Content-Type': 'application/json',
-                'Accept': '*/*'
-            },
-            body: JSON.stringify(requestData)
-        })
-            .then(response => {
-                // 处理HTTP错误状态（如401未授权、400参数错误等）
-                if (!response.ok) {
-                    return response.json().then(err => { throw err; });
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.code === 200) {
-                    // 清空表单
-                    document.getElementById("currentPassword").value = "";
-                    document.getElementById("newPassword").value = "";
-                    document.getElementById("confirmPassword").value = "";
-
-                    // 显示成功提示并返回主视图
-                    showToast(data.message);
-                    goBack();
-                } else {
-                    // 处理业务错误（如旧密码错误、新密码不符合规则等）
-                    showToast(data.message || '密码更新失败，请重试');
-                }
-            })
-            .catch(error => {
-                // 处理网络错误或接口异常
-                console.error('更新密码失败:', error);
-                showToast(error.message || '网络异常，请检查网络后重试');
-            });
-    }
-
-    // 关闭模态框
-    function closeModal(modalId) {
-        document.getElementById(modalId).style.display = "none";
-    }
-
-    // 点击模态框背景关闭
-    document.addEventListener("click", function (e) {
-        if (e.target.classList.contains("modal")) {
-            e.target.style.display = "none";
-        }
-    });
-
-    // 返回上一页
-    function goBack() {
-        // 如果当前有打开的编辑区域，则关闭它并恢复默认视图
-        if (currentEditArea) {
+    /**
+     * 返回上一页或关闭编辑区域
+     */
+    goBack() {
+        if (this.state.currentEditArea) {
+            // 关闭编辑区域，恢复默认视图
             const allEditAreas = document.querySelectorAll(".edit-area");
             const pageTitle = document.querySelector(".page-title");
-            const infoSections = document.querySelectorAll(
-                ".form-section:not(:last-child)"
-            );
-
+            const infoSections = document.querySelectorAll(".form-section:not(:last-child)");
             const profilePage = document.getElementById("profilePage");
             const editProfilePage = document.getElementById("editProfilePage");
+
+            // 恢复页面容器显示
             profilePage.style.display = "block";
             editProfilePage.style.display = "none";
 
             // 隐藏所有编辑区域
-            allEditAreas.forEach((area) => {
+            allEditAreas.forEach(area => {
                 area.style.display = "none";
             });
 
-            // 恢复默认页面标题
+            // 恢复标题和信息区域
             pageTitle.textContent = "修改个人信息";
-
-            // 显示所有信息区域
-            infoSections.forEach((section) => {
+            infoSections.forEach(section => {
                 section.style.display = "block";
             });
 
-            currentEditArea = null;
+            this.state.currentEditArea = null;
         } else {
-            // 如果没有打开的编辑区域，则返回上一页
+            // 无编辑区域打开，返回上一页
             window.history.back();
         }
-    }
+    },
 
+    /**
+     * 保存用户数据到本地存储
+     * @param {string} field - 字段名（username/avatar）
+     * @param {string} newValue - 新值
+     */
+    saveUserData(field, newValue) {
+        let userData = localStorage.getItem("userData");
+        let parsedData = userData ? JSON.parse(userData) : {};
+
+        // 根据字段更新数据
+        if (field === "username") {
+            parsedData.nickName = newValue;
+        } else if (field === "avatar") {
+            parsedData.avatarUrl = newValue;
+        }
+
+        localStorage.setItem("userData", JSON.stringify(parsedData));
+    },
+
+    /**
+     * 获取用户Token（统一封装，便于维护）
+     * @returns {string} Token或空字符串
+     */
+    getAuthToken() {
+        try {
+            const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+            return userData.token || "";
+        } catch (error) {
+            console.error("获取token失败:", error);
+            this.showToast("登录状态异常，请重新登录");
+            return "";
+        }
+    },
+
+    /**
+     * 获取Token和用户数据（统一处理）
+     * @returns {Object} { token, userData }
+     */
+    getAuthTokenAndData() {
+        try {
+            const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+            return {
+                token: userData.token || "",
+                userData: userData
+            };
+        } catch (error) {
+            console.error("获取用户信息失败:", error);
+            this.showToast("登录状态异常，请重新登录");
+            return { token: "", userData: {} };
+        }
+    },
+
+    /**
+     * 处理API响应（统一错误处理）
+     * @param {Response} response - 接口响应对象
+     * @returns {Promise} 解析后的响应数据
+     */
+    handleApiResponse(response) {
+        return new Promise((resolve, reject) => {
+            if (!response.ok) {
+                response.json()
+                    .then(err => reject(new Error(err.message || `请求失败: ${response.status}`)))
+                    .catch(() => reject(new Error(`请求失败: ${response.status}`)));
+                return;
+            }
+
+            response.json()
+                .then(data => {
+                    if (data.code === 200) {
+                        resolve(data);
+                    } else {
+                        reject(new Error(data.message || "接口返回业务错误"));
+                    }
+                })
+                .catch(error => {
+                    reject(new Error("解析响应数据失败: " + error.message));
+                });
+        });
+    }
+};
+
+// 初始化个人信息模块
+ProfileModule.init();
 </script>
 </body>
 

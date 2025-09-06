@@ -289,178 +289,336 @@
 </div>
 
 <script>
-    // 页面跳转函数
-    function goToPage(page) {
-        window.location.href = page;
-    }
-    function initRecentTransactions() {
-        // 1. 获取容器和token
-        const transactionList = document.querySelector('.transaction-list');
-        if (!transactionList) {
-            console.error('未找到交易列表容器');
-            return;
-        }
+    // 交易记录与用户信息模块：统一封装，消除全局变量，集中管理功能
+ const TransactionModule = {
+     // 1. 状态管理：存储模块配置与状态
+     state: {
+         apiConfig: {
+             baseUrl: "http://graywolf.top:6031/app",
+             transactionListUrl: "/assets/assets/bills/list/index",
+             headers: {
+                 "User-Agent": "Apifox/1.0.0 (https://apifox.com)",
+                 "Accept": "*/*"
+             }
+         },
+         // 交易类型图标映射：统一管理，便于维护
+         iconMap: {
+             "餐饮": "canyin.png",
+             "出行": "zhiyin.png",
+             "购物": "gouwu.png",
+             "其他": "feiyongchaxun.png",
+             "收入": "a-28-zhanghuzhongxin.png"
+         }
+     },
 
-        let token = '';
-        try {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            token = userData.token || '';
-            console.log("bbb",token);
+     // 2. 初始化：页面加载后执行所有初始化逻辑
+     init() {
+         document.addEventListener("DOMContentLoaded", () => {
+             this.initRecentTransactions();
+             this.initUserHeader();
+         });
 
+         // 暴露全局方法：兼容HTML中的onclick调用
+         this.exposeGlobalMethods();
+     },
 
-        } catch (error) {
-            console.error('获取token失败:', error);
-            return;
-        }
-        if (!token) {
-            console.warn('未获取到token，无法加载交易数据');
-            return;
-        }
+     // 暴露全局方法
+     exposeGlobalMethods() {
+         window.goToPage = (page) => this.goToPage(page);
+         window.goToBills = () => this.goToBills();
+     },
 
-        // 2. 调用接口（scene=index，num=3）
-        fetch('http://graywolf.top:6031/appassets/assets/bills/list/index?num=3&scene=index', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-                'Accept': '*/*'
-            }
-        })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => { throw err; });
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.code === 200 && Array.isArray(data.data)) {
-                    // 3. 生成交易项并更新列表
-                    renderTransactionItems(transactionList, data.data);
-                } else {
-                    console.warn('获取交易数据失败:', data.message);
-                }
-            })
-            .catch(error => {
-                console.error('加载近期交易失败:', error);
-            });
-    }
+     // 3. 页面跳转功能
+     /**
+      * 页面跳转通用方法
+      * @param {string} page - 目标页面URL
+      */
+     goToPage(page) {
+         window.location.href = page;
+     },
 
-    /**
-     * 渲染交易项到列表
-     * @param {HTMLElement} container - 列表容器
-     * @param {Array} transactions - 交易数据
-     */
-    function renderTransactionItems(container, transactions) {
-        // 找到现有交易项的父容器（保留标题和"查看更多"）
-        const transactionItems = container.querySelectorAll('.transaction-item');
-        transactionItems.forEach(item => item.remove()); // 清空原有交易项
+     /**
+      * 跳转账单页面（单独封装，便于维护）
+      */
+     goToBills() {
+         this.goToPage("bills.html"); // 假设账单页面为bills.html
+     },
 
-        // 图标映射（根据分类匹配）
-        const iconMap = {
-            '餐饮': 'canyin.png',
-            '出行': 'zhiyin.png',
-            '购物': 'gouwu.png',
-            '其他': 'feiyongchaxun.png', // 其他支出默认用费用查询图标
-            '收入': 'a-28-zhanghuzhongxin.png' // 收入默认用账户中心图标
-        };
-        transactions.reverse();
-        // 遍历数据生成新交易项
-        transactions.forEach(transaction => {
-            const isIncome = transaction.type === 1; // type=1为收入，type=2为支出
-            const amountSign = isIncome ? '+' : '-';
-            const typeClass = isIncome ? 'income' : 'expense';
-            const tagText = isIncome ? '已收款' : '已支付';
-            const tagClass = isIncome ? 'success' : '';
+     // 4. 近期交易初始化与渲染
+     /**
+      * 初始化近期交易列表：获取数据并渲染
+      */
+     initRecentTransactions() {
+         // 获取交易列表容器
+         const transactionList = document.querySelector(".transaction-list");
+         if (!transactionList) {
+             console.error("未找到交易列表容器");
+             return;
+         }
 
-            // 格式化时间（MM-DD HH:MM）
-            const time = new Date(transaction.completeTime);
-            const formattedTime = `${String(time.getMonth() + 1).padStart(2, '0')}-${String(time.getDate()).padStart(2, '0')} ${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
+         // 获取用户Token
+         const token = this.getAuthToken();
+         if (!token) {
+             console.warn("未获取到token，无法加载交易数据");
+             return;
+         }
 
-            // 格式化金额（千分位+两位小数）
-            const formattedAmount = parseFloat(transaction.amount).toLocaleString('zh-CN', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
+         // 调用接口获取交易数据（场景：首页，数量：3条）
+         this.fetchTransactionData(token, 3, "index")
+             .then(transactions => {
+                 this.renderTransactionItems(transactionList, transactions);
+             })
+             .catch(error => {
+                 console.error("加载近期交易失败:", error);
+             });
+     },
 
-            // 选择图标（收入优先用收入图标，支出按分类选）
-            const iconSrc = isIncome
-                ? iconMap['收入']
-                : iconMap[transaction.bizCategoryName] || iconMap['其他'];
+     /**
+      * 获取用户Token（统一封装，便于错误处理）
+      * @returns {string} 用户Token或空字符串
+      */
+     getAuthToken() {
+         try {
+             const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+             return userData.token || "";
+         } catch (error) {
+             console.error("获取token失败:", error);
+             return "";
+         }
+     },
 
-            // 创建交易项元素
-            const item = document.createElement('div');
-            item.className = `transaction-item ${typeClass}`;
-            item.setAttribute('onclick', 'goToBills()'); // 点击跳转账单页
-            item.innerHTML = `
-        <div class="transaction-icon ${typeClass}">
-            <img src="icons/${iconSrc}" alt="${transaction.bizCategoryName}">
-        </div>
-        <div class="transaction-info">
-            <div class="transaction-title">
-                ${transaction.remark || transaction.targetName}
-                <span class="transaction-tag ${tagClass}">${tagText}</span>
-            </div>
-            <div class="transaction-time">
-                ${formattedTime}
-                <span class="transaction-source">${transaction.targetName}</span>
-            </div>
-        </div>
-        <div class="transaction-amount ${typeClass}">
-            ${amountSign}¥${formattedAmount}
-        </div>
-    `;
+     /**
+      * 调用接口获取交易数据
+      * @param {string} token - 用户认证Token
+      * @param {number} num - 要获取的交易数量
+      * @param {string} scene - 场景（如index）
+      * @returns {Promise<Array>} 交易数据数组
+      */
+     fetchTransactionData(token, num, scene) {
+         return new Promise((resolve, reject) => {
+             // 构建请求URL
+             const url = new URL(`${this.state.apiConfig.baseUrl}${this.state.apiConfig.transactionListUrl}`);
+             url.searchParams.append("num", num);
+             url.searchParams.append("scene", scene);
 
-            // 添加到容器（插入到"查看更多"下方）
-            const headerContainer = container.querySelector('.transaction-header');
-            // 将新元素插入到头部容器的正下方（即列表的最前面）
-            container.insertBefore(item, headerContainer.nextSibling);
-        });
-    }
-function initUserHeader() {
-    try {
-        // 1. 从localStorage获取用户数据
-        const userDataStr = localStorage.getItem('userData');
-        if (!userDataStr) {
-            console.log('未找到用户数据，使用默认信息');
-            return;
-        }
+             fetch(url.toString(), {
+                 method: "GET",
+                 headers: {
+                     ...this.state.apiConfig.headers,
+                     "Authorization": `Bearer ${token}`
+                 }
+             })
+                 .then(response => {
+                     if (!response.ok) {
+                         return response.json().then(err => { throw err; });
+                     }
+                     return response.json();
+                 })
+                 .then(data => {
+                     if (data.code === 200 && Array.isArray(data.data)) {
+                         resolve(data.data);
+                     } else {
+                         reject(new Error(data.message || "获取交易数据失败"));
+                     }
+                 })
+                 .catch(error => {
+                     reject(error);
+                 });
+         });
+     },
 
-        // 2. 解析用户数据
-        const userData = JSON.parse(userDataStr);
-        const { avatarUrl, nickName } = userData;
+     /**
+      * 渲染交易项到列表容器
+      * @param {HTMLElement} container - 列表容器
+      * @param {Array} transactions - 交易数据数组
+      */
+     renderTransactionItems(container, transactions) {
+         // 清空现有交易项（保留标题和"查看更多"）
+         const existingItems = container.querySelectorAll(".transaction-item");
+         existingItems.forEach(item => item.remove());
 
-        // 3. 更新头像
-        const avatarImg = document.querySelector('.header .avatar img');
-        if (avatarImg) {
-            // 若avatarUrl不为空且有效，则更新头像；否则保持默认
-            if (avatarUrl && avatarUrl.trim() !== '') {
-                avatarImg.src = avatarUrl;
-                // 可选：更新alt文本为用户昵称
-                avatarImg.alt = nickName || '用户头像';
-            }
-            // 为空时不做操作，保持默认图片
-        }
+         // 倒序排列，最新的交易显示在前面
+         const reversedTransactions = [...transactions].reverse();
 
-        // 4. 更新问候语（早上好 + 昵称）
-        const greetingTitle = document.querySelector('.header .greeting h2');
-        if (greetingTitle) {
-            // 处理昵称可能为空的情况
-            const displayName = nickName && nickName.trim() !== ''
-                ? nickName
-                : '用户'; // 默认为"用户"
-            greetingTitle.textContent = `早上好，${displayName}`;
-        }
+         // 遍历交易数据生成DOM元素
+         reversedTransactions.forEach(transaction => {
+             const item = this.createTransactionItem(transaction);
+             // 插入到头部容器下方（保持正确排序）
+             const headerContainer = container.querySelector(".transaction-header");
+             if (headerContainer) {
+                 container.insertBefore(item, headerContainer.nextSibling);
+             } else {
+                 container.appendChild(item);
+             }
+         });
+     },
 
-    } catch (error) {
-        console.error('初始化用户信息失败:', error);
-        // 解析失败时不影响默认显示
-    }
-}
-    // 页面加载时初始化近期交易
-    document.addEventListener('DOMContentLoaded', function () {
-        initRecentTransactions();
-        initUserHeader();
-    });
+     /**
+      * 创建单个交易项DOM元素
+      * @param {Object} transaction - 交易数据对象
+      * @returns {HTMLElement} 交易项DOM元素
+      */
+     createTransactionItem(transaction) {
+         // 判断交易类型（收入/支出）
+         const isIncome = transaction.type === 1; // type=1为收入，type=2为支出
+         const amountSign = isIncome ? "+" : "-";
+         const typeClass = isIncome ? "income" : "expense";
+         const tagText = isIncome ? "已收款" : "已支付";
+         const tagClass = isIncome ? "success" : "";
+
+         // 格式化时间（MM-DD HH:MM）
+         const formattedTime = this.formatTransactionTime(transaction.completeTime);
+
+         // 格式化金额（千分位+两位小数）
+         const formattedAmount = this.formatAmount(transaction.amount);
+
+         // 选择对应的图标
+         const iconSrc = this.getTransactionIcon(transaction, isIncome);
+
+         // 创建交易项元素
+         const item = document.createElement("div");
+         item.className = `transaction-item ${typeClass}`;
+         item.setAttribute("onclick", "goToBills()"); // 点击跳转账单页
+         item.innerHTML = `
+             <div class="transaction-icon ${typeClass}">
+                 <img src="icons/${iconSrc}" alt="${transaction.bizCategoryName || '交易图标'}">
+             </div>
+             <div class="transaction-info">
+                 <div class="transaction-title">
+                     ${transaction.remark || transaction.targetName || "未知交易"}
+                     <span class="transaction-tag ${tagClass}">${tagText}</span>
+                 </div>
+                 <div class="transaction-time">
+                     ${formattedTime}
+                     <span class="transaction-source">${transaction.targetName || "未知来源"}</span>
+                 </div>
+             </div>
+             <div class="transaction-amount ${typeClass}">
+                 ${amountSign}¥${formattedAmount}
+             </div>
+         `;
+
+         return item;
+     },
+
+     // 5. 工具方法：格式化与辅助功能
+     /**
+      * 格式化交易时间（MM-DD HH:MM）
+      * @param {string} timeStr - 时间字符串
+      * @returns {string} 格式化后的时间
+      */
+     formatTransactionTime(timeStr) {
+         if (!timeStr) return "未知时间";
+
+         try {
+             const time = new Date(timeStr);
+             return `${String(time.getMonth() + 1).padStart(2, "0")}-${
+                 String(time.getDate()).padStart(2, "0")
+             } ${
+                 String(time.getHours()).padStart(2, "0")
+             }:${
+                 String(time.getMinutes()).padStart(2, "0")
+             }`;
+         } catch (error) {
+             console.error("时间格式化失败:", error);
+             return "时间格式错误";
+         }
+     },
+
+     /**
+      * 格式化金额（千分位+两位小数）
+      * @param {number|string} amount - 金额
+      * @returns {string} 格式化后的金额
+      */
+     formatAmount(amount) {
+         try {
+             return parseFloat(amount).toLocaleString("zh-CN", {
+                 minimumFractionDigits: 2,
+                 maximumFractionDigits: 2
+             });
+         } catch (error) {
+             console.error("金额格式化失败:", error);
+             return amount.toString();
+         }
+     },
+
+     /**
+      * 获取交易对应的图标
+      * @param {Object} transaction - 交易数据
+      * @param {boolean} isIncome - 是否为收入
+      * @returns {string} 图标文件名
+      */
+     getTransactionIcon(transaction, isIncome) {
+         if (isIncome) {
+             return this.state.iconMap["收入"];
+         }
+         return this.state.iconMap[transaction.bizCategoryName] || this.state.iconMap["其他"];
+     },
+
+     // 6. 用户头部信息初始化
+     /**
+      * 初始化用户头部信息（头像+问候语）
+      */
+     initUserHeader() {
+         try {
+             // 获取用户数据
+             const userDataStr = localStorage.getItem("userData");
+             if (!userDataStr) {
+                 console.log("未找到用户数据，使用默认信息");
+                 return;
+             }
+
+             const userData = JSON.parse(userDataStr);
+             const { avatarUrl, nickName } = userData;
+
+             // 更新头像
+             this.updateUserAvatar(avatarUrl, nickName);
+
+             // 更新问候语
+             this.updateUserGreeting(nickName);
+
+         } catch (error) {
+             console.error("初始化用户信息失败:", error);
+             // 解析失败时不影响默认显示
+         }
+     },
+
+     /**
+      * 更新用户头像
+      * @param {string} avatarUrl - 头像URL
+      * @param {string} nickName - 用户名（用于alt属性）
+      */
+     updateUserAvatar(avatarUrl, nickName) {
+         const avatarImg = document.querySelector(".header .avatar img");
+         if (!avatarImg) return;
+
+         // 有有效头像URL则更新，否则保持默认
+         if (avatarUrl && avatarUrl.trim() !== "") {
+             avatarImg.src = avatarUrl;
+             avatarImg.alt = nickName || "用户头像";
+         }
+         // 为空时不操作，保持默认图片
+     },
+
+     /**
+      * 更新用户问候语（早上好 + 昵称）
+      * @param {string} nickName - 用户名
+      */
+     updateUserGreeting(nickName) {
+         const greetingTitle = document.querySelector(".header .greeting h2");
+         if (!greetingTitle) return;
+
+         // 处理昵称可能为空的情况
+         const displayName = (nickName && nickName.trim() !== "")
+             ? nickName
+             : "用户"; // 默认显示"用户"
+
+         greetingTitle.textContent = `早上好，${displayName}`;
+     }
+ };
+
+ // 初始化交易记录模块
+ TransactionModule.init();
 </script>
 <script src="script.js"></script>
 </body>

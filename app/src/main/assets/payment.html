@@ -339,328 +339,442 @@
     </div>
 
     <script>
-        let selectedMethod = 'balance';
-        
-        // 获取URL参数
-        function initPage() {
-    const params = getUrlParams();
-
-    // 1. 填充商户信息
-    document.getElementById('merchantName').textContent = params.merchant || '未知商户';
-    document.querySelector('.merchant-id').textContent = `商户ID: ${params.targetId || '未知'}`;
-
-    // 2. 填充金额信息（格式化金额为两位小数）
-    const amountEl = document.getElementById('paymentAmount');
-    const summaryAmountEls = document.querySelectorAll('.payment-summary .summary-item span:last-child');
-
-    // 处理金额格式化
-    const formatAmount = (amount) => {
-        return parseFloat(amount || 0).toFixed(2);
-    };
-
-    const actualAmount = formatAmount(params.actualAmount);
-    const originalAmount = formatAmount(params.amount);
-    const discountAmount = formatAmount(params.discount || 0);
-
-    // 填充支付金额
-    amountEl.textContent = actualAmount;
-
-    // 填充支付摘要
-    if (summaryAmountEls.length >= 3) {
-        summaryAmountEls[0].textContent = `¥${originalAmount}`;       // 商品金额
-        summaryAmountEls[1].textContent = `-¥${discountAmount}`;      // 优惠券折扣
-        summaryAmountEls[2].textContent = `¥${actualAmount}`;         // 实付金额
-    }
-
-    // 3. 初始化支付方式选中状态（默认选中余额支付）
-    selectPaymentMethod('balance');
-}
-
-// 获取URL参数：支持所有传递的参数
-function getUrlParams() {
-    const params = {};
-    const queryString = window.location.search.substring(1);
-    const pairs = queryString.split('&');
-
-    for (const pair of pairs) {
-        const [key, value] = pair.split('=');
-        if (key && value) {
-            params[key] = decodeURIComponent(value);
-        }
-    }
-
-    // 返回所有参数，添加默认值
-    return {
-        merchant: params.merchant || '未知商户',
-        amount: params.amount || '0.00',
-        actualAmount: params.actualAmount || params.amount || '0.00',
-        discount: params.discount || '0.00',
-        targetId: params.targetId || '',
-        targetType: params.targetType || '',
-        bizCategory: params.bizCategory || '',
-        userId: params.userId || ''
-    };
-}
-
-        // 选择支付方式
-        function selectPaymentMethod(method) {
-            selectedMethod = method;
-            
-            // 重置所有选择状态
-            document.getElementById('balanceSelected').classList.remove('active');
-            document.getElementById('bankcardSelected').classList.remove('active');
-            document.getElementById('wechatSelected').classList.remove('active');
-            
-            // 设置当前选择
-            document.getElementById(method + 'Selected').classList.add('active');
-        }
-
-        // 确认支付
-        function confirmPayment() {
-    // 显示支付中状态
-    showToast('支付处理中...', 0); // 0表示不自动关闭，直到接口返回结果
-
-    // 获取页面参数和选中的支付方式
-    const params = getUrlParams();
-    const selectedMethod = window.selectedPaymentMethod || 'balance';
-
-    // 1. 获取用户token
-    let token = '';
-    try {
-        const userDataStr = localStorage.getItem('userData');
-        if (userDataStr) {
-            const userData = JSON.parse(userDataStr);
-            token = userData.token || '';
-
-        }
-    } catch (error) {
-        console.error('获取token失败:', error);
-        showToast('登录状态异常，支付失败', 2000);
-        return;
-    }
-
-    if (!token) {
-        showToast('请先登录', 2000);
-        return;
-    }
-
-    // 2. 构建支付接口请求参数
-    const paymentParams = {
-        targetId: params.targetId || '', // 从URL参数获取目标ID
-        targetName: params.merchant || '', // 商户名对应targetName
-        targetType: params.targetType || '', // 从URL参数获取目标类型
-        actualAmount: params.actualAmount || '', // 实付金额
-        type: 66, // 接口要求的固定类型值
-        bizCategory: params.bizCategory || '' // 从URL参数获取业务分类
-    };
-
-    // 3. 调用支付确认接口
-    fetch('http://graywolf.top:6031/payment/payment/confirm', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-            'Content-Type': 'application/json',
-            'Accept': '*/*'
+        // 支付模块：统一封装支付相关功能，消除全局变量，集中管理状态与逻辑
+const PaymentModule = {
+    // 1. 状态管理：存储模块核心配置与状态
+    state: {
+        apiConfig: {
+            baseUrl: "http://graywolf.top:6031/payment",
+            paymentConfirmUrl: "/payment/confirm",
+            balanceQueryUrl: "/user/balance",
+            headers: {
+                "User-Agent": "Apifox/1.0.0 (https://apifox.com)",
+                "Content-Type": "application/json",
+                "Accept": "*/*"
+            }
         },
-        body: JSON.stringify(paymentParams)
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`支付请求失败: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(result => {
-        // 关闭支付中提示
+        selectedMethod: "balance", // 当前选中的支付方式（默认余额支付）
+        urlParams: {} // 存储URL参数，避免重复解析
+    },
 
-        // 4. 处理接口返回结果
-        const urlParams = new URLSearchParams();
-        // 公共参数
-        urlParams.append('amount', params.actualAmount || '0.00');
-        urlParams.append('merchant', params.merchant || '未知商户');
-        urlParams.append('method', getMethodName(selectedMethod));
-        urlParams.append('time', new Date().toLocaleString('zh-CN'));
+    // 2. 初始化：页面加载后执行所有初始化逻辑
+    init() {
+        document.addEventListener("DOMContentLoaded", () => {
+            this.state.urlParams = this.getUrlParams(); // 解析并缓存URL参数
+            this.initPage(); // 初始化页面数据（商户、金额等）
+            this.fetchWalletBalance(); // 查询钱包余额
+        });
+
+        // 暴露全局方法：兼容HTML中的onclick调用
+        this.exposeGlobalMethods();
+    },
+
+    // 暴露全局方法：确保外部可调用模块内功能
+    exposeGlobalMethods() {
+        window.selectPaymentMethod = (method) => this.selectPaymentMethod(method);
+        window.confirmPayment = () => this.confirmPayment();
+        window.goBack = () => this.goBack();
+        window.showToast = (msg, duration) => this.showToast(msg, duration);
+    },
+
+    // 3. URL参数处理
+    /**
+     * 解析URL参数并添加默认值
+     * @returns {Object} 格式化后的URL参数对象
+     */
+    getUrlParams() {
+        const params = {};
+        const queryString = window.location.search.substring(1);
+        const pairs = queryString.split("&");
+
+        // 解析URL参数
+        pairs.forEach(pair => {
+            const [key, value] = pair.split("=");
+            if (key && value) {
+                params[key] = decodeURIComponent(value);
+            }
+        });
+
+        // 设置默认值，避免后续使用时出现undefined
+        return {
+            merchant: params.merchant || "未知商户",
+            amount: params.amount || "0.00",
+            actualAmount: params.actualAmount || params.amount || "0.00",
+            discount: params.discount || "0.00",
+            targetId: params.targetId || "",
+            targetType: params.targetType || "",
+            bizCategory: params.bizCategory || "",
+            userId: params.userId || ""
+        };
+    },
+
+    // 4. 页面初始化（填充商户、金额等数据）
+    /**
+     * 初始化页面核心数据：商户信息、金额信息、支付方式选中状态
+     */
+    initPage() {
+        const { merchant, targetId, actualAmount, amount, discount } = this.state.urlParams;
+
+        // 1. 填充商户信息
+        const merchantNameEl = document.getElementById("merchantName");
+        const merchantIdEl = document.querySelector(".merchant-id");
+        if (merchantNameEl) merchantNameEl.textContent = merchant;
+        if (merchantIdEl) merchantIdEl.textContent = `商户ID: ${targetId || "未知"}`;
+
+        // 2. 格式化金额（统一保留两位小数）
+        const formattedActualAmount = this.formatAmount(actualAmount);
+        const formattedOriginalAmount = this.formatAmount(amount);
+        const formattedDiscount = this.formatAmount(discount);
+
+        // 3. 填充金额信息
+        const amountEl = document.getElementById("paymentAmount");
+        const summaryAmountEls = document.querySelectorAll(".payment-summary .summary-item span:last-child");
+        if (amountEl) amountEl.textContent = formattedActualAmount;
+
+        // 填充支付摘要（商品金额、折扣、实付金额）
+        if (summaryAmountEls.length >= 3) {
+            summaryAmountEls[0].textContent = `¥${formattedOriginalAmount}`;
+            summaryAmountEls[1].textContent = `-¥${formattedDiscount}`;
+            summaryAmountEls[2].textContent = `¥${formattedActualAmount}`;
+        }
+
+        // 4. 初始化支付方式选中状态
+        this.selectPaymentMethod(this.state.selectedMethod);
+    },
+
+    // 5. 支付方式选择
+    /**
+     * 切换选中的支付方式
+     * @param {string} method - 支付方式（balance/bankcard/wechat）
+     */
+    selectPaymentMethod(method) {
+        // 验证支付方式合法性
+        const validMethods = ["balance", "bankcard", "wechat"];
+        if (!validMethods.includes(method)) {
+            console.warn(`不支持的支付方式: ${method}，默认使用余额支付`);
+            method = "balance";
+        }
+
+        // 更新选中状态（先重置所有，再激活当前）
+        validMethods.forEach(m => {
+            const el = document.getElementById(`${m}Selected`);
+            if (el) el.classList.remove("active");
+        });
+        const currentEl = document.getElementById(`${method}Selected`);
+        if (currentEl) currentEl.classList.add("active");
+
+        // 保存当前选中的支付方式
+        this.state.selectedMethod = method;
+    },
+
+    // 6. 支付确认（核心功能）
+    /**
+     * 确认支付：验证登录状态、构建请求参数、调用接口、跳转结果页
+     */
+    confirmPayment() {
+        const toast = this.showToast("支付处理中...", 0); // 显示不自动关闭的加载提示
+
+        try {
+            // 1. 获取并验证用户Token
+            const token = this.getAuthToken();
+            if (!token) {
+                this.showToast("请先登录", 2000);
+                toast.remove(); // 关闭加载提示
+                return;
+            }
+
+            // 2. 构建支付请求参数
+            const paymentParams = this.buildPaymentParams();
+
+            // 3. 调用支付接口
+            this.callPaymentApi(token, paymentParams, toast);
+
+        } catch (error) {
+            console.error("支付初始化失败:", error);
+            this.showToast(error.message || "支付异常，请重试", 2000);
+            toast.remove(); // 关闭加载提示
+        }
+    },
+
+    /**
+     * 获取用户Token（统一封装，便于错误处理）
+     * @returns {string} 用户Token或空字符串
+     * @throws {Error} Token获取失败时抛出异常
+     */
+    getAuthToken() {
+        try {
+            const userDataStr = localStorage.getItem("userData");
+            if (!userDataStr) throw new Error("未找到用户登录数据");
+
+            const userData = JSON.parse(userDataStr);
+            const token = userData.token || "";
+            if (!token) throw new Error("登录状态异常");
+
+            return token;
+        } catch (error) {
+            console.error("获取Token失败:", error);
+            throw new Error("登录状态异常，支付失败");
+        }
+    },
+
+    /**
+     * 构建支付接口请求参数
+     * @returns {Object} 格式化后的支付请求参数
+     */
+    buildPaymentParams() {
+        const { targetId, merchant, targetType, actualAmount, bizCategory } = this.state.urlParams;
+
+        return {
+            targetId: targetId,
+            targetName: merchant,
+            targetType: targetType,
+            actualAmount: actualAmount,
+            type: 66, // 接口要求的固定类型值
+            bizCategory: bizCategory
+        };
+    },
+
+    /**
+     * 调用支付确认接口
+     * @param {string} token - 用户Token
+     * @param {Object} params - 支付请求参数
+     * @param {HTMLElement} toast - 加载提示元素（用于后续关闭）
+     */
+    callPaymentApi(token, params, toast) {
+        fetch(`${this.state.apiConfig.baseUrl}${this.state.apiConfig.paymentConfirmUrl}`, {
+            method: "POST",
+            headers: {
+                ...this.state.apiConfig.headers,
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify(params)
+        })
+            .then(response => {
+                if (!response.ok) throw new Error(`支付请求失败 (${response.status})`);
+                return response.json();
+            })
+            .then(result => {
+                toast.remove(); // 关闭加载提示
+                this.handlePaymentResult(result); // 处理支付结果
+            })
+            .catch(error => {
+                toast.remove(); // 关闭加载提示
+                console.error("支付接口调用失败:", error);
+                // 跳转到支付失败页
+                this.redirectToResultPage("fail", error.message || "网络异常，支付失败");
+            });
+    },
+
+    /**
+     * 处理支付接口返回结果
+     * @param {Object} result - 接口返回的支付结果
+     */
+    handlePaymentResult(result) {
+        const { actualAmount, merchant } = this.state.urlParams;
+        const paymentMethodName = this.getMethodName(this.state.selectedMethod);
 
         if (result.code === 200 && result.data) {
-            // 支付成功：携带接口返回的交易信息
-            urlParams.append('status', 'success');
-            urlParams.append('transaction', result.data.transactionId); // 接口返回的交易号
-            urlParams.append('balanceAfter', result.data.balanceAfter); // 支付后余额
+            // 支付成功：携带交易号、余额等信息
+            this.redirectToResultPage("success", "支付成功", {
+                transactionId: result.data.transactionId,
+                balanceAfter: result.data.balanceAfter
+            });
         } else {
             // 支付失败：携带错误信息
-            urlParams.append('status', 'fail');
-            urlParams.append('reason', result.message || '支付失败，请重试');
+            const errorMsg = result.message || "支付失败，请重试";
+            this.redirectToResultPage("fail", errorMsg);
         }
+    },
 
-        // 5. 跳转到支付结果页面
-        window.location.href = `payment-result.html?${urlParams.toString()}`;
-    })
-    .catch(error => {
-        // 处理接口调用异常
-        console.error('支付过程出错:', error);
-        // 跳转到失败页面
+    /**
+     * 跳转到支付结果页
+     * @param {string} status - 支付状态（success/fail）
+     * @param {string} reason - 结果描述（成功提示/失败原因）
+     * @param {Object} extraData - 额外参数（交易号、余额等）
+     */
+    redirectToResultPage(status, reason, extraData = {}) {
+        const { actualAmount, merchant } = this.state.urlParams;
+        const paymentMethodName = this.getMethodName(this.state.selectedMethod);
+        const currentTime = new Date().toLocaleString("zh-CN");
+
+        // 构建结果页参数
         const urlParams = new URLSearchParams({
-            status: 'fail',
-            amount: params.actualAmount || '0.00',
-            merchant: params.merchant || '未知商户',
-            method: getMethodName(selectedMethod),
-            time: new Date().toLocaleString('zh-CN'),
-            reason: error.message || '网络异常，支付失败'
+            status: status,
+            amount: actualAmount,
+            merchant: merchant,
+            method: paymentMethodName,
+            time: currentTime,
+            reason: reason,
+            ...extraData // 合并额外参数（交易号、余额等）
         });
+
+        // 跳转到结果页
         window.location.href = `payment-result.html?${urlParams.toString()}`;
-    });
-}
-        // 获取支付方式名称
-        function getMethodName(method) {
-            switch(method) {
-                case 'balance': return '钱包余额';
-                case 'bankcard': return '招商银行(1234)';
-                case 'wechat': return '微信支付';
-                default: return '钱包余额';
+    },
+
+    // 7. 钱包余额查询
+    /**
+     * 查询用户钱包余额并更新页面显示
+     */
+    fetchWalletBalance() {
+        try {
+            const token = this.getAuthToken();
+            if (!token) {
+                this.showBalanceError();
+                return;
             }
-        }
 
-        // 获取失败原因
-        function getFailureReason(method) {
-            const reasons = {
-                'balance': '余额不足，请充值后重试',
-                'bankcard': '银行卡交易失败，请联系发卡行',
-                'wechat': '微信支付失败，请重试'
-            };
-            return reasons[method] || '支付失败，请稍后重试';
-        }
+            // 调用余额查询接口
+            fetch(`${this.state.apiConfig.baseUrl}${this.state.apiConfig.balanceQueryUrl}`, {
+                method: "GET",
+                headers: {
+                    ...this.state.apiConfig.headers,
+                    "Authorization": `Bearer ${token}`
+                }
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error(`余额查询失败 (${response.status})`);
+                    return response.json();
+                })
+                .then(result => {
+                    this.handleBalanceResult(result);
+                })
+                .catch(error => {
+                    console.error("余额查询接口调用失败:", error);
+                    this.showBalanceError();
+                });
 
-        // 返回上一页
-        function goBack() {
-            window.history.back();
+        } catch (error) {
+            console.error("余额查询初始化失败:", error);
+            this.showBalanceError();
         }
+    },
 
-        // 显示提示信息
-        function showToast(message, duration = 2000) {
-            const existingToast = document.querySelector('.toast');
-            if (existingToast) {
-                existingToast.remove();
-            }
-            
-            const toast = document.createElement('div');
-            toast.className = 'toast';
-            toast.textContent = message;
-            
-            toast.style.cssText = `
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: rgba(0, 0, 0, 0.8);
-                color: white;
-                padding: 12px 24px;
-                border-radius: 8px;
-                font-size: 14px;
-                z-index: 10000;
-                animation: toastFadeIn 0.3s ease;
-            `;
-            
-            document.body.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.style.animation = 'toastFadeOut 0.3s ease';
-                setTimeout(() => {
-                    if (toast.parentNode) {
-                        toast.remove();
-                    }
-                }, 300);
-            }, duration);
-        }
-function fetchWalletBalance() {
-    // 获取用户token
-    let token = '';
-    try {
-        const userDataStr = localStorage.getItem('userData');
-        if (userDataStr) {
-            const userData = JSON.parse(userDataStr);
-            token = userData.token || '';
+    /**
+     * 处理余额查询结果
+     * @param {Object} result - 接口返回的余额数据
+     */
+    handleBalanceResult(result) {
+        const balanceEl = document.getElementById("balances");
+        if (!balanceEl) return;
 
-        }
-    } catch (error) {
-        console.error('获取token失败:', error);
-        showBalanceError();
-        return;
-    }
-
-    if (!token) {
-        console.warn('未获取到token，无法查询余额');
-        showBalanceError();
-        return;
-    }
-
-    // 调用余额查询接口
-    fetch('http://graywolf.top:6031/payment/user/balance', {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-            'Content-Type': 'application/json',
-            'Accept': '*/*'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP错误: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(result => {
         // 验证接口返回格式
         if (result.code !== 200 || !result.data || result.data.balance === undefined) {
-            throw new Error(`接口返回异常: ${result.message || '未知错误'}`);
+            throw new Error(`余额数据异常: ${result.message || "未知错误"}`);
         }
 
-        // 格式化余额（保留两位小数并添加千位分隔符）
-        const formatBalance = (balanceStr) => {
-            // 将字符串转换为数字并处理
-            const balance = parseFloat(balanceStr);
-            if (isNaN(balance)) {
-                throw new Error('余额格式不正确');
-            }
-            // 保留两位小数
-            const fixedBalance = balance.toFixed(2);
-            // 添加千位分隔符
-            return fixedBalance
-        };
-
-        // 获取余额元素（使用id选择器，更精准）
-        const balanceEl = document.getElementById('balances');
-        if (!balanceEl) {
-            throw new Error('未找到余额显示元素');
-        }
-
-        // 格式化并更新显示
-        const formattedBalance = formatBalance(result.data.balance);
+        // 格式化余额（保留两位小数，添加千位分隔符）
+        const formattedBalance = this.formatAmount(result.data.balance, true);
         balanceEl.textContent = `可用余额 ¥${formattedBalance}`;
-        console.log('余额更新成功:', formattedBalance);
-    })
-    .catch(error => {
-        console.error('余额查询失败:', error);
-        showBalanceError();
-    });
-}
+        balanceEl.style.color = ""; // 清除错误状态颜色
+    },
 
-// 显示余额错误状态
-function showBalanceError() {
-    const balanceEl = document.getElementById('balances');
-    if (balanceEl) {
-        balanceEl.textContent = '可用余额 查询失败';
-        // 可添加错误样式
-        balanceEl.style.color = '#ff4d4f';
+    /**
+     * 显示余额查询错误状态
+     */
+    showBalanceError() {
+        const balanceEl = document.getElementById("balances");
+        if (balanceEl) {
+            balanceEl.textContent = "可用余额 查询失败";
+            balanceEl.style.color = "#ff4d4f"; // 错误状态颜色
+        }
+    },
+
+    // 8. 工具方法
+    /**
+     * 格式化金额（保留两位小数，可选添加千位分隔符）
+     * @param {string|number} amount - 待格式化的金额
+     * @param {boolean} needThousandSep - 是否需要千位分隔符
+     * @returns {string} 格式化后的金额字符串
+     */
+    formatAmount(amount, needThousandSep = false) {
+        try {
+            const num = parseFloat(amount);
+            if (isNaN(num)) return "0.00";
+
+            // 保留两位小数
+            const fixedAmount = num.toFixed(2);
+
+            // 如需千位分隔符，进一步处理
+            if (needThousandSep) {
+                return fixedAmount.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            }
+
+            return fixedAmount;
+        } catch (error) {
+            console.error("金额格式化失败:", error);
+            return "0.00";
+        }
+    },
+
+    /**
+     * 根据支付方式标识获取中文名称
+     * @param {string} method - 支付方式标识（balance/bankcard/wechat）
+     * @returns {string} 支付方式中文名称
+     */
+    getMethodName(method) {
+        const methodMap = {
+            balance: "钱包余额",
+            bankcard: "招商银行(1234)",
+            wechat: "微信支付"
+        };
+        return methodMap[method] || "钱包余额";
+    },
+
+    /**
+     * 显示提示信息（Toast）
+     * @param {string} message - 提示内容
+     * @param {number} duration - 显示时长（毫秒，0表示不自动关闭）
+     * @returns {HTMLElement} Toast元素（便于后续手动关闭）
+     */
+    showToast(message, duration = 2000) {
+        // 移除现有Toast，避免叠加
+        const existingToast = document.querySelector(".toast");
+        if (existingToast) existingToast.remove();
+
+        // 创建新Toast
+        const toast = document.createElement("div");
+        toast.className = "toast";
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 10000;
+            animation: toastFadeIn 0.3s ease;
+        `;
+
+        document.body.appendChild(toast);
+
+        // 自动关闭（duration为0时不自动关闭）
+        if (duration > 0) {
+            setTimeout(() => {
+                if (document.body.contains(toast)) {
+                    toast.style.animation = "toastFadeOut 0.3s ease";
+                    setTimeout(() => toast.remove(), 300);
+                }
+            }, duration);
+        }
+
+        return toast;
+    },
+
+    /**
+     * 返回上一页
+     */
+    goBack() {
+        window.history.back();
     }
-}
-        // 页面加载完成后初始化
-        document.addEventListener('DOMContentLoaded', function() {
-    initPage();
-    // 确保在页面初始化后调用余额查询
-    fetchWalletBalance();
-});
+};
+
+// 初始化支付模块
+PaymentModule.init();
     </script>
 </body>
 </html>

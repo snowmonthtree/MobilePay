@@ -864,419 +864,224 @@
 
 <script src="script.js"></script>
 <script>
-    // 账单中心相关功能
-    let currentMonthIndex = 7; // 当前月份索引
-    let currentYear = 2025;
-    const YEAR_RANGE = { start: currentYear - 5, end: currentYear + 1 };
-
-    function changeMonth(direction) {
-        currentMonthIndex += direction;
-        if (currentMonthIndex > 12) {
-            currentMonthIndex = 1;
-            currentYear++;
-        } else if (currentMonthIndex < 1) {
-            currentMonthIndex = 12;
-            currentYear--;
+    // 账单中心模块：统一封装，避免全局变量污染
+const BillCenterModule = {
+    // 1. 状态管理：集中管理全局状态，避免散定义
+    state: {
+        currentMonthIndex: 7,    // 当前月份索引（1-12）
+        currentYear: 2025,       // 当前年份
+        yearRange: {             // 年份选择范围
+            start: 2025 - 5,
+            end: 2025 + 1
         }
+    },
 
+    // 2. 初始化：页面加载后执行所有初始化逻辑
+    init() {
+        // 绑定DOM加载完成事件
+        document.addEventListener('DOMContentLoaded', () => {
+            this.initDomRelated();  // DOM相关初始化
+            this.initBillData();    // 账单数据初始化
+        });
+
+        // 暴露全局方法：确保原有HTML onclick可调用
+        this.exposeGlobalMethods();
+    },
+
+    // DOM相关初始化（选择器、事件绑定等）
+    initDomRelated() {
+        this.state.hiddenMonthSelector = document.getElementById('hiddenMonthSelector');
+        this.initHiddenSelector();  // 初始化月份选择器
+    },
+
+    // 账单数据初始化（列表、总览等）
+    initBillData() {
+        initBillsList();        // 初始化账单列表
+        updateMonthDisplay();   // 更新月份显示（触发账单总览加载）
+    },
+
+    // 暴露全局方法：兼容原有HTML中的onclick调用
+    exposeGlobalMethods() {
+        window.changeMonth = (direction) => this.changeMonth(direction);
+        window.handleMonthSelect = (selector) => this.handleMonthSelect(selector);
+        window.filterBills = (type) => this.filterBills(type);
+        window.goToSearch = () => this.goToSearch();
+        window.showDateFilter = () => this.showDateFilter();
+        window.showAnnualBillPage = () => this.showAnnualBillPage();
+        window.showBillsPage = () => this.showBillsPage();
+        window.shareAnnualBill = () => this.shareAnnualBill();
+        window.downloadAnnualBill = () => this.downloadAnnualBill();
+        window.viewBillDetail = (billItem) => this.viewBillDetail(billItem);
+        window.performSearch = () => this.performSearch();
+        window.handleSearchKeyPress = (event) => this.handleSearchKeyPress(event);
+        window.setQuickDate = (days) => this.setQuickDate(days);
+        window.applyDateFilter = () => this.applyDateFilter();
+        window.reportProblem = () => this.reportProblem();
+        window.closeModal = (modalId) => this.closeModal(modalId);
+        window.goBack = () => this.goBack();
+        window.goToPage = (page) => this.goToPage(page);
+    },
+
+    // 3. 月份切换逻辑
+    changeMonth(direction) {
+        this.state.currentMonthIndex += direction;
+        // 月份越界处理（12月→1月/1月→12月）
+        if (this.state.currentMonthIndex > 12) {
+            this.state.currentMonthIndex = 1;
+            this.state.currentYear++;
+        } else if (this.state.currentMonthIndex < 1) {
+            this.state.currentMonthIndex = 12;
+            this.state.currentYear--;
+        }
+        // 更新月份显示与账单数据
         updateMonthDisplay();
-    }
+    },
 
-    function initHiddenSelector() {
-        const selector = document.getElementById('hiddenMonthSelector');
+    // 初始化隐藏的月份选择器
+    initHiddenSelector() {
+        const selector = this.state.hiddenMonthSelector;
         if (!selector) return;
 
-        // 清空选项
+        // 清空现有选项
         selector.innerHTML = '';
 
-        // 生成年份和月份选项（格式：YYYY年MM月）
-        for (let year = YEAR_RANGE.start; year <= YEAR_RANGE.end; year++) {
+        // 生成年份-月份选项（格式：YYYY年MM月）
+        for (let year = this.state.yearRange.start; year <= this.state.yearRange.end; year++) {
             for (let month = 1; month <= 12; month++) {
                 const option = document.createElement('option');
-                const monthText = month.toString().padStart(2, '0'); // 补零为两位（01-12）
+                const monthText = String(month).padStart(2, '0'); // 月份补零（01-12）
                 option.value = `${year}-${monthText}`; // 存储值：YYYY-MM
                 option.textContent = `${year}年${monthText}月`; // 显示文本
 
                 // 设置当前年月为默认选中
-                if (year === currentYear && month === currentMonthIndex) {
+                if (year === this.state.currentYear && month === this.state.currentMonthIndex) {
                     option.selected = true;
                 }
 
                 selector.appendChild(option);
             }
         }
-    }
+    },
 
-    /**
-     * 处理下拉选择事件（同步到显示和数据）
-     * @param {HTMLSelectElement} selector - 隐藏的select元素
-     */
-    function handleMonthSelect(selector) {
-        const selectedValue = selector.value; // 格式：YYYY-MM
+    // 处理月份选择器变更（同步状态与显示）
+    handleMonthSelect(selector) {
+        const selectedValue = selector.value;
         if (!selectedValue) return;
 
-        // 解析选中的年月
+        // 解析选中的年月（YYYY-MM → 年/月）
         const [year, month] = selectedValue.split('-').map(Number);
-        // 更新当前年月
-        currentYear = year;
-        currentMonthIndex = month;
-        // 更新显示文本（保持原有样式）
+        this.state.currentYear = year;
+        this.state.currentMonthIndex = month;
+
+        // 更新显示与账单数据
         updateMonthDisplay();
-        // 触发数据更新（如账单总览）
+    },
 
-    }
+    // 4. 账单筛选逻辑
+    filterBills(type) {
+        // 修复原代码event未定义问题：通过事件对象获取目标
+        const event = window.event;
+        if (!event) return;
 
-    /**
-     * 更新月份显示文本（与原有样式保持一致）
-     */
-    function updateMonthDisplay() {
-        const monthText = currentMonthIndex.toString().padStart(2, '0'); // 补零为两位
-        document.getElementById('currentMonth').textContent = `${currentYear}年${monthText}月`;
-
-        initBillSummary();
-    }
-
-    function loadBillsForMonth() {
-        // 模拟加载对应月份的账单数据
-        console.log(`加载 ${currentYear}年${currentMonthIndex}月 的账单`);
-    }
-
-    function filterBills(type) {
-        document.querySelectorAll('.filter-tab').forEach(tab => tab.classList.remove('active'));
+        // 切换筛选标签激活状态
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
         event.target.classList.add('active');
 
-        const billItems = document.querySelectorAll('.bill-item');
-        billItems.forEach(item => {
+        // 筛选账单条目显示/隐藏
+        document.querySelectorAll('.bill-item').forEach(item => {
             if (type === 'all' || item.dataset.type === type) {
                 item.style.display = 'flex';
             } else {
                 item.style.display = 'none';
             }
         });
-    }
+    },
 
-    function goToSearch() {
+    // 5. 页面跳转逻辑
+    goToSearch() {
         window.location.href = 'bill_search.html';
-    }
+    },
 
-    function showDateFilter() {
-        document.getElementById('dateFilterModal').style.display = 'flex';
-    }
+    showDateFilter() {
+        const modal = document.getElementById('dateFilterModal');
+        if (modal) modal.style.display = 'flex';
+    },
 
-    // 显示年度账单页面
-    function showAnnualBillPage() {
+    showAnnualBillPage() {
+        // 切换页面显示状态
         document.getElementById('billsPage').style.display = 'none';
-        document.getElementById('annualBillPage').style.display = 'block';
-        initAnnualBill();
-        // 延迟绘制图表，确保页面已显示
-        setTimeout(() => {
-            drawAnnualTrendChart();
-        }, 100);
-    }
+        const annualPage = document.getElementById('annualBillPage');
+        if (annualPage) {
+            annualPage.style.display = 'block';
+            initAnnualBill(); // 初始化年度账单数据
+            // 延迟绘制图表，确保页面已渲染
+            setTimeout(drawAnnualTrendChart, 100);
+        }
 
-    history.pushState({ page: 'annual' }, '年度账单', 'bills.html#annual');
+        // 更新历史记录
+        history.pushState({ page: 'annual' }, '年度账单', 'bills.html#annual');
+    },
 
-    // 返回账单中心页面
-    function showBillsPage() {
+    showBillsPage() {
+        // 切换页面显示状态
         document.getElementById('annualBillPage').style.display = 'none';
-        document.getElementById('billsPage').style.display = 'block';
+        const billsPage = document.getElementById('billsPage');
+        if (billsPage) billsPage.style.display = 'block';
+
+        // 更新历史记录
         history.replaceState({ page: 'bills' }, '账单中心', 'bills.html');
-    }
+    },
 
-    function initAnnualBill() {
-        // 1. 获取当前年度（从页面标题提取，如"2025年度账单"）
-        const yearTitle = document.querySelector('#annualBillPage .page-header h1').textContent;
-        const year = yearTitle.match(/\d+/)[0]; // 提取年份数字（如2025）
-        if (!year) {
-            console.error('未获取到年度信息');
-            showToast('数据加载失败');
-            return;
-        }
+    goBack() {
+        window.history.back();
+    },
 
-        // 2. 获取token
-        let token = '';
-        try {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            token = userData.token || '';
+    goToPage(page) {
+        window.location.href = page;
+    },
 
-        } catch (error) {
-            console.error('获取token失败:', error);
-            showToast('登录状态异常，请重新登录');
-            return;
-        }
-        if (!token) {
-            showToast('请先登录');
-            return;
-        }
-
-        // 3. 调用年度账单接口
-        showToast('加载年度账单中...');
-        fetch(`http://graywolf.top:6031/appassets/assets/bills/yearSummary?year=${year}`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-                'Accept': '*/*'
-            }
-        })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => { throw err; });
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.code === 200 && data.data) {
-                    const annualData = data.data;
-                    // 更新统计数据（总支出、总收入、交易笔数）
-                    updateAnnualStats(annualData);
-                    // 更新支出分类列表
-                    updateAnnualCategories(annualData.expenseVos || []);
-                    // 绘制月度支出趋势图
-                    drawAnnualTrendChart(annualData.expenseChartVos || []);
-                    showToast('年度账单加载成功');
-                } else {
-                    showToast(data.message || '获取年度账单失败');
-                }
-            })
-            .catch(error => {
-                console.error('年度账单初始化失败:', error);
-                showToast(error.message || '网络异常，加载失败');
-            });
-    }
-
-    /**
-     * 更新年度统计数据（总支出、总收入、交易笔数）
-     * @param {Object} data - 年度账单数据
-     */
-    function updateAnnualStats(data) {
-        // 格式化金额（保留两位小数，添加千分位）
-        const formatAmount = (value) => {
-            return parseFloat(value).toLocaleString('zh-CN', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
-        };
-
-        // 格式化数字（添加千分位，无小数）
-        const formatNumber = (value) => {
-            return parseInt(value).toLocaleString('zh-CN');
-        };
-
-        // 更新总支出（primary卡片）
-        const expenseEl = document.querySelector('.annual-stats .primary .stat-value');
-        if (expenseEl) {
-            expenseEl.textContent = `¥${formatAmount(data.totalExpense)}`;
-        }
-
-        // 更新总收入（success卡片）
-        const incomeEl = document.querySelector('.annual-stats .success .stat-value');
-        if (incomeEl) {
-            incomeEl.textContent = `¥${formatAmount(data.totalIncome)}`;
-        }
-
-        // 更新交易笔数（info卡片）
-        const countEl = document.querySelector('.annual-stats .info .stat-value');
-        if (countEl) {
-            countEl.textContent = formatNumber(data.totalCount);
-        }
-
-        // 更新页面标题年份（如"2025年度账单"）
-        document.querySelector('#annualBillPage .page-header h1').textContent = `${data.id || year}年度账单`;
-    }
-
-    /**
-     * 更新支出分类统计列表
-     * @param {Array} categories - 支出分类数据
-     */
-    function updateAnnualCategories(categories) {
-        const categoryList = document.querySelector('.category-analysis .category-list');
-        if (!categoryList) return;
-
-        // 清空现有分类
-        categoryList.innerHTML = '';
-
-        // 定义分类图标映射（根据业务补充）
-        const iconMap = {
-            '餐饮美食': 'canyin.png',
-            '购物消费': 'gouwu.png',
-            '交通出行': 'zhiyin.png',
-            '娱乐休闲': 'xiuxianyule.png',
-            '生活服务': 'shenghuofuwu.png',
-            '其他': 'shoukuanjiekou.png'
-        };
-
-        // 动态生成分类项
-        categories.forEach(item => {
-            const categoryItem = document.createElement('div');
-            categoryItem.className = 'category-item';
-
-            // 匹配图标（默认用"其他"图标）
-            const iconSrc = iconMap[item.bizCategoryName] || iconMap['其他'];
-            // 格式化金额和百分比（百分比去小数）
-            const formattedAmount = parseFloat(item.amount).toLocaleString('zh-CN', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
-            const percentage = Math.round(parseFloat(item.percentage)) + '%';
-
-            categoryItem.innerHTML = `
-        <div class="category-info">
-            <img src="icons/${iconSrc}" alt="${item.bizCategoryName}">
-            <span class="category-name">${item.bizCategoryName}</span>
-        </div>
-        <div class="category-amount">¥${formattedAmount}</div>
-        <div class="category-percent">${percentage}</div>
-    `;
-            categoryList.appendChild(categoryItem);
-        });
-    }
-
-    /**
-     * 绘制月度支出趋势图（重写原函数，使用接口数据）
-     * @param {Array} chartData - 月度支出数据（expenseChartVos）
-     */
-    function drawAnnualTrendChart(chartData) {
-        const canvas = document.getElementById('annualTrendChart');
-        if (!canvas) return;
-
-        const ctx = canvas.getContext('2d');
-        // 从接口数据提取12个月的支出（按月份1-12排序）
-        const monthlyData = Array(12).fill(0); // 初始化12个月数据
-        chartData.forEach(item => {
-            const monthIndex = item.month - 1; // 转换为0-11索引
-            if (monthIndex >= 0 && monthIndex < 12) {
-                monthlyData[monthIndex] = parseFloat(item.totalExpense) || 0;
-            }
-        });
-        const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-
-        // 清空画布
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // 设置样式
-        ctx.strokeStyle = '#2196F3';
-        ctx.lineWidth = 3;
-        ctx.fillStyle = 'rgba(33, 150, 243, 0.1)';
-
-        // 计算坐标（处理数据全为0的情况）
-        const padding = 30;
-        const chartWidth = canvas.width - padding * 2;
-        const chartHeight = canvas.height - padding * 2;
-        const stepX = chartWidth / (monthlyData.length - 1);
-        const minValue = Math.min(...monthlyData);
-        const maxValue = Math.max(...monthlyData);
-        // 避免除数为0（所有数据为0时）
-        const valueRange = maxValue - minValue || 1;
-
-        // 绘制网格线
-        ctx.strokeStyle = '#f0f0f0';
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 4; i++) {
-            const y = padding + (chartHeight / 4) * i;
-            ctx.beginPath();
-            ctx.moveTo(padding, y);
-            ctx.lineTo(padding + chartWidth, y);
-            ctx.stroke();
-        }
-
-        // 绘制数据线
-        ctx.strokeStyle = '#2196F3';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        monthlyData.forEach((value, index) => {
-            const x = padding + index * stepX;
-            // 计算Y轴坐标（数据为0时特殊处理）
-            const y = padding + chartHeight - ((value - minValue) / valueRange) * chartHeight;
-
-            if (index === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
-        });
-        ctx.stroke();
-
-        // 绘制数据点
-        ctx.fillStyle = '#2196F3';
-        monthlyData.forEach((value, index) => {
-            const x = padding + index * stepX;
-            const y = padding + chartHeight - ((value - minValue) / valueRange) * chartHeight;
-
-            ctx.beginPath();
-            ctx.arc(x, y, 4, 0, 2 * Math.PI);
-            ctx.fill();
-        });
-
-        // 绘制填充区域
-        ctx.fillStyle = 'rgba(33, 150, 243, 0.1)';
-        ctx.beginPath();
-        monthlyData.forEach((value, index) => {
-            const x = padding + index * stepX;
-            const y = padding + chartHeight - ((value - minValue) / valueRange) * chartHeight;
-
-            if (index === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
-        });
-        ctx.lineTo(padding + (monthlyData.length - 1) * stepX, padding + chartHeight);
-        ctx.lineTo(padding, padding + chartHeight);
-        ctx.closePath();
-        ctx.fill();
-    }
-
-
-
-
-    // 分享年度账单
-    function shareAnnualBill() {
+    // 6. 年度账单功能
+    shareAnnualBill() {
         alert('分享年度账单功能');
-    }
+    },
 
-    // 下载年度账单
-    function downloadAnnualBill() {
+    downloadAnnualBill() {
         alert('下载年度账单报告功能');
-    }
+    },
 
-    async function viewBillDetail(billItem) {
-        // 1. 从点击的账单条目获取billId
-        const billId = billItem.dataset.billId;
+    // 7. 账单详情查看
+    async viewBillDetail(billItem) {
+        // 1. 校验账单ID是否存在
+        const billId = billItem?.dataset.billId;
         if (!billId) {
             showToast('未获取到账单ID');
             return;
         }
 
-        // 2. 显示加载状态
+        // 2. 显示加载提示
         showToast('加载账单详情中...');
 
-        // 3. 获取token
-        let token = '';
-        try {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            token = userData.token || '';
-        } catch (error) {
-            console.error('获取token失败:', error);
-            showToast('登录状态异常，请重新登录');
-            return;
-        }
-        if (!token) {
-            showToast('请先登录');
-            return;
-        }
+        // 3. 获取用户Token（统一封装，避免重复代码）
+        const token = this.getAuthToken();
+        if (!token) return;
 
         try {
             // 4. 调用账单详情接口
-            const response = await fetch(`http://graywolf.top:6031/appassets/assets/bills/detail?id=${billId}`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-                    'Accept': '*/*'
+            const response = await fetch(
+                `http://graywolf.top:6031/appassets/assets/bills/detail?id=${billId}`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+                        'Accept': '*/*'
+                    }
                 }
-            });
+            );
 
+            // 处理HTTP错误
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.message || '获取账单详情失败');
@@ -1285,20 +1090,20 @@
             const result = await response.json();
             if (result.code === 200 && result.data) {
                 const bill = result.data;
-                // 5. 格式化详情数据（适配详情页需要的字段）
+                // 5. 格式化详情数据（适配详情页字段）
                 const detailData = {
                     id: bill.id,
-                    merchant: bill.targetName || '未知账户', // 收款/付款方名称
-                    amount: `${bill.type === 1 ? '+' : '-'}¥${bill.amount}`, // 收入+，支出-
-                    type: bill.typeName, // 交易类型（收入/转出等）
-                    category: bill.bizCategoryName || '其他', // 交易分类
-                    payment: `${bill.targetTypeName} ${bill.type === 1 ? '收款' : '支付'}`, // 支付方式描述
-                    time: formatBillTime(bill.completeTime), // 格式化时间
-                    orderNo: bill.transferNumber || '无交易单号', // 交易单号
-                    note: bill.remark || '无备注信息' // 备注内容
+                    merchant: bill.targetName || '未知账户',
+                    amount: `${bill.type === 1 ? '+' : '-'}¥${bill.amount}`,
+                    type: bill.typeName || '未知类型',
+                    category: bill.bizCategoryName || '其他',
+                    payment: `${bill.targetTypeName || '未知方式'} ${bill.type === 1 ? '收款' : '支付'}`,
+                    time: formatBillTime(bill.completeTime),
+                    orderNo: bill.transferNumber || '无交易单号',
+                    note: bill.remark || '无备注信息'
                 };
 
-                // 6. 保存数据到sessionStorage供详情页使用
+                // 6. 保存数据到sessionStorage
                 sessionStorage.setItem('currentBillData', JSON.stringify(detailData));
 
                 // 7. 跳转到详情页
@@ -1310,99 +1115,91 @@
             console.error('账单详情加载失败:', error);
             showToast(error.message || '网络异常，详情加载失败');
         }
-    }
-    function formatBillTime(isoTime) {
-        if (!isoTime) return '未知时间';
-        const date = new Date(isoTime);
-        // 补零处理（确保月份、日期等为两位数）
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0'); // 月份从0开始，需+1
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        const seconds = String(date.getSeconds()).padStart(2, '0');
-        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-    }
-    function performSearch() {
-        const keyword = document.getElementById('searchInput').value.trim();
+    },
+
+    // 8. 搜索相关功能
+    performSearch() {
+        const searchInput = document.getElementById('searchInput');
+        if (!searchInput) return;
+
+        const keyword = searchInput.value.trim();
         if (!keyword) return;
 
-        // 模拟搜索结果
+        // 模拟搜索结果（保留原有DOM结构与样式）
         const searchResults = document.getElementById('searchResults');
-        searchResults.innerHTML = `
-            <div class="bill-item expense" data-type="expense" data-category="餐饮" onclick="viewBillDetail(this)">
-                <div class="bill-icon">
-                    <img src="icons/a-2-lijifukuan.png" alt="支付">
+        if (searchResults) {
+            searchResults.innerHTML = `
+                <div class="bill-item expense" data-type="expense" data-category="餐饮" onclick="viewBillDetail(this)">
+                    <div class="bill-icon">
+                        <img src="icons/a-2-lijifukuan.png" alt="支付">
+                    </div>
+                    <div class="bill-info">
+                        <h4>星巴克咖啡</h4>
+                        <p>支付宝支付 • 2024-10-22 15:30</p>
+                        <span class="bill-category">餐饮</span>
+                    </div>
+                    <div class="bill-amount expense">-¥32.00</div>
                 </div>
-                <div class="bill-info">
-                    <h4>星巴克咖啡</h4>
-                    <p>支付宝支付 • 2024-10-22 15:30</p>
-                    <span class="bill-category">餐饮</span>
-                </div>
-                <div class="bill-amount expense">-¥32.00</div>
-            </div>
-            <div class="no-more-results">没有更多结果了</div>
-        `;
-    }
-
-    function handleSearchKeyPress(event) {
-        if (event.key === 'Enter') {
-            performSearch();
+                <div class="no-more-results">没有更多结果了</div>
+            `;
         }
-    }
+    },
 
-    function setQuickDate(days) {
+    handleSearchKeyPress(event) {
+        if (event.key === 'Enter') {
+            this.performSearch();
+        }
+    },
+
+    // 9. 日期筛选功能
+    setQuickDate(days) {
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(endDate.getDate() - days);
 
-        document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
-        document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
-    }
-
-    function applyDateFilter() {
+        // 格式化日期为YYYY-MM-DD
+        const formatDate = (date) => date.toISOString().split('T')[0];
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
+
+        if (startDateInput) startDateInput.value = formatDate(startDate);
+        if (endDateInput) endDateInput.value = formatDate(endDate);
+    },
+
+    applyDateFilter() {
+        // 1. 获取日期输入
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+        if (!startDateInput || !endDateInput) return;
+
         const startDate = startDateInput.value;
         const endDate = endDateInput.value;
 
-        // 验证日期输入
+        // 2. 验证日期完整性
         if (!startDate || !endDate) {
             showToast('请选择完整的日期范围');
             return;
         }
 
-        // 格式化日期参数（拼接时间）
+        // 3. 格式化日期参数（拼接时间）
         const startTime = `${startDate} 00:00:00`;
         const endTime = `${endDate} 23:59:59`;
 
-        // 获取token
-        let token = '';
-        try {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            token = userData.token || '';
+        // 4. 获取用户Token
+        const token = this.getAuthToken();
+        if (!token) return;
 
-        } catch (error) {
-            console.error('获取token失败:', error);
-            showToast('登录状态异常，请重新登录');
-            return;
-        }
-        if (!token) {
-            showToast('请先登录');
-            return;
-        }
-
-        // 构建请求URL（编码特殊字符）
+        // 5. 构建请求URL（编码特殊字符）
         const encodedStartTime = encodeURIComponent(startTime);
         const encodedEndTime = encodeURIComponent(endTime);
         const url = `http://graywolf.top:6031/appassets/assets/bills/list/condition?startTime=${encodedStartTime}&endTime=${encodedEndTime}&type=&scene=bills`;
 
-        // 显示加载状态
+        // 6. 显示加载状态
         showToast('正在筛选账单...');
         const billsList = document.getElementById('billsList');
-        billsList.innerHTML = '<div class="loading">加载中...</div>';
+        if (billsList) billsList.innerHTML = '';
 
-        // 发送请求
+        // 7. 发送筛选请求
         fetch(url, {
             method: 'GET',
             headers: {
@@ -1419,397 +1216,702 @@
             })
             .then(data => {
                 if (data.code === 200 && Array.isArray(data.data)) {
-                    // 筛选成功，更新账单列表
-                    console.log("接口返回完整数据：", JSON.stringify(data, null, 2));
-                    updateBillsList(data.data);
+                    updateBillsList(data.data); // 更新账单列表
                     showToast('日期筛选已应用');
                 } else {
                     showToast(data.message || '筛选账单失败');
-                    billsList.innerHTML = '<div class="no-bills">筛选失败，请重试</div>';
+                    if (billsList) billsList.innerHTML = '<div class="no-bills">筛选失败，请重试</div>';
                 }
             })
             .catch(error => {
                 console.error('筛选账单失败:', error);
                 showToast('网络异常，筛选失败');
-                billsList.innerHTML = '<div class="no-bills">网络异常，请稍后重试</div>';
+                if (billsList) billsList.innerHTML = '<div class="no-bills">网络异常，请稍后重试</div>';
             })
             .finally(() => {
-                closeModal('dateFilterModal');
+                this.closeModal('dateFilterModal'); // 关闭筛选弹窗
             });
-    }
+    },
 
-    /**
-     * 根据接口返回数据更新账单列表
-     * @param {Array} bills - 筛选后的账单数据
-     */
-    function updateBillsList(bills) {
-        const billsList = document.getElementById('billsList');
-        if (!billsList) return;
-
-        // 清空列表
-        billsList.innerHTML = '';
-
-        // 处理空数据
-        if (bills.length === 0) {
-            billsList.innerHTML = '<div class="no-bills">该日期范围内无账单记录</div>';
-            return;
-        }
-
-        // 按日期分组（今天/昨天/更早之前）
-        const groupedBills = groupBillsByDate(bills);
-
-        // 生成HTML
-        Object.keys(groupedBills).forEach(dateKey => {
-            // 创建日期组容器
-            const dateGroup = document.createElement('div');
-            dateGroup.className = 'date-group';
-            dateGroup.innerHTML = `<div class="date-header">${dateKey}</div>`;
-
-            // 添加该日期组下的所有账单
-            groupedBills[dateKey].forEach(bill => {
-                dateGroup.appendChild(createBillItem(bill));
-            });
-
-            billsList.appendChild(dateGroup);
-        });
-    }
-
-    function reportProblem() {
+    // 10. 通用工具方法
+    reportProblem() {
         alert('问题反馈功能开发中，请联系客服处理');
+    },
+
+    closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) modal.style.display = 'none';
+    },
+
+    // 获取用户Token（统一封装，避免重复代码）
+    getAuthToken() {
+        let token = '';
+        try {
+            const userDataStr = localStorage.getItem('userData') || '{}';
+            const userData = JSON.parse(userDataStr);
+            token = userData.token || '';
+        } catch (error) {
+            console.error('获取token失败:', error);
+            showToast('登录状态异常，请重新登录');
+            return '';
+        }
+
+        if (!token) {
+            showToast('请先登录');
+            return '';
+        }
+
+        return token;
+    }
+};
+
+// 11. 外部依赖方法（保留原有逻辑，修复语法问题）
+/**
+ * 更新月份显示文本（与原有样式保持一致）
+ */
+function updateMonthDisplay() {
+    const monthText = String(BillCenterModule.state.currentMonthIndex).padStart(2, '0');
+    const currentMonthEl = document.getElementById('currentMonth');
+    if (currentMonthEl) {
+        currentMonthEl.textContent = `${BillCenterModule.state.currentYear}年${monthText}月`;
+    }
+    initBillSummary(); // 触发账单总览更新
+}
+
+/**
+ * 加载对应月份的账单数据（保留原有日志）
+ */
+function loadBillsForMonth() {
+    const { currentYear, currentMonthIndex } = BillCenterModule.state;
+    console.log(`加载 ${currentYear}年${currentMonthIndex}月 的账单`);
+}
+
+/**
+ * 初始化年度账单数据
+ */
+function initAnnualBill() {
+    // 1. 获取当前年度（从页面标题提取）
+    const yearTitleEl = document.querySelector('#annualBillPage .page-header h1');
+    if (!yearTitleEl) return;
+
+    const yearTitle = yearTitleEl.textContent;
+    const yearMatch = yearTitle.match(/\d+/);
+    if (!yearMatch) {
+        console.error('未获取到年度信息');
+        showToast('数据加载失败');
+        return;
+    }
+    const year = yearMatch[0];
+
+    // 2. 获取用户Token
+    const token = BillCenterModule.getAuthToken();
+    if (!token) return;
+
+    // 3. 调用年度账单接口
+    showToast('加载年度账单中...');
+    fetch(`http://graywolf.top:6031/appassets/assets/bills/yearSummary?year=${year}`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+            'Accept': '*/*'
+        }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw err; });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.code === 200 && data.data) {
+                const annualData = data.data;
+                updateAnnualStats(annualData);          // 更新年度统计数据
+                updateAnnualCategories(annualData.expenseVos || []); // 更新支出分类
+                drawAnnualTrendChart(annualData.expenseChartVos || []); // 绘制趋势图
+                showToast('年度账单加载成功');
+            } else {
+                showToast(data.message || '获取年度账单失败');
+            }
+        })
+        .catch(error => {
+            console.error('年度账单初始化失败:', error);
+            showToast(error.message || '网络异常，加载失败');
+        });
+}
+
+/**
+ * 更新年度统计数据（总支出、总收入、交易笔数）
+ * @param {Object} data - 年度账单数据
+ */
+function updateAnnualStats(data) {
+    // 金额格式化工具（保留两位小数+千分位）
+    const formatAmount = (value) => {
+        const num = parseFloat(value);
+        return isNaN(num) ? '0.00' : num.toLocaleString('zh-CN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    };
+
+    // 数字格式化工具（千分位，无小数）
+    const formatNumber = (value) => {
+        const num = parseInt(value);
+        return isNaN(num) ? '0' : num.toLocaleString('zh-CN');
+    };
+
+    // 更新总支出（primary卡片）
+    const expenseEl = document.querySelector('.annual-stats .primary .stat-value');
+    if (expenseEl) {
+        expenseEl.textContent = `¥${formatAmount(data.totalExpense)}`;
     }
 
-    function closeModal(modalId) {
-        document.getElementById(modalId).style.display = 'none';
+    // 更新总收入（success卡片）
+    const incomeEl = document.querySelector('.annual-stats .success .stat-value');
+    if (incomeEl) {
+        incomeEl.textContent = `¥${formatAmount(data.totalIncome)}`;
     }
 
-    function goBack() {
-        window.history.back();
+    // 更新交易笔数（info卡片）
+    const countEl = document.querySelector('.annual-stats .info .stat-value');
+    if (countEl) {
+        countEl.textContent = formatNumber(data.totalCount);
     }
 
-    function showToast(message) {
-        const toast = document.createElement('div');
-        toast.className = 'toast';
-        toast.textContent = message;
-        toast.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            z-index: 10000;
-            font-size: 14px;
+    // 更新页面标题年份（如"2025年度账单"）
+    const yearTitleEl = document.querySelector('#annualBillPage .page-header h1');
+    if (yearTitleEl) {
+        yearTitleEl.textContent = `${data.id || new Date().getFullYear()}年度账单`;
+    }
+}
+
+/**
+ * 更新支出分类统计列表
+ * @param {Array} categories - 支出分类数据
+ */
+function updateAnnualCategories(categories) {
+    const categoryList = document.querySelector('.category-analysis .category-list');
+    if (!categoryList) return;
+
+    // 清空现有分类
+    categoryList.innerHTML = '';
+
+    // 分类图标映射（与原有逻辑一致）
+    const iconMap = {
+        '餐饮美食': 'canyin.png',
+        '购物消费': 'gouwu.png',
+        '交通出行': 'zhiyin.png',
+        '娱乐休闲': 'xiuxianyule.png',
+        '生活服务': 'shenghuofuwu.png',
+        '其他': 'shoukuanjiekou.png'
+    };
+
+    // 动态生成分类项（保留原有DOM结构与样式）
+    categories.forEach(item => {
+        const categoryItem = document.createElement('div');
+        categoryItem.className = 'category-item';
+
+        // 匹配图标（默认用"其他"图标）
+        const iconSrc = iconMap[item.bizCategoryName] || iconMap['其他'];
+        // 格式化金额和百分比（百分比取整）
+        const formattedAmount = parseFloat(item.amount).toLocaleString('zh-CN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        const percentage = Math.round(parseFloat(item.percentage)) + '%';
+
+        categoryItem.innerHTML = `
+            <div class="category-info">
+                <img src="icons/${iconSrc}" alt="${item.bizCategoryName}">
+                <span class="category-name">${item.bizCategoryName}</span>
+            </div>
+            <div class="category-amount">¥${formattedAmount}</div>
+            <div class="category-percent">${percentage}</div>
         `;
-        document.body.appendChild(toast);
-        setTimeout(() => {
-            document.body.removeChild(toast);
-        }, 2000);
-    }
-
-    // 页面跳转函数
-    function goToPage(page) {
-        window.location.href = page;
-    }
-    function initBillsList() {
-        const container = document.getElementById('billsList');
-        if (!container) {
-            console.error('未找到账单列表容器');
-            return;
-        }
-
-        // 清空容器
-        container.innerHTML = '';
-
-        // 获取token
-        let token = '';
-        try {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            token = userData.token || '';
-
-        } catch (error) {
-            console.error('获取token失败:', error);
-            showToast('登录状态异常，请重新登录');
-            return;
-        }
-
-        if (!token) {
-            showToast('请先登录');
-            return;
-        }
-
-        // 调用接口获取账单数据
-        fetch('http://graywolf.top:6031/appassets/assets/bills/list', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-                'Accept': '*/*'
-            }
-        })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => { throw err; });
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.code === 200 && Array.isArray(data.data)) {
-                    const bills = data.data;
-                    if (bills.length === 0) {
-                        container.innerHTML = '<div class="no-bills">暂无账单记录</div>';
-                        return;
-                    }
-
-                    // 按日期分组（今天、昨天、更早之前）
-                    const groupedBills = groupBillsByDate(bills);
-
-                    // 渲染每个日期组
-                    Object.keys(groupedBills).forEach(dateKey => {
-                        const dateGroup = document.createElement('div');
-                        dateGroup.className = 'date-group';
-
-                        // 添加日期标题（今天/昨天/更早之前）
-                        dateGroup.innerHTML = `<div class="date-header">${dateKey}</div>`;
-
-                        // 渲染该组下的所有账单
-                        groupedBills[dateKey].forEach(bill => {
-                            dateGroup.appendChild(createBillItem(bill));
-                        });
-
-                        container.appendChild(dateGroup);
-                    });
-                } else {
-                    showToast(data.message || '获取账单列表失败');
-                }
-            })
-            .catch(error => {
-                console.error('更新账单列表失败:', error);
-                showToast(error.message || '网络异常，获取账单失败');
-            });
-    }
-
-    /**
-     * 将账单按日期分组（今天、昨天、更早之前）
-     * @param {Array} bills - 原始账单数据
-     * @returns {Object} 分组后的账单 { '今天': [], '昨天': [], '更早之前': [] }
-     */
-    function groupBillsByDate(bills) {
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-
-        return bills.reduce((groups, bill) => {
-            const billDate = new Date(bill.completeTime);
-            let dateKey = '更早之前';
-
-            // 判断属于今天、昨天还是更早
-            if (isSameDay(billDate, today)) {
-                dateKey = '今天';
-            } else if (isSameDay(billDate, yesterday)) {
-                dateKey = '昨天';
-            }
-
-            // 按日期分组，同时按时间倒序排列（最新的在前）
-            if (!groups[dateKey]) {
-                groups[dateKey] = [];
-            }
-            groups[dateKey].push(bill);
-
-            return groups;
-        }, {});
-    }
-
-    /**
-     * 判断两个日期是否为同一天
-     * @param {Date} date1 - 日期1
-     * @param {Date} date2 - 日期2
-     * @returns {boolean} 是否为同一天
-     */
-    function isSameDay(date1, date2) {
-        return date1.getFullYear() === date2.getFullYear() &&
-            date1.getMonth() === date2.getMonth() &&
-            date1.getDate() === date2.getDate();
-    }
-
-    /**
-     * 创建单个账单条目元素
-     * @param {Object} bill - 账单数据
-     * @returns {HTMLElement} 账单元素
-     */
-    function createBillItem(bill) {
-        const billItem = document.createElement('div');
-        const isExpense = bill.type !== 1; // 假设type=1为收入，其他为支出（根据实际业务调整）
-
-        // 设置基础类名和数据属性（保存id供查看详情）
-        billItem.className = `bill-item ${isExpense ? 'expense' : 'income'}`;
-        billItem.dataset.type = isExpense ? 'expense' : 'income';
-        billItem.dataset.category = bill.bizCategoryName;
-        billItem.dataset.billId = bill.id; // 保存账单id
-        billItem.setAttribute('onclick', 'viewBillDetail(this)');
-
-        // 格式化时间（YYYY-MM-DD HH:MM）
-        const billTime = new Date(bill.completeTime);
-        const formattedTime = `${billTime.getFullYear()}-${String(billTime.getMonth() + 1).padStart(2, '0')}-${String(billTime.getDate()).padStart(2, '0')} ${String(billTime.getHours()).padStart(2, '0')}:${String(billTime.getMinutes()).padStart(2, '0')}`;
-
-        // 金额符号（收入+，支出-）
-        const amountSign = isExpense ? '-' : '+';
-
-        // 设置图标（根据分类匹配，这里使用示例图标，可根据实际需求扩展）
-        const iconMap = {
-            '餐饮': 'canyin.png',
-            '出行': 'zhiyin.png',
-            '购物': 'gouwu.png',
-            '其他': 'shoukuanjiekou.png' // 默认使用收款图标
-        };
-        const iconSrc = iconMap[bill.bizCategoryName] || 'shoukuanjiekou.png';
-
-        // 拼接账单内容
-        billItem.innerHTML = `
-    <div class="bill-icon">
-        <img src="icons/${iconSrc}" alt="${bill.bizCategoryName}">
-    </div>
-    <div class="bill-info">
-        <h4>${bill.remark || bill.targetName}</h4> <!-- 优先显示备注，无则显示目标名称 -->
-        <p>${bill.targetTypeName} ${isExpense ? '支付' : '收款'} • ${formattedTime}</p>
-        <span class="bill-category">${bill.bizCategoryName}</span>
-    </div>
-    <div class="bill-amount ${isExpense ? 'expense' : 'income'}">
-        ${amountSign}¥${parseFloat(bill.amount).toFixed(2)}
-    </div>
-`;
-
-        return billItem;
-    }
-    function initBillSummary() {
-        // 1. 获取当前选中的年月（从月份选择器中提取）
-        const currentMonthText = document.getElementById('currentMonth').textContent.trim();
-        const year = currentMonthText.split('年')[0]; // 提取年份（如"2025"）
-        const month = currentMonthText.split('年')[1].replace('月', ''); // 提取月份（如"07"）
-
-        // 2. 获取token进行身份验证
-        let token = '';
-        try {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            token = userData.token || '';
-
-        } catch (error) {
-            console.error('获取token失败:', error);
-            showToast('登录状态异常，请重新登录');
-            return;
-        }
-        if (!token) {
-            showToast('请先登录');
-            return;
-        }
-
-        // 3. 调用账单总览接口
-        showToast('加载账单总览数据中...');
-        fetch(`http://graywolf.top:6031/appassets/assets/bills/summary?year=${year}&month=${month}`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-                'Accept': '*/*'
-            }
-        })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => { throw err; });
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.code === 200 && data.data) {
-                    const summaryData = data.data;
-                    // 更新总收入、总支出、结余
-                    updateSummaryNumbers(summaryData);
-                    // 更新支出分类图表
-                    updateExpenseCategories(summaryData.expenseV0 || []);
-                    showToast('账单总览加载成功');
-                } else {
-                    showToast(data.message || '获取账单数据失败');
-                }
-            })
-            .catch(error => {
-                console.error('账单总览初始化失败:', error);
-                showToast(error.message || '网络异常，加载失败');
-            });
-    }
-    function updateSummaryNumbers(data) {
-        // 格式化金额为的字符串
-
-
-    // 更新DOM
-    document.querySelector('.summary-item .income').textContent = data.totalIncome;
-    document.querySelector('.summary-item .expense').textContent = data.totalExpense;
-    document.querySelector('.summary-item .balance').textContent = data.balance;
-    }
-
-    /**
-     * 更新支出分类图表（处理单个分类和多个分类的情况）
-     * @param {Array} expenseList - 接口返回的支出分类数据
-     */
-    function updateExpenseCategories(expenseList) {
-        const chartContainer = document.querySelector('.expense-chart');
-        if (!chartContainer) return;
-
-        // 定义固定分类（与UI对应，确保样式一致）
-        const fixedCategories = [
-            { name: '餐饮', color: '#ff6b6b' },
-            { name: '出行', color: '#4ecdc4' },
-            { name: '购物', color: '#45b7d1' },
-            { name: '其他', color: '#f9ca24' }
-        ];
-
-        // 将接口数据转换为Map（按分类名称映射）
-        const expenseMap = new Map();
-        expenseList.forEach(item => {
-            expenseMap.set(item.bizCategoryName, {
-                amount: item.amount,
-                percentage: item.percentage
-            });
-        });
-
-        // 生成完整的分类数据（缺失分类填充0）
-        const fullCategories = fixedCategories.map(cat => {
-            const matched = expenseMap.get(cat.name) || { amount: '0', percentage: '0.00' };
-            return {
-                ...cat,
-                amount: matched.amount,
-                percentage: Math.round(parseFloat(matched.percentage)).toString()
-            };
-        });
-
-        // 清空并重新渲染图表
-        chartContainer.innerHTML = '';
-        fullCategories.forEach(item => {
-            const chartItem = document.createElement('div');
-            chartItem.className = 'chart-item';
-            // 格式化金额（保留两位小数）
-            const formattedAmount = parseFloat(item.amount).toLocaleString('zh-CN', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
-            chartItem.innerHTML = `
-        <div class="chart-color" style="background: ${item.color};"></div>
-        <span class="chart-label">${item.name}</span>
-        <span class="chart-amount">¥${formattedAmount}</span>
-        <span class="chart-percent">${item.percentage}%</span>
-    `;
-            chartContainer.appendChild(chartItem);
-        });
-    }
-
-    // 页面加载时初始化账单列表
-    document.addEventListener('DOMContentLoaded', function () {
-        initBillsList();
-        initHiddenSelector();
-        updateMonthDisplay();
-
-        initBillSummary();
+        categoryList.appendChild(categoryItem);
     });
+}
+
+/**
+ * 绘制月度支出趋势图（保留原有绘图逻辑）
+ * @param {Array} chartData - 月度支出数据（expenseChartVos）
+ */
+function drawAnnualTrendChart(chartData = []) {
+    const canvas = document.getElementById('annualTrendChart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    // 初始化12个月数据（默认0）
+    const monthlyData = Array(12).fill(0);
+    // 从接口数据填充对应月份支出
+    chartData.forEach(item => {
+        const monthIndex = item.month - 1; // 转换为0-11索引
+        if (monthIndex >= 0 && monthIndex < 12) {
+            monthlyData[monthIndex] = parseFloat(item.totalExpense) || 0;
+        }
+    });
+    const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+
+    // 清空画布
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 基础样式配置
+    const padding = 30;
+    const chartWidth = canvas.width - padding * 2;
+    const chartHeight = canvas.height - padding * 2;
+    const stepX = chartWidth / (monthlyData.length - 1);
+    const minValue = Math.min(...monthlyData);
+    const maxValue = Math.max(...monthlyData);
+    const valueRange = maxValue - minValue || 1; // 避免除数为0
+
+    // 绘制网格线（灰色细线条）
+    ctx.strokeStyle = '#f0f0f0';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+        const y = padding + (chartHeight / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(padding + chartWidth, y);
+        ctx.stroke();
+    }
+
+    // 绘制数据线（蓝色粗线条）
+    ctx.strokeStyle = '#2196F3';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    monthlyData.forEach((value, index) => {
+        const x = padding + index * stepX;
+        const y = padding + chartHeight - ((value - minValue) / valueRange) * chartHeight;
+        index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // 绘制数据点（蓝色圆点）
+    ctx.fillStyle = '#2196F3';
+    monthlyData.forEach((value, index) => {
+        const x = padding + index * stepX;
+        const y = padding + chartHeight - ((value - minValue) / valueRange) * chartHeight;
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+    });
+
+    // 绘制填充区域（蓝色半透明）
+    ctx.fillStyle = 'rgba(33, 150, 243, 0.1)';
+    ctx.beginPath();
+    monthlyData.forEach((value, index) => {
+        const x = padding + index * stepX;
+        const y = padding + chartHeight - ((value - minValue) / valueRange) * chartHeight;
+        index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.lineTo(padding + (monthlyData.length - 1) * stepX, padding + chartHeight);
+    ctx.lineTo(padding, padding + chartHeight);
+    ctx.closePath();
+    ctx.fill();
+}
+
+/**
+ * 格式化账单时间（YYYY-MM-DD HH:MM:SS）
+ * @param {string} isoTime - ISO格式时间字符串
+ * @returns {string} 格式化后的时间
+ */
+function formatBillTime(isoTime) {
+    if (!isoTime) return '未知时间';
+    const date = new Date(isoTime);
+    if (isNaN(date.getTime())) return '未知时间'; // 无效时间兜底
+
+    // 补零处理（确保两位数）
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+/**
+ * 根据日期筛选结果更新账单列表
+ * @param {Array} bills - 筛选后的账单数据
+ */
+function updateBillsList(bills) {
+    const billsList = document.getElementById('billsList');
+    if (!billsList) return;
+
+    // 清空列表
+    billsList.innerHTML = '';
+
+    // 处理空数据
+    if (bills.length === 0) {
+        billsList.innerHTML = '<div class="no-bills">该日期范围内无账单记录</div>';
+        return;
+    }
+
+    // 按日期分组（今天/昨天/更早之前）
+    const groupedBills = groupBillsByDate(bills);
+
+    // 生成日期组HTML（保留原有样式）
+    Object.keys(groupedBills).forEach(dateKey => {
+        const dateGroup = document.createElement('div');
+        dateGroup.className = 'date-group';
+        dateGroup.innerHTML = `<div class="date-header">${dateKey}</div>`;
+
+        // 添加该组下所有账单
+        groupedBills[dateKey].forEach(bill => {
+            dateGroup.appendChild(createBillItem(bill));
+        });
+
+        billsList.appendChild(dateGroup);
+    });
+}
+
+/**
+ * 初始化账单列表（页面加载时调用）
+ */
+function initBillsList() {
+    const container = document.getElementById('billsList');
+    if (!container) {
+        console.error('未找到账单列表容器');
+        return;
+    }
+
+    // 清空容器并显示加载状态
+    container.innerHTML = '';
+
+    // 获取用户Token
+    const token = BillCenterModule.getAuthToken();
+    if (!token) {
+        container.innerHTML = '<div class="no-bills">请先登录查看账单</div>';
+        return;
+    }
+
+    // 调用账单列表接口
+    fetch('http://graywolf.top:6031/appassets/assets/bills/list', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+            'Accept': '*/*'
+        }
+    })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw err; });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.code === 200 && Array.isArray(data.data)) {
+                const bills = data.data;
+                if (bills.length === 0) {
+                    container.innerHTML = '<div class="no-bills">暂无账单记录</div>';
+                    return;
+                }
+
+                // 按日期分组并渲染
+                const groupedBills = groupBillsByDate(bills);
+                Object.keys(groupedBills).forEach(dateKey => {
+                    const dateGroup = document.createElement('div');
+                    dateGroup.className = 'date-group';
+                    dateGroup.innerHTML = `<div class="date-header">${dateKey}</div>`;
+
+                    // 渲染该组账单
+                    groupedBills[dateKey].forEach(bill => {
+                        dateGroup.appendChild(createBillItem(bill));
+                    });
+
+                    container.appendChild(dateGroup);
+                });
+            } else {
+                showToast(data.message || '获取账单列表失败');
+                container.innerHTML = '<div class="no-bills">获取账单失败，请重试</div>';
+            }
+        })
+        .catch(error => {
+            console.error('更新账单列表失败:', error);
+            showToast(error.message || '网络异常，获取账单失败');
+            container.innerHTML = '<div class="no-bills">网络异常，请稍后重试</div>';
+        });
+}
+
+/**
+ * 将账单按日期分组（今天/昨天/更早之前）
+ * @param {Array} bills - 原始账单数据
+ * @returns {Object} 分组后的账单 { '今天': [], '昨天': [], '更早之前': [] }
+ */
+function groupBillsByDate(bills) {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    return bills.reduce((groups, bill) => {
+        const billDate = new Date(bill.completeTime);
+        let dateKey = '更早之前';
+
+        // 判断日期归属
+        if (isSameDay(billDate, today)) {
+            dateKey = '今天';
+        } else if (isSameDay(billDate, yesterday)) {
+            dateKey = '昨天';
+        }
+
+        // 初始化分组数组并添加账单
+        if (!groups[dateKey]) {
+            groups[dateKey] = [];
+        }
+        groups[dateKey].push(bill);
+
+        return groups;
+    }, {});
+}
+
+/**
+ * 判断两个日期是否为同一天
+ * @param {Date} date1 - 日期1
+ * @param {Date} date2 - 日期2
+ * @returns {boolean} 是否为同一天
+ */
+function isSameDay(date1, date2) {
+    return date1.getFullYear() === date2.getFullYear() &&
+        date1.getMonth() === date2.getMonth() &&
+        date1.getDate() === date2.getDate();
+}
+
+/**
+ * 创建单个账单条目元素（保留原有DOM结构与样式）
+ * @param {Object} bill - 账单数据
+ * @returns {HTMLElement} 账单条目DOM
+ */
+function createBillItem(bill) {
+    const billItem = document.createElement('div');
+    const isExpense = bill.type !== 1; // 业务规则：type=1为收入，其他为支出
+
+    // 设置类名与数据属性（供筛选和详情使用）
+    billItem.className = `bill-item ${isExpense ? 'expense' : 'income'}`;
+    billItem.dataset.type = isExpense ? 'expense' : 'income';
+    billItem.dataset.category = bill.bizCategoryName || '其他';
+    billItem.dataset.billId = bill.id || '';
+    billItem.setAttribute('onclick', 'viewBillDetail(this)');
+
+    // 格式化时间（YYYY-MM-DD HH:MM）
+    const billTime = new Date(bill.completeTime);
+    const formattedTime = isNaN(billTime.getTime())
+        ? '未知时间'
+        : `${billTime.getFullYear()}-${String(billTime.getMonth() + 1).padStart(2, '0')}-${String(billTime.getDate()).padStart(2, '0')} ${String(billTime.getHours()).padStart(2, '0')}:${String(billTime.getMinutes()).padStart(2, '0')}`;
+
+    // 金额符号（收入+，支出-）
+    const amountSign = isExpense ? '-' : '+';
+    // 格式化金额（保留两位小数）
+    const formattedAmount = parseFloat(bill.amount).toFixed(2);
+
+    // 分类图标映射（与原有逻辑一致）
+    const iconMap = {
+        '餐饮': 'canyin.png',
+        '出行': 'zhiyin.png',
+        '购物': 'gouwu.png',
+        '其他': 'shoukuanjiekou.png'
+    };
+    const iconSrc = iconMap[bill.bizCategoryName] || 'shoukuanjiekou.png';
+
+    // 填充账单内容（完全保留原有HTML结构）
+    billItem.innerHTML = `
+        <div class="bill-icon">
+            <img src="icons/${iconSrc}" alt="${bill.bizCategoryName || '账单图标'}">
+        </div>
+        <div class="bill-info">
+            <h4>${bill.remark || bill.targetName || '未知账单'}</h4>
+            <p>${bill.targetTypeName || '未知方式'} ${isExpense ? '支付' : '收款'} • ${formattedTime}</p>
+            <span class="bill-category">${bill.bizCategoryName || '其他'}</span>
+        </div>
+        <div class="bill-amount ${isExpense ? 'expense' : 'income'}">
+            ${amountSign}¥${formattedAmount}
+        </div>
+    `;
+
+    return billItem;
+}
+
+/**
+ * 初始化账单总览（月度收支统计）
+ */
+    function initBillSummary() {
+    // 1. 获取当前选中的年月（从显示文本提取）
+    const currentMonthEl = document.getElementById('currentMonth');
+    if (!currentMonthEl) return;
+
+    const currentMonthText = currentMonthEl.textContent.trim();
+    const year = currentMonthText.split('年')[0]; // 提取年份（如"2025"）
+    const month = currentMonthText.split('年')[1]?.replace('月', '') || ''; // 提取月份（如"07"）
+
+    if (!year || !month) {
+        console.error('无法解析当前年月信息');
+        return;
+    }
+
+    // 2. 获取用户Token
+    const token = BillCenterModule.getAuthToken();
+    if (!token) return;
+
+    // 3. 调用账单总览接口
+    showToast('加载账单总览数据中...');
+    fetch(`http://graywolf.top:6031/appassets/assets/bills/summary?year=${year}&month=${month}`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+            'Accept': '*/*'
+        }
+    })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw err; });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.code === 200 && data.data) {
+                const summaryData = data.data;
+                updateSummaryNumbers(summaryData); // 更新收支数字
+                updateExpenseCategories(summaryData.expenseV0 || []); // 更新支出分类
+                showToast('账单总览加载成功');
+            } else {
+                showToast(data.message || '获取账单数据失败');
+            }
+        })
+        .catch(error => {
+            console.error('账单总览初始化失败:', error);
+            showToast(error.message || '网络异常，加载失败');
+        });
+}
+
+/**
+ * 更新收支总览数字（修复原代码语法问题）
+ * @param {Object} data - 总览数据（收入/支出/结余）
+ */
+function updateSummaryNumbers(data) {
+    // 金额格式化（保留两位小数+千分位）
+    const formatAmount = (value) => {
+        const num = parseFloat(value);
+        return isNaN(num) ? '0.00' : num.toLocaleString('zh-CN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    };
+
+    // 更新总收入
+    const incomeEl = document.querySelector('.summary-item .income');
+    if (incomeEl) {
+        incomeEl.textContent = `¥${formatAmount(data.totalIncome || 0)}`;
+    }
+
+    // 更新总支出
+    const expenseEl = document.querySelector('.summary-item .expense');
+    if (expenseEl) {
+        expenseEl.textContent = `¥${formatAmount(data.totalExpense || 0)}`;
+    }
+
+    // 更新结余（收入-支出）
+    const balanceEl = document.querySelector('.summary-item .balance');
+    if (balanceEl) {
+        const balance = (parseFloat(data.totalIncome || 0) - parseFloat(data.totalExpense || 0)).toFixed(2);
+        balanceEl.textContent = `¥${formatAmount(balance)}`;
+    }
+}
+
+/**
+ * 更新支出分类图表（保留原有样式与逻辑）
+ * @param {Array} expenseList - 支出分类数据
+ */
+function updateExpenseCategories(expenseList) {
+    const chartContainer = document.querySelector('.expense-chart');
+    if (!chartContainer) return;
+
+    // 固定分类配置（与UI样式匹配）
+    const fixedCategories = [
+        { name: '餐饮', color: '#ff6b6b' },
+        { name: '出行', color: '#4ecdc4' },
+        { name: '购物', color: '#45b7d1' },
+        { name: '其他', color: '#f9ca24' }
+    ];
+
+    // 转换接口数据为Map（按分类名称映射）
+    const expenseMap = new Map();
+    expenseList.forEach(item => {
+        expenseMap.set(item.bizCategoryName, {
+            amount: item.amount || '0',
+            percentage: item.percentage || '0.00'
+        });
+    });
+
+    // 生成完整分类数据（缺失分类填充0）
+    const fullCategories = fixedCategories.map(cat => {
+        const matched = expenseMap.get(cat.name) || { amount: '0', percentage: '0.00' };
+        return {
+            ...cat,
+            amount: matched.amount,
+            percentage: Math.round(parseFloat(matched.percentage)).toString()
+        };
+    });
+
+    // 清空并重新渲染图表
+    chartContainer.innerHTML = '';
+    fullCategories.forEach(item => {
+        const chartItem = document.createElement('div');
+        chartItem.className = 'chart-item';
+        // 格式化金额（保留两位小数）
+        const formattedAmount = parseFloat(item.amount).toLocaleString('zh-CN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        chartItem.innerHTML = `
+            <div class="chart-color" style="background: ${item.color};"></div>
+            <span class="chart-label">${item.name}</span>
+            <span class="chart-amount">¥${formattedAmount}</span>
+            <span class="chart-percent">${item.percentage}%</span>
+        `;
+        chartContainer.appendChild(chartItem);
+    });
+}
+
+/**
+ * Toast提示功能（保留原有样式与逻辑）
+ * @param {string} message - 提示内容
+ */
+function showToast(message) {
+    // 避免重复创建多个toast
+    const existingToast = document.querySelector('.toast');
+    if (existingToast) {
+        document.body.removeChild(existingToast);
+    }
+
+    // 创建toast元素
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    // 保留原有内联样式（确保视觉一致）
+    toast.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        z-index: 10000;
+        font-size: 14px;
+    `;
+
+    // 添加到页面并自动移除
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        document.body.removeChild(toast);
+    }, 2000);
+}
+
+// 初始化账单中心模块（页面加载时执行）
+BillCenterModule.init();
 </script>
 </body>
 

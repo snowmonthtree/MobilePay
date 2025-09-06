@@ -116,97 +116,182 @@
     </div>
 
     <script>
-      // 获取URL参数
-      function getUrlParams() {
-        const params = new URLSearchParams(window.location.search);
-        return {
-          status: params.get("status") || "success",
-          amount: params.get("amount") || "128.00",
-          merchant: params.get("merchant") || "星巴克咖啡",
-          method: params.get("method") || "钱包余额",
-          time: params.get("time") || new Date().toLocaleString("zh-CN"),
-          transaction: params.get("transaction") || generateTransactionId(),
-          reason: params.get("reason") || "余额不足，请充值后重试",
-        };
-      }
+      // 支付结果页模块：统一封装页面逻辑，消除全局变量，集中管理状态与功能
+ const PaymentResultModule = {
+     // 1. 状态管理：存储模块核心配置与页面参数
+     state: {
+         // 默认参数配置：统一管理默认值，便于后续修改
+         defaultParams: {
+             status: "success",
+             amount: "128.00",
+             merchant: "星巴克咖啡",
+             method: "钱包余额",
+             reason: "余额不足，请充值后重试"
+         },
+         pageParams: {} // 存储解析后的URL参数，避免重复处理
+     },
 
-      // 初始化页面
-      function initPage() {
-        const params = getUrlParams();
+     // 2. 初始化：页面加载后执行所有初始化逻辑
+     init() {
+         document.addEventListener("DOMContentLoaded", () => {
+             this.state.pageParams = this.getUrlParams(); // 解析并缓存URL参数
+             this.initPage(); // 初始化页面显示（成功/失败结果）
+         });
 
-        if (params.status === "success") {
-          showSuccessResult(params);
-        } else {
-          showFailureResult(params);
-        }
-      }
+         // 暴露全局方法：兼容HTML中的onclick调用
+         this.exposeGlobalMethods();
+     },
 
-      // 显示成功结果
-      function showSuccessResult(params) {
-        document.getElementById("successResult").style.display = "block";
-        document.getElementById("failureResult").style.display = "none";
-        document.getElementById("successActions").style.display = "flex";
-        document.getElementById("failureActions").style.display = "none";
+     // 暴露全局方法：确保外部可调用模块内功能
+     exposeGlobalMethods() {
+         window.goBack = () => this.goBack();
+         window.viewBills = () => this.viewBills();
+         window.goHome = () => this.goHome();
+         window.retryPayment = () => this.retryPayment();
+     },
 
-        document.getElementById("successAmount").textContent = params.amount;
-        document.getElementById("merchantName").textContent = params.merchant;
-        document.getElementById("paymentMethod").textContent = params.method;
-        document.getElementById("paymentTime").textContent = params.time;
-        document.getElementById("transactionId").textContent =
-          params.transaction;
-      }
+     // 3. URL参数处理：解析并补全默认值
+     /**
+      * 解析URL参数，缺失时使用默认值，确保参数完整性
+      * @returns {Object} 格式化后的页面参数
+      */
+     getUrlParams() {
+         const urlParams = new URLSearchParams(window.location.search);
+         const currentTime = new Date().toLocaleString("zh-CN");
 
-      // 显示失败结果
-      function showFailureResult(params) {
-        document.getElementById("successResult").style.display = "none";
-        document.getElementById("failureResult").style.display = "block";
-        document.getElementById("successActions").style.display = "none";
-        document.getElementById("failureActions").style.display = "flex";
+         // 合并URL参数与默认值，URL参数优先级更高
+         return {
+             status: urlParams.get("status") || this.state.defaultParams.status,
+             amount: urlParams.get("amount") || this.state.defaultParams.amount,
+             merchant: urlParams.get("merchant") || this.state.defaultParams.merchant,
+             method: urlParams.get("method") || this.state.defaultParams.method,
+             time: urlParams.get("time") || currentTime,
+             transaction: urlParams.get("transaction") || this.generateTransactionId(),
+             reason: urlParams.get("reason") || this.state.defaultParams.reason
+         };
+     },
 
-        document.getElementById("failureReason").textContent = params.reason;
-        document.getElementById("failMerchantName").textContent =
-          params.merchant;
-        document.getElementById("failureTime").textContent = params.time;
-      }
+     // 4. 页面初始化：根据支付状态显示对应结果
+     /**
+      * 初始化页面核心逻辑：根据参数中的支付状态，切换成功/失败结果显示
+      */
+     initPage() {
+         const { status } = this.state.pageParams;
+         status === "success"
+             ? this.showSuccessResult()
+             : this.showFailureResult();
+     },
 
-      // 生成交易单号
-      function generateTransactionId() {
-        const now = new Date();
-        const timestamp =
-          now.getFullYear().toString() +
-          (now.getMonth() + 1).toString().padStart(2, "0") +
-          now.getDate().toString().padStart(2, "0") +
-          now.getHours().toString().padStart(2, "0") +
-          now.getMinutes().toString().padStart(2, "0") +
-          now.getSeconds().toString().padStart(2, "0");
-        const random = Math.floor(Math.random() * 10000000)
-          .toString()
-          .padStart(7, "0");
-        return timestamp + random;
-      }
+     // 5. 结果显示：成功/失败状态切换与数据填充
+     /**
+      * 显示支付成功结果：切换DOM显示状态，填充成功数据
+      */
+     showSuccessResult() {
+         const { amount, merchant, method, time, transaction } = this.state.pageParams;
 
-      // 返回上一页
-      function goBack() {
-        window.history.back();
-      }
+         // 切换结果容器显示状态
+         this.toggleResultContainer("success");
 
-      // 查看账单
-      function viewBills() {
-        window.location.href = "bills.html";
-      }
+         // 填充成功页面数据
+         document.getElementById("successAmount").textContent = amount;
+         document.getElementById("merchantName").textContent = merchant;
+         document.getElementById("paymentMethod").textContent = method;
+         document.getElementById("paymentTime").textContent = time;
+         document.getElementById("transactionId").textContent = transaction;
+     },
 
-      // 返回首页
-      function goHome() {
-        window.location.href = "index.html";
-      }
+     /**
+      * 显示支付失败结果：切换DOM显示状态，填充失败数据
+      */
+     showFailureResult() {
+         const { reason, merchant, time } = this.state.pageParams;
 
-      // 重新支付
-      function retryPayment() {
-        window.location.href = "scan.html";
-      }
+         // 切换结果容器显示状态
+         this.toggleResultContainer("failure");
 
-      // 页面加载完成后初始化
-      document.addEventListener("DOMContentLoaded", initPage);
+         // 填充失败页面数据
+         document.getElementById("failureReason").textContent = reason;
+         document.getElementById("failMerchantName").textContent = merchant;
+         document.getElementById("failureTime").textContent = time;
+     },
+
+     /**
+      * 切换成功/失败结果容器显示状态（统一处理，减少重复代码）
+      * @param {string} resultType - 结果类型（success/failure）
+      */
+     toggleResultContainer(resultType) {
+         // 成功结果相关元素
+         const successResult = document.getElementById("successResult");
+         const successActions = document.getElementById("successActions");
+         // 失败结果相关元素
+         const failureResult = document.getElementById("failureResult");
+         const failureActions = document.getElementById("failureActions");
+
+         if (resultType === "success") {
+             successResult.style.display = "block";
+             failureResult.style.display = "none";
+             successActions.style.display = "flex";
+             failureActions.style.display = "none";
+         } else {
+             successResult.style.display = "none";
+             failureResult.style.display = "block";
+             successActions.style.display = "none";
+             failureActions.style.display = "flex";
+         }
+     },
+
+     // 6. 工具方法：交易号生成与页面导航
+     /**
+      * 生成唯一交易单号（格式：时间戳+7位随机数，确保唯一性）
+      * @returns {string} 格式化的交易单号
+      */
+     generateTransactionId() {
+         const now = new Date();
+         // 生成时间戳（YYYYMMDDHHmmss）
+         const timestamp = `${now.getFullYear()}` +
+             `${String(now.getMonth() + 1).padStart(2, "0")}` +
+             `${String(now.getDate()).padStart(2, "0")}` +
+             `${String(now.getHours()).padStart(2, "0")}` +
+             `${String(now.getMinutes()).padStart(2, "0")}` +
+             `${String(now.getSeconds()).padStart(2, "0")}`;
+
+         // 生成7位随机数（补零确保长度一致）
+         const randomNum = String(Math.floor(Math.random() * 10000000)).padStart(7, "0");
+
+         return timestamp + randomNum;
+     },
+
+     /**
+      * 返回上一页
+      */
+     goBack() {
+         window.history.back();
+     },
+
+     /**
+      * 跳转到账单页面
+      */
+     viewBills() {
+         window.location.href = "bills.html";
+     },
+
+     /**
+      * 返回首页
+      */
+     goHome() {
+         window.location.href = "index.html";
+     },
+
+     /**
+      * 重新支付（跳转到扫码支付页）
+      */
+     retryPayment() {
+         window.location.href = "scan.html";
+     }
+ };
+
+ // 初始化支付结果页模块
+ PaymentResultModule.init();
     </script>
   </body>
 </html>

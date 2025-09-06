@@ -373,626 +373,882 @@
     <script src="libs/qrcode.js"></script>
     <script src="script.js"></script>
     <script>
-        let transitQRTimer;
-        let refreshCountdown = 60;
-        let countdownTimer;
-        let selectedCity = '北京';
-        let selectedCityId='1100'
-        let selectedPayment = 'balance';
+        // 出行码模块：统一封装城市选择、出行码生成、进出站记录等核心功能
+ const TransitCodeModule = {
+     // 1. 状态管理：存储模块核心状态、配置与DOM元素缓存
+     state: {
+         // 定时器状态
+         transitQRTimer: null,       // 出行码自动刷新定时器
+         countdownTimer: null,       // 倒计时定时器
+         refreshCountdown: 60,       // 刷新倒计时（秒）
 
-let siteName = "";
-let type = "";
-// 用于缓存接口返回的城市列表数据（ID与名称映射）
-let cityList = [];
+         // 城市相关状态
+         selectedCity: "北京",       // 当前选中城市
+         selectedCityId: "1100",     // 当前选中城市ID
+         cityList: [],               // 城市列表缓存（ID与名称映射）
 
-        // 页面加载时的初始化
-document.addEventListener('DOMContentLoaded', function () {
-    console.log('页面加载完成');
-    fetchTransitPassList();
-    // 1. 先获取城市列表并渲染组件
-    fetchCityList().then(() => {
-        // 2. 渲染城市选择组件
-        renderCityGrid();
-        // 3. 初始化用户所在城市
-        initUserCity();
-        // 4. 显示出行码页面
-        setTimeout(showTransitPage, 100);
-        fetchTransitQRByCityId();
-    });
-});
-function fetchTransitPassList() {
-    // 获取用户token
-    let token = '';
-    try {
-        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-        token = userData.token || '';
-    } catch (error) {
-        console.error('解析用户token失败:', error);
-        showToast('初始化出行码失败');
-        return;
-    }
+         // 支付相关状态
+         selectedPayment: "balance", // 当前选中支付方式
 
-    if (!token) {
-        console.error('用户token为空');
-        showToast('初始化出行码失败');
-        return;
-    }
+         // 站点与出行状态
+         siteName: "",               // 随机选中的站点名称
+         siteType: "",               // 站点类型（如地铁）
 
-    // 调用接口
-    fetch('http://graywolf.top:6031/payment/transit/pass/list', {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-            'Accept': '*/*',
-            'Host': 'graywolf.top:6031',
-            'Connection': 'keep-alive'
+         // API配置
+         apiConfig: {
+             transitPassListUrl: "http://graywolf.top:6031/payment/transit/pass/list",
+             cityListUrl: "http://graywolf.top:6031/payment/transit/pass/cities",
+             transitQRUrl: "http://graywolf.top:6031/payment/transit/pass/city/",
+             transitSitesUrl: "http://graywolf.top:6031/payment/transit/sites",
+             transitEntryUrl: "http://graywolf.top:6031/payment/transit/entry",
+             transitExitUrl: "http://graywolf.top:6031/payment/transit/exit",
+             headers: {
+                 "User-Agent": "Apifox/1.0.0 (https://apifox.com)",
+                 "Accept": "*/*",
+                 "Content-Type": "application/json"
+             }
+         },
+
+         // DOM元素缓存
+         elements: {
+             // 页面容器
+             transitPage: null,
+             transitSetupPage: null,
+             // 城市相关
+             cityGrid: null,
+             currentCity: null,
+             // 出行码相关
+             transitQR: null,
+             refreshCountdown: null,
+             // 模态框相关
+             transitResultModal: null,
+             transitStatus: null
+         }
+     },
+
+     // 2. 初始化：页面加载后执行配置、事件绑定与数据加载
+     init() {
+         document.addEventListener("DOMContentLoaded", () => {
+             this.cacheDomElements();  // 缓存DOM元素
+             this.bindGlobalEvents();  // 绑定全局事件
+             this.initTransitModule(); // 初始化出行码核心流程
+         });
+
+         // 暴露全局方法（兼容HTML onclick调用）
+         this.exposeGlobalMethods();
+     },
+
+     // 缓存DOM元素引用，减少重复查询
+     cacheDomElements() {
+         const elements = this.state.elements;
+
+         // 页面容器
+         elements.transitPage = document.getElementById("transitPage");
+         elements.transitSetupPage = document.getElementById("transitSetupPage");
+
+         // 城市相关
+         elements.cityGrid = document.querySelector(".city-grid");
+         elements.currentCity = document.getElementById("currentCity");
+
+         // 出行码相关
+         elements.transitQR = document.getElementById("transitQR");
+         elements.refreshCountdown = document.getElementById("refreshCountdown");
+
+         // 模态框相关
+         elements.transitResultModal = document.getElementById("transitResultModal");
+         elements.transitStatus = document.getElementById("transitStatus");
+     },
+
+     // 绑定全局事件（如页面卸载清除定时器）
+     bindGlobalEvents() {
+         // 页面卸载时清除所有定时器，避免内存泄漏
+         window.addEventListener("beforeunload", () => {
+             if (this.state.transitQRTimer) clearInterval(this.state.transitQRTimer);
+             if (this.state.countdownTimer) clearInterval(this.state.countdownTimer);
+         });
+     },
+
+     // 初始化出行码核心流程：加载城市列表→渲染城市选择→显示出行码
+     initTransitModule() {
+         // 先加载出行码列表（初始化接口）
+         this.fetchTransitPassList();
+
+         // 加载城市列表→渲染城市选择→初始化用户城市→显示出行码
+         this.fetchCityList()
+             .then(() => {
+                 this.renderCityGrid();
+                 this.initUserCity();
+                 setTimeout(() => this.showTransitPage(), 100);
+                 this.fetchTransitQRByCityId();
+             })
+             .catch(error => {
+                 console.error("出行码模块初始化失败:", error);
+                 this.showToast("出行码初始化失败，请重试");
+             });
+     },
+
+     // 暴露全局方法到window对象
+     exposeGlobalMethods() {
+         // 城市相关
+         window.selectCity = (cityName, event) => this.selectCity(cityName, event);
+         window.showCitySetupPage = () => this.showCitySetupPage();
+         window.switchCity = () => this.switchCity();
+
+         // 出行码相关
+         window.showTransitPage = () => this.showTransitPage();
+         window.refreshTransitQR = () => this.refreshTransitQR();
+         window.changePaymentMethod = () => this.changePaymentMethod();
+
+         // 进出站相关
+         window.simulateTransitResult = (isInStation, isError, errorType) =>
+             this.simulateTransitResult(isInStation, isError, errorType);
+         window.submitTransitEntry = () => this.submitTransitEntry();
+         window.submitTransitExit = () => this.submitTransitExit();
+
+         // 通用工具
+         window.closeModal = (modalId) => this.closeModal(modalId);
+         window.contactCustomerService = () => this.contactCustomerService();
+         window.makePayment = () => this.makePayment();
+         window.goToTransitRecords = () => this.goToTransitRecords();
+     },
+
+     // 3. 出行码基础接口调用
+     /**
+      * 加载出行码列表（初始化接口，无UI反馈）
+      */
+     fetchTransitPassList() {
+         const token = this.getUserToken();
+         if (!token) return;
+
+         fetch(this.state.apiConfig.transitPassListUrl, {
+             method: "GET",
+             headers: {
+                 ...this.state.apiConfig.headers,
+                 "Authorization": `Bearer ${token}`,
+                 "Host": "graywolf.top:6031",
+                 "Connection": "keep-alive"
+             }
+         })
+             .then(response => {
+                 if (!response.ok) throw new Error(`HTTP状态码: ${response.status}`);
+             })
+             .catch(error => {
+                 console.error("调用出行码列表接口失败:", error);
+                 this.showToast("初始化出行码失败");
+             });
+     },
+
+     /**
+      * 获取城市列表（接口失败时使用默认数据）
+      * @returns {Promise} 城市列表加载结果
+      */
+     fetchCityList() {
+         return new Promise((resolve) => {
+             const token = this.getUserToken();
+
+             fetch(this.state.apiConfig.cityListUrl, {
+                 method: "GET",
+                 headers: {
+                     ...this.state.apiConfig.headers,
+                     "Authorization": `Bearer ${token || ""}`
+                 }
+             })
+                 .then(response => response.ok ? response.json() : { code: -1 })
+                 .then(result => {
+                     if (result.code === 200 && Array.isArray(result.data)) {
+                         this.state.cityList = result.data;
+                         console.log("城市列表获取成功:", this.state.cityList);
+                     } else {
+                         console.warn("使用默认城市列表");
+                         this.state.cityList = [
+                             { id: 1, cityId: "1100", cityName: "北京" },
+                             { id: 2, cityId: "3100", cityName: "上海" }
+                         ];
+                     }
+                     resolve();
+                 })
+                 .catch(error => {
+                     console.error("获取城市列表失败:", error);
+                     this.state.cityList = [
+                         { id: 1, cityId: "1100", cityName: "北京" },
+                         { id: 2, cityId: "3100", cityName: "上海" }
+                     ];
+                     resolve();
+                 });
+         });
+     },
+
+     /**
+      * 根据城市ID获取出行码并生成二维码
+      */
+     fetchTransitQRByCityId() {
+         const { transitQR, refreshCountdown } = this.state.elements;
+         if (!transitQR || !refreshCountdown) {
+             console.error("未找到二维码容器或倒计时元素");
+             return;
+         }
+
+         // 显示加载状态
+         transitQR.innerHTML = '<div class="qr-loading">加载出行码中...</div>';
+
+         // 验证城市ID与Token
+         if (!this.state.selectedCityId) {
+             this.showQRCodeError("未选择城市，请先选择城市");
+             return;
+         }
+         const token = this.getUserToken();
+         if (!token) {
+             this.showQRCodeError("未检测到登录状态，请先登录");
+             return;
+         }
+
+         // 调用出行码接口
+         fetch(`${this.state.apiConfig.transitQRUrl}${this.state.selectedCityId}`, {
+             method: "GET",
+             headers: {
+                 ...this.state.apiConfig.headers,
+                 "Authorization": `Bearer ${token}`
+             }
+         })
+             .then(response => {
+                 if (!response.ok) throw new Error(`请求失败，状态码: ${response.status}`);
+                 return response.json();
+             })
+             .then(result => {
+                 if (result.code !== 200 || !result.data || !result.data.codeUrl) {
+                     throw new Error(result.message || "获取出行码失败");
+                 }
+                 // 生成二维码并启动刷新倒计时
+                 this.generateQRCode(result.data.codeUrl);
+                 this.startTransitQRRefresh();
+             })
+             .catch(error => {
+                 console.error("获取出行码出错:", error);
+                 this.showQRCodeError(error.message || "加载出行码失败，请重试");
+             });
+     },
+
+     // 4. 城市选择相关逻辑
+     /**
+      * 动态渲染城市选择网格
+      */
+     renderCityGrid() {
+         const { cityGrid } = this.state.elements;
+         if (!cityGrid) {
+             console.error("未找到城市网格容器");
+             return;
+         }
+
+         // 清空原有内容
+         cityGrid.innerHTML = "";
+
+         // 生成城市选项
+         this.state.cityList.forEach((city, index) => {
+             const cityItem = document.createElement("div");
+             cityItem.className = `city-item ${index === 0 ? "active" : ""}`;
+             cityItem.onclick = (event) => this.selectCity(city.cityName, event);
+             cityItem.innerHTML = `
+                 <div class="city-name">${city.cityName}</div>
+                 <div class="city-support">地铁 · 公交</div>
+             `;
+             cityGrid.appendChild(cityItem);
+         });
+     },
+
+     /**
+      * 初始化用户所在城市（模拟定位，优先从会话存储读取）
+      */
+     initUserCity() {
+         // 优先从会话存储读取历史选择
+         const sessionCity = sessionStorage.getItem("transitCity");
+         const sessionCityId = sessionStorage.getItem("transitCityId");
+
+         if (sessionCity && sessionCityId) {
+             this.state.selectedCity = sessionCity;
+             this.state.selectedCityId = sessionCityId;
+             return;
+         }
+
+         // 模拟定位获取用户城市
+         const userLocation = this.getUserLocation();
+         const matchedCity = this.state.cityList.find(
+             city => city.cityName === userLocation
+         );
+
+         // 匹配成功则使用定位城市，否则使用默认城市
+         if (matchedCity) {
+             this.state.selectedCity = matchedCity.cityName;
+             this.state.selectedCityId = matchedCity.cityId;
+         } else {
+             this.state.selectedCity = this.state.cityList[0]?.cityName || "北京";
+             this.state.selectedCityId = this.state.cityList[0]?.cityId || "1100";
+         }
+
+         // 保存到会话存储
+         sessionStorage.setItem("transitCity", this.state.selectedCity);
+         sessionStorage.setItem("transitCityId", this.state.selectedCityId);
+     },
+
+     /**
+      * 选择城市（更新选中状态与城市ID）
+      * @param {string} cityName - 城市名称
+      * @param {Event} event - 点击事件
+      */
+     selectCity(cityName, event) {
+         if (!event) event = window.event;
+         console.log("选择城市:", cityName);
+
+         // 更新选中城市与ID
+         this.state.selectedCity = cityName;
+         const matchedCity = this.state.cityList.find(
+             city => city.cityName === cityName
+         );
+         this.state.selectedCityId = matchedCity ? matchedCity.cityId : "";
+
+         // 更新UI选中状态
+         document.querySelectorAll(".city-item").forEach(item => {
+             item.classList.remove("active");
+         });
+         const cityItem = event.target.closest(".city-item");
+         if (cityItem) cityItem.classList.add("active");
+
+         // 保存到会话存储
+         sessionStorage.setItem("transitCity", cityName);
+         sessionStorage.setItem("transitCityId", this.state.selectedCityId);
+     },
+
+     /**
+      * 显示城市设置页面
+      */
+     showCitySetupPage() {
+         const { transitPage, transitSetupPage } = this.state.elements;
+         if (!transitPage || !transitSetupPage) {
+             console.error("未找到页面容器元素");
+             return;
+         }
+
+         // 切换页面显示状态
+         transitPage.style.display = "none";
+         transitSetupPage.style.display = "block";
+
+         // 同步当前选中城市的UI状态
+         const currentCity = sessionStorage.getItem("transitCity") || "北京";
+         document.querySelectorAll(".city-item").forEach(item => {
+             const cityName = item.querySelector(".city-name").textContent;
+             item.classList.toggle("active", cityName === currentCity);
+         });
+     },
+
+     /**
+      * 切换城市（带加载状态）
+      */
+     switchCity() {
+         const loading = this.showLoading("正在切换城市...");
+
+         // 模拟切换延迟，实际项目可替换为接口请求
+         setTimeout(() => {
+             this.hideLoading(loading);
+             sessionStorage.setItem("transitCity", this.state.selectedCity);
+             this.showToast("城市切换成功！");
+             this.showTransitPage();
+         }, 1000);
+     },
+
+     // 5. 出行码显示与刷新逻辑
+     /**
+      * 显示出行码页面
+      */
+     showTransitPage() {
+         const { transitPage, transitSetupPage, currentCity } = this.state.elements;
+         if (!transitPage || !transitSetupPage || !currentCity) {
+             console.error("未找到页面或城市显示元素");
+             return;
+         }
+
+         // 切换页面显示状态
+         transitSetupPage.style.display = "none";
+         transitPage.style.display = "block";
+
+         // 更新当前城市显示
+         const city = sessionStorage.getItem("transitCity") || "北京";
+         currentCity.textContent = city;
+
+         // 启动出行码刷新
+         this.startTransitQRRefresh();
+     },
+
+     /**
+      * 生成二维码（优化URL，兼容二维码库）
+      * @param {string} codeUrl - 接口返回的二维码内容URL
+      */
+     generateQRCode(codeUrl) {
+         const { transitQR } = this.state.elements;
+         if (!transitQR) return;
+
+         // 清空容器
+         transitQR.innerHTML = "";
+
+         // 检查二维码库是否加载
+         if (typeof QRCode === "undefined") {
+             transitQR.innerHTML = '<div class="qr-error">二维码生成库未加载</div>';
+             return;
+         }
+
+         // 优化URL（移除冗余参数，保留核心路径）
+         let optimizedUrl = codeUrl;
+         try {
+             const urlObj = new URL(codeUrl);
+             optimizedUrl = urlObj.origin + urlObj.pathname;
+         } catch (e) {
+             console.warn("URL优化失败，使用原始URL:", e);
+         }
+
+         // 获取随机站点（用于进出站模拟）
+         this.fetchRandomSite();
+
+         // 生成二维码
+         new QRCode(transitQR, {
+             text: optimizedUrl,
+             width: 240,
+             height: 240,
+             colorDark: "#000000",
+             colorLight: "#ffffff",
+             correctLevel: QRCode.CorrectLevel.H,
+             version: 20
+         });
+     },
+
+     /**
+      * 启动出行码自动刷新（60秒/次）
+      */
+     startTransitQRRefresh() {
+         // 清除旧定时器
+         if (this.state.transitQRTimer) {
+             clearInterval(this.state.transitQRTimer);
+         }
+
+         // 立即刷新一次
+         this.refreshTransitQR();
+
+         // 启动自动刷新定时器
+         this.state.transitQRTimer = setInterval(() => {
+             this.refreshTransitQR();
+         }, 60000);
+
+         // 启动倒计时显示
+         this.startCountdown();
+     },
+
+     /**
+      * 刷新出行码
+      */
+     refreshTransitQR() {
+         this.fetchTransitQRByCityId();
+     },
+
+     /**
+      * 启动刷新倒计时显示
+      */
+     startCountdown() {
+         const { refreshCountdown } = this.state.elements;
+                if (!refreshCountdown) return;
+
+        // 清除旧定时器
+        if (this.state.countdownTimer) {
+            clearInterval(this.state.countdownTimer);
         }
-    })
-    .then(response => {
-        // 只关心返回码是否为200
-        if (!response.ok) {
-            throw new Error(`HTTP状态码: ${response.status}`);
-        }
-        // 成功时不做任何提示
-    })
-    .catch(error => {
-        console.error('调用出行码列表接口失败:', error);
-        showToast('初始化出行码失败');
-    });
-}
-/**
- * 调用接口获取城市列表
- */
-function fetchCityList() {
-    return new Promise((resolve) => {
-        // 获取token
-        let token = '';
-        try {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            token = userData.token || '';
-        } catch (error) {
-            console.error('获取token失败:', error);
-        }
 
-        // 调用城市列表接口
-        fetch('http://graywolf.top:6031/payment/transit/pass/cities', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-                'Accept': '*/*'
+        // 重置倒计时
+        this.state.refreshCountdown = 60;
+        refreshCountdown.textContent = this.state.refreshCountdown;
+
+        // 启动新定时器
+        this.state.countdownTimer = setInterval(() => {
+            this.state.refreshCountdown--;
+            refreshCountdown.textContent = this.state.refreshCountdown;
+
+            if (this.state.refreshCountdown <= 0) {
+                clearInterval(this.state.countdownTimer);
+                this.state.refreshCountdown = 60; // 重置为初始值
+                this.startCountdown(); // 重新启动倒计时
             }
-        })
-        .then(response => response.ok ? response.json() : { code: -1 })
-        .then(result => {
-            if (result.code === 200 && Array.isArray(result.data)) {
-                cityList = result.data; // 缓存城市列表
-                console.log('城市列表获取成功:', cityList);
-            } else {
-                console.warn('使用默认城市列表');
-                // 接口失败时使用默认数据
-                cityList = [
-                    { id: 1, cityId: '1100', cityName: '北京' },
-                    { id: 2, cityId: '3100', cityName: '上海' },
-                ];
-            }
-            resolve();
-        })
-        .catch(error => {
-            console.error('获取城市列表失败:', error);
-            // 网络错误时使用默认数据
-            cityList = [
-                { id: 1, cityId: '1100', cityName: '北京' },
-                { id: 2, cityId: '3100', cityName: '上海' }
-            ];
-            resolve();
-        });
-    });
-}
+        }, 1000);
+    },
 
-/**
- * 动态渲染城市选择组件
- */
-function renderCityGrid() {
-    const cityGrid = document.querySelector('.city-grid');
-    if (!cityGrid) {
-        console.error('未找到城市网格容器');
-        return;
-    }
+    /**
+     * 显示二维码错误提示
+     * @param {string} message - 错误信息
+     */
+    showQRCodeError(message) {
+        const { transitQR } = this.state.elements;
+        if (!transitQR) return;
 
-    // 清空原有内容
-    cityGrid.innerHTML = '';
-
-    // 动态生成城市项
-    cityList.forEach((city, index) => {
-        const cityItem = document.createElement('div');
-        // 第一个城市默认选中
-        cityItem.className = `city-item ${index === 0 ? 'active' : ''}`;
-        // 绑定点击事件，传递城市名称和事件对象
-        cityItem.onclick = (event) => selectCity(city.cityName, event);
-
-        // 设置城市项内容
-        cityItem.innerHTML = `
-            <div class="city-name">${city.cityName}</div>
-            <div class="city-support">地铁 · 公交</div>
-        `;
-
-        cityGrid.appendChild(cityItem);
-    });
-}
-
-/**
- * 初始化用户所在城市
- */
-function initUserCity() {
-    const userLocation = getUserLocation();
-    console.log('用户所在城市:', userLocation);
-
-    // 查找用户所在城市在列表中的位置
-    const matchedCity = cityList.find(city => city.cityName === userLocation);
-    if (matchedCity) {
-        selectedCity = matchedCity.cityName;
-        selectedCityId = matchedCity.cityId;
-    } else {
-        // 未找到时使用列表第一个城市
-        selectedCity = cityList[0]?.cityName || '北京';
-        selectedCityId = cityList[0]?.cityId || '1100';
-    }
-
-    // 保存到会话存储
-    sessionStorage.setItem('transitCity', selectedCity);
-    sessionStorage.setItem('transitCityId', selectedCityId);
-}
-
-/**
- * 获取用户所在城市（模拟函数）
- */
-function getUserLocation() {
-    // 实际应用中通过定位API获取
-    return '北京';
-}
-
-/**
- * 选择城市 - 同步更新城市ID和选中状态
- * @param {string} cityName - 城市名称
- * @param {Event} event - 点击事件
- */
-function selectCity(cityName, event) {
-    if (!event) event = window.event;
-    console.log('选择城市:', cityName);
-
-    // 更新选中的城市名称和ID
-    selectedCity = cityName;
-    const matchedCity = cityList.find(city => city.cityName === cityName);
-    selectedCityId = matchedCity ? matchedCity.cityId : '';
-    console.log('当前城市ID:', selectedCityId);
-
-    // 更新选中样式
-    document.querySelectorAll('.city-item').forEach(item => {
-        item.classList.remove('active');
-    });
-    const cityItem = event.target.closest('.city-item');
-    if (cityItem) {
-        cityItem.classList.add('active');
-    }
-
-    // 保存到会话存储
-    sessionStorage.setItem('transitCity', selectedCity);
-    sessionStorage.setItem('transitCityId', selectedCityId);
-}
-/**
- * 根据当前选中的城市ID获取出行码并生成二维码
- */
-function fetchTransitQRByCityId() {
-    // 获取二维码容器和倒计时元素
-    const qrContainer = document.getElementById('transitQR');
-    const countdownEl = document.getElementById('refreshCountdown');
-
-    // 验证必要元素
-    if (!qrContainer || !countdownEl) {
-        console.error('未找到二维码容器或倒计时元素');
-        return;
-    }
-
-    // 显示加载状态
-    qrContainer.innerHTML = '<div class="qr-loading">加载出行码中...</div>';
-
-    // 验证城市ID
-    if (!selectedCityId) {
-        showQRCodeError('未选择城市，请先选择城市');
-        return;
-    }
-
-    // 获取用户token
-    let token = '';
-    try {
-        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-        token = userData.token || '';
-
-    } catch (error) {
-        console.error('获取token失败:', error);
-        showQRCodeError('登录状态异常，请重新登录');
-        return;
-    }
-
-    if (!token) {
-        showQRCodeError('未检测到登录状态，请先登录');
-        return;
-    }
-
-    // 调用接口获取出行码数据
-    fetch(`http://graywolf.top:6031/payment/transit/pass/city/${selectedCityId}`, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-            'Accept': '*/*'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`请求失败，状态码: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(result => {
-        // 验证接口返回数据
-        if (result.code !== 200 || !result.data || !result.data.codeUrl) {
-            throw new Error(result.message || '获取出行码失败');
-        }
-
-        // 生成二维码
-        generateQRCode(result.data.codeUrl);
-
-        // 启动刷新倒计时
-    })
-    .catch(error => {
-        console.error('获取出行码出错:', error);
-        showQRCodeError(error.message || '加载出行码失败，请重试');
-    });
-}
-
-/**
- * 生成二维码
- * @param {string} codeUrl - 接口返回的二维码内容URL
- */
-function generateQRCode(codeUrl) {
-    const qrContainer = document.getElementById('transitQR');
-    if (!qrContainer) return;
-
-    // 清空容器
-    qrContainer.innerHTML = '';
-
-    // 检查二维码库是否加载
-    if (typeof QRCode === 'undefined') {
-        qrContainer.innerHTML = '<div class="qr-error">二维码生成库未加载</div>';
-        return;
-    }
-let optimizedUrl = codeUrl;
-    try {
-        const urlObj = new URL(codeUrl);
-        // 保留核心路径，移除签名参数（根据实际需求调整）
-        optimizedUrl = urlObj.origin + urlObj.pathname;
-    } catch (e) {
-        console.warn('URL优化失败，使用原始URL:', e);
-        optimizedUrl = codeUrl; // 优化失败时使用原始URL
-    }
-
-                fetchRandomSite();
-    // 生成二维码
-    new QRCode(qrContainer, {
-        text: optimizedUrl,
-        width: 240,
-        height: 240,
-        colorDark: '#000000',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.H,
-        version:20
-    });
-}
-function showQRCodeError(message) {
-    const qrContainer = document.getElementById('transitQR');
-    if (qrContainer) {
-        qrContainer.innerHTML = `
+        transitQR.innerHTML = `
             <div class="qr-error">
                 <div class="error-icon">⚠️</div>
                 <div class="error-message">${message}</div>
-                <button class="retry-btn" onclick="fetchTransitQRByCityId()">重试</button>
+                <button class="retry-btn" onclick="refreshTransitQR()">重试</button>
             </div>
         `;
-    }
 
-    // 清除计时器
-    if (window.qrRefreshTimer) {
-        clearInterval(window.qrRefreshTimer);
-    }
-}
-        // 选择支付方式
-        function selectPayment(payment) {
-            selectedPayment = payment;
-            document.querySelectorAll('.payment-item').forEach(item => {
-                item.classList.remove('active');
-                item.querySelector('.payment-check').textContent = '';
-            });
-            event.target.closest('.payment-item').classList.add('active');
-            event.target.closest('.payment-item').querySelector('.payment-check').textContent = '✓';
+        // 清除刷新定时器
+        if (this.state.transitQRTimer) {
+            clearInterval(this.state.transitQRTimer);
+        }
+    },
+
+    // 6. 站点与进出站相关逻辑
+    /**
+     * 获取随机站点（用于进出站模拟）
+     */
+    fetchRandomSite() {
+        if (!this.state.selectedCity) {
+            console.error("未选择城市，无法获取站点数据");
+            return;
         }
 
-        // 显示城市设置页面
-        function showCitySetupPage() {
-            console.log('显示城市设置页面');
-            const transitPage = document.getElementById('transitPage');
-            const setupPage = document.getElementById('transitSetupPage');
-            
-            console.log('transitPage:', transitPage);
-            console.log('setupPage:', setupPage);
-            
-            if (transitPage) {
-                transitPage.style.display = 'none';
-            } else {
-                console.error('找不到transitPage元素');
+        const token = this.getUserToken();
+        if (!token) {
+            console.warn("未获取到token，使用默认站点");
+            this.state.siteName = "金安桥";
+            this.state.siteType = "SUBWAY";
+            return;
+        }
+
+        // 编码城市名称（处理中文）
+        const encodedCity = encodeURIComponent(this.state.selectedCity);
+
+        fetch(`${this.state.apiConfig.transitSitesUrl}?city=${encodedCity}&type=SUBWAY`, {
+            method: "GET",
+            headers: {
+                ...this.state.apiConfig.headers,
+                "Authorization": `Bearer ${token}`
             }
-            
-            if (setupPage) {
-                setupPage.style.display = 'block';
-            } else {
-                console.error('找不到transitSetupPage元素');
-            }
-            
-            // 设置当前选中的城市
-            const currentCity = sessionStorage.getItem('transitCity') || '北京';
-            selectedCity = currentCity;
-            console.log('当前选中城市:', currentCity);
-            
-            // 更新城市选择UI
-            document.querySelectorAll('.city-item').forEach(item => {
-                const cityName = item.querySelector('.city-name').textContent;
-                if (cityName === currentCity) {
-                    item.classList.add('active');
-                } else {
-                    item.classList.remove('active');
+        })
+            .then(response => {
+                if (!response.ok) throw new Error(`接口请求失败: ${response.status}`);
+                return response.json();
+            })
+            .then(result => {
+                if (result.code !== 200 || !Array.isArray(result.data) || result.data.length === 0) {
+                    throw new Error(result.message || "未获取到站点数据");
                 }
+
+                // 随机选择一个站点
+                const randomIndex = Math.floor(Math.random() * result.data.length);
+                const randomSite = result.data[randomIndex];
+                this.state.siteName = randomSite.siteName || "";
+                this.state.siteType = randomSite.type || "";
+                console.log(`随机选中的${this.state.selectedCity}站点:`, {
+                    siteName: this.state.siteName,
+                    type: this.state.siteType
+                });
+            })
+            .catch(error => {
+                console.error("获取站点数据失败:", error);
+                // 错误时使用默认站点
+                this.state.siteName = "金安桥";
+                this.state.siteType = "SUBWAY";
             });
-        }
-        
-        // 切换城市
-        function switchCity() {
-            const loading = showLoading('正在切换城市...');
+    },
 
-            setTimeout(function () {
-                hideLoading(loading);
-                sessionStorage.setItem('transitCity', selectedCity);
-                showToast('城市切换成功！');
-                showTransitPage();
-            }, 1000);
+    /**
+     * 提交进站记录
+     */
+    submitTransitEntry() {
+        // 验证站点信息
+        if (!this.state.siteName) {
+            this.showToast("站点信息异常，无法提交进站记录");
+            return;
         }
 
-        // 显示出行码页面
-        function showTransitPage() {
-            console.log('显示出行码页面');
-            document.getElementById('transitSetupPage').style.display = 'none';
-            document.getElementById('transitPage').style.display = 'block';
-
-            // 设置城市信息
-            const city = sessionStorage.getItem('transitCity') || '北京';
-            document.getElementById('currentCity').textContent = city;
-
-            // 启动二维码刷新
-            startTransitQRRefresh();
+        // 验证登录状态
+        const token = this.getUserToken();
+        if (!token) {
+            this.showToast("请先登录");
+            return;
         }
 
-        // 启动出行码自动刷新
-        function startTransitQRRefresh() {
-            refreshTransitQR();
+        // 生成当前时间（格式：YYYY-MM-DD HH:mm:ss）
+        const formattedTime = this.getFormattedDateTime();
 
-            transitQRTimer = setInterval(function () {
-                refreshTransitQR();
-            }, 60000);
+        // 构建请求参数
+        const requestData = {
+            entryStation: this.state.siteName,
+            entryTime: formattedTime,
+            mode: "SUBWAY"
+        };
 
-            startCountdown();
+        // 显示提交状态
+        this.showToast("提交进站记录中...", 0);
+
+        // 调用进站接口
+        fetch(this.state.apiConfig.transitEntryUrl, {
+            method: "POST",
+            headers: {
+                ...this.state.apiConfig.headers,
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify(requestData)
+        })
+            .then(response => {
+                if (!response.ok) throw new Error(`接口请求失败: ${response.status}`);
+                return response.json();
+            })
+            .then(result => {
+                if (result.code === 200) {
+                    this.showToast("进站记录提交成功");
+                    console.log("进站成功:", result.data);
+                    this.simulateTransitResult(true, false, "");
+                } else {
+                    throw new Error(result.message || "提交进站记录失败");
+                }
+            })
+            .catch(error => {
+                console.error("进站记录提交失败:", error);
+                this.showToast(error.message || "提交失败，请重试");
+            });
+    },
+
+    /**
+     * 提交出站记录
+     */
+    submitTransitExit() {
+        // 验证站点信息
+        if (!this.state.siteName) {
+            this.showToast("站点信息异常，无法提交出站记录");
+            return;
         }
 
-        // 刷新出行码
-        function refreshTransitQR() {
-            fetchTransitQRByCityId()
+        // 验证登录状态
+        const token = this.getUserToken();
+        if (!token) {
+            this.showToast("请先登录");
+            return;
         }
 
-        // 倒计时
-        function startCountdown() {
-            if (countdownTimer) {
-        clearInterval(countdownTimer);
-    }
+        // 生成当前时间（加1小时，模拟行程时间）
+        const currentTime = new Date();
+        currentTime.setHours(currentTime.getHours() + 1);
+        const formattedTime = this.getFormattedDateTime(currentTime);
 
-    // 重置倒计时（可选，根据需求决定是否重置）
-    refreshCountdown = 60;
-    document.getElementById('refreshCountdown').textContent = refreshCountdown;
+        // 构建请求参数
+        const requestData = {
+            exitStation: this.state.siteName,
+            exitTime: formattedTime,
+            mode: "SUBWAY"
+        };
 
-    // 创建新计时器
-    countdownTimer = setInterval(function () {
-        refreshCountdown--;
-        document.getElementById('refreshCountdown').textContent = refreshCountdown;
+        // 显示提交状态
+        this.showToast("提交出站记录中...", 0);
 
-        if (refreshCountdown <= 0) {
-            // 倒计时结束：清除计时器并执行刷新逻辑
-            clearInterval(countdownTimer);
-            refreshCountdown = 60; // 重置为初始值
-            // 这里可以添加刷新二维码的逻辑，例如：
-            // fetchTransitQRByCityId();
-            // 刷新后重新启动倒计时：
-            startCountdown();
+        // 调用出站接口
+        fetch(this.state.apiConfig.transitExitUrl, {
+            method: "POST",
+            headers: {
+                ...this.state.apiConfig.headers,
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify(requestData)
+        })
+            .then(response => {
+                if (!response.ok) throw new Error(`接口请求失败: ${response.status}`);
+                return response.json();
+            })
+            .then(result => {
+                if (result.code === 200) {
+                    this.showToast("出站记录提交成功");
+                    console.log("出站成功:", result.data);
+                    this.simulateTransitResult(false, false, "");
+                } else {
+                    console.log("出站失败:", JSON.stringify(result));
+                    if (result.data?.reason === "没有找到未完成的出行记录") {
+                        this.simulateTransitResult(false, true, "no_entry");
+                    }
+                    throw new Error(result.data?.reason || "提交出站记录失败");
+                }
+            })
+            .catch(error => {
+                console.error("出站记录提交失败:", error);
+                if (error.message === "余额不足") {
+                    this.simulateTransitResult(false, true, "payment_failed");
+                }
+                this.showToast(error.message || "提交失败，请重试");
+            });
+    },
+
+    // 7. 出行结果模拟与弹窗
+    /**
+     * 模拟出行结果弹窗（进站/出站/异常）
+     * @param {boolean} isInStation - 是否为进站
+     * @param {boolean} isError - 是否为异常
+     * @param {string} errorType - 异常类型
+     */
+    simulateTransitResult(isInStation = false, isError = false, errorType = "") {
+        const { transitResultModal } = this.state.elements;
+        if (!transitResultModal) {
+            console.error("未找到结果弹窗元素");
+            return;
         }
-    }, 1000);
+
+        // 获取弹窗内部元素
+        const modalContent = transitResultModal.querySelector(".modal-content");
+        const resultIcon = modalContent.querySelector(".transit-result-icon img");
+        const resultTitle = modalContent.querySelector("h2");
+        const resultInfo = modalContent.querySelector(".transit-result-info");
+        const modalActions = modalContent.querySelector(".modal-actions");
+
+        if (!resultIcon || !resultTitle || !resultInfo || !modalActions) {
+            console.error("弹窗内部元素不完整");
+            return;
         }
 
-        // 更换支付方式
-        function changePaymentMethod() {
-            showToast('支付方式更换功能');
-        }
+        // 处理异常情况
+        if (isError) {
+            resultIcon.src = "icons/shibai.png";
+            resultIcon.parentElement.style.background = "red";
+            resultTitle.style.color = "#FF3B30";
 
-        // 模拟出行结果
-        function simulateTransitResult(isInStation = false, isError = false, errorType = '') {
-            const transitStatus = document.getElementById('transitStatus');
-            const modal = document.getElementById('transitResultModal');
-            const modalContent = modal.querySelector('.modal-content');
-            const resultIcon = modal.querySelector('.transit-result-icon img');
-            const resultTitle = modal.querySelector('h2');
-            const resultInfo = modal.querySelector('.transit-result-info');
-            const modalActions = modal.querySelector('.modal-actions');
-
-            // 处理异常情况
-            if (isError) {
-            console.log('错误',errorType)
-                if (errorType === 'payment_failed') {
-                    // 调整弹窗内容为支付异常提示
-                    resultIcon.src = "icons/shibai.png"; // 使用失败图标
-                    resultIcon.parentElement.style.background = "red"
+            // 根据异常类型显示不同内容
+            switch (errorType) {
+                case "payment_failed":
                     resultTitle.textContent = "支付异常";
-                    resultTitle.style.color = "#FF3B30";
-
-                    // 支付失败异常
                     resultInfo.innerHTML = `
-                    <div class="result-item">
-                        <span class="label">异常类型：</span>
-                        <span class="value" style="color: #FF3B30">支付失败</span>
-                    </div>
-                    <div class="result-item">
-                        <span class="label">出站：</span>
-                        <span class="value">${siteName}</span>
-                    </div>
-                    <div class="result-item">
-                        <span class="label">费用：</span>
-                        <span class="value amount">¥4.00</span>
-                    </div>
-                    <div class="result-item">
-                        <span class="label">处理方式：</span>
-                        <span class="value">请立即补缴或联系客服</span>
-                    </div>
+                        <div class="result-item">
+                            <span class="label">异常类型：</span>
+                            <span class="value" style="color: #FF3B30">支付失败</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="label">出站：</span>
+                            <span class="value">${this.state.siteName}</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="label">费用：</span>
+                            <span class="value amount">¥4.00</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="label">处理方式：</span>
+                            <span class="value">请立即补缴或联系客服</span>
+                        </div>
                     `;
-                } else if (errorType === 'no_entry') {
-                    // 调整弹窗内容为异常提示
-                    resultIcon.src = "icons/shibai.png"; // 使用失败图标
-                    resultIcon.parentElement.style.background = "red"
-                    resultTitle.textContent = "出行异常";
-                    resultTitle.style.color = "#FF3B30";
-                    
-                    resultInfo.innerHTML = `
-                    <div class="result-item">
-                        <span class="label">异常类型：</span>
-                        <span class="value" style="color: #FF3B30">无入站记录出站</span>
-                    </div>
-                    <div class="result-item">
-                        <span class="label">出站：</span>
-                        <span class="value">王府井站</span>
-                    </div>
-                    <div class="result-item">
-                        <span class="label">时间：</span>
-                        <span class="value">${getCurrentTime()}</span>
-                    </div>
-                    <div class="result-item">
-                        <span class="label">处理方式：</span>
-                        <span class="value">请联系客服</span>
-                    </div>
-                    `;
-                } else if (errorType === '24h_no_exit') {
-                    // 调整弹窗内容为异常提示
-                    resultIcon.src = "icons/shibai.png"; // 使用失败图标
-                    resultIcon.parentElement.style.background = "red"
-                    resultTitle.textContent = "出行异常";
-                    resultTitle.style.color = "#FF3B30";
-                    
-                    resultInfo.innerHTML = `
-                    <div class="result-item">
-                        <span class="label">异常类型：</span>
-                        <span class="value" style="color: #FF3B30">24小时未出站</span>
-                    </div>
-                    <div class="result-item">
-                        <span class="label">进站：</span>
-                        <span class="value">${siteName}</span>
-                    </div>
-                    <div class="result-item">
-                        <span class="label">时间：</span>
-                        <span class="value">${getCurrentTime()}</span>
-                    </div>
-                    <div class="result-item">
-                        <span class="label">处理方式：</span>
-                        <span class="value">请联系客服</span>
-                    </div>
-                    `;
-                } else {
-                    // 调整弹窗内容为异常提示
-                    resultIcon.src = "icons/shibai.png"; // 使用失败图标
-                    resultIcon.parentElement.style.background = "red"
-                    resultTitle.textContent = "出行异常";
-                    resultTitle.style.color = "#FF3B30";
-                    
-                    resultInfo.innerHTML = `
-                    <div class="result-item">
-                        <span class="label">异常类型：</span>
-                        <span class="value" style="color: #FF3B30">未知异常</span>
-                    </div>
-                    <div class="result-item">
-                        <span class="label">时间：</span>
-                        <span class="value">${getCurrentTime()}</span>
-                    </div>
-                    <div class="result-item">
-                        <span class="label">处理方式：</span>
-                        <span class="value">请联系客服</span>
-                    </div>
-                    `;
-                }
-
-                // 根据异常类型更新按钮
-                if (errorType === 'payment_failed') {
-                    // 支付失败时显示立即补缴和联系客服按钮
                     modalActions.innerHTML = `
                         <button class="btn-secondary" onclick="contactCustomerService()">联系客服</button>
                         <button class="btn-primary" onclick="makePayment()">立即补缴</button>
                     `;
-                } else {
-                    // 其他异常情况只显示联系客服和关闭按钮
+                    break;
+
+                case "no_entry":
+                    resultTitle.textContent = "出行异常";
+                    resultInfo.innerHTML = `
+                        <div class="result-item">
+                            <span class="label">异常类型：</span>
+                            <span class="value" style="color: #FF3B30">无入站记录出站</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="label">出站：</span>
+                            <span class="value">王府井站</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="label">时间：</span>
+                            <span class="value">${this.getCurrentTime()}</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="label">处理方式：</span>
+                            <span class="value">请联系客服</span>
+                        </div>
+                    `;
                     modalActions.innerHTML = `
                         <button class="btn-secondary" onclick="closeModal('transitResultModal')">关闭</button>
                         <button class="btn-primary" onclick="contactCustomerService()">联系客服</button>
                     `;
-                }
-            } else if (isInStation) {
-                // 调整弹窗内容为进站成功
-                resultIcon.src = "icons/chenggong.png"; 
-                resultIcon.parentElement.style.background = "#52c41a"
-                resultTitle.textContent = "进站成功";
-                resultTitle.style.color = "#333";
+                    break;
 
-                resultInfo.innerHTML = `
+                case "24h_no_exit":
+                    resultTitle.textContent = "出行异常";
+                    resultInfo.innerHTML = `
+                        <div class="result-item">
+                            <span class="label">异常类型：</span>
+                            <span class="value" style="color: #FF3B30">24小时未出站</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="label">进站：</span>
+                            <span class="value">${this.state.siteName}</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="label">时间：</span>
+                            <span class="value">${this.getCurrentTime()}</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="label">处理方式：</span>
+                            <span class="value">请联系客服</span>
+                        </div>
+                    `;
+                    modalActions.innerHTML = `
+                        <button class="btn-secondary" onclick="closeModal('transitResultModal')">关闭</button>
+                        <button class="btn-primary" onclick="contactCustomerService()">联系客服</button>
+                    `;
+                    break;
+
+                default:
+                    resultTitle.textContent = "出行异常";
+                    resultInfo.innerHTML = `
+                        <div class="result-item">
+                            <span class="label">异常类型：</span>
+                            <span class="value" style="color: #FF3B30">未知异常</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="label">时间：</span>
+                            <span class="value">${this.getCurrentTime()}</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="label">处理方式：</span>
+                            <span class="value">请联系客服</span>
+                        </div>
+                    `;
+                    modalActions.innerHTML = `
+                        <button class="btn-secondary" onclick="closeModal('transitResultModal')">关闭</button>
+                        <button class="btn-primary" onclick="contactCustomerService()">联系客服</button>
+                    `;
+            }
+        }
+        // 处理进站成功
+        else if (isInStation) {
+            resultIcon.src = "icons/chenggong.png";
+            resultIcon.parentElement.style.background = "#52c41a";
+            resultTitle.textContent = "进站成功";
+            resultTitle.style.color = "#333";
+
+            resultInfo.innerHTML = `
                 <div class="result-item">
                     <span class="label">进站：</span>
-                    <span class="value">${siteName}</span>
+                    <span class="value">${this.state.siteName}</span>
                 </div>
                 <div class="result-item">
                     <span class="label">时间：</span>
-                    <span class="value">${getCurrentTime()}</span>
+                    <span class="value">${this.getCurrentTime()}</span>
                 </div>
             `;
 
-                // 恢复默认按钮
-                modalActions.innerHTML = `
-                    <button class="btn-secondary" onclick="closeModal('transitResultModal')">返回</button>
-                    <button class="btn-primary" onclick="goToTransitRecords()">查看记录</button>
-                `;
-            } else {
-                resultIcon.src = "icons/chenggong.png";
-                resultIcon.parentElement.style.background = "#52c41a"
-                resultTitle.textContent = "出站成功";
-                resultTitle.style.color = "#333";
+            modalActions.innerHTML = `
+                <button class="btn-secondary" onclick="closeModal('transitResultModal')">返回</button>
+                <button class="btn-primary" onclick="goToTransitRecords()">查看记录</button>
+            `;
+        }
+        // 处理出站成功
+        else {
+            resultIcon.src = "icons/chenggong.png";
+            resultIcon.parentElement.style.background = "#52c41a";
+            resultTitle.textContent = "出站成功";
+            resultTitle.style.color = "#333";
 
-                resultInfo.innerHTML = `
+            resultInfo.innerHTML = `
                 <div class="result-item">
                     <span class="label">出站：</span>
-                    <span class="value">${siteName}</span>
+                    <span class="value">${this.state.siteName}</span>
                 </div>
                 <div class="result-item">
                     <span class="label">时间：</span>
-                    <span class="value">${getCurrentTime()}</span>
+                    <span class="value">${this.getCurrentTime()}</span>
                 </div>
                 <div class="result-item">
                     <span class="label">费用：</span>
@@ -1000,309 +1256,183 @@ function showQRCodeError(message) {
                 </div>
             `;
 
-                // 恢复默认按钮
-                modalActions.innerHTML = `
-                    <button class="btn-secondary" onclick="closeModal('transitResultModal')">返回</button>
-                    <button class="btn-primary" onclick="goToTransitRecords()">查看记录</button>
-                `;
-            }
-
-            modal.style.display = 'flex';
+            modalActions.innerHTML = `
+                <button class="btn-secondary" onclick="closeModal('transitResultModal')">返回</button>
+                <button class="btn-primary" onclick="goToTransitRecords()">查看记录</button>
+            `;
         }
 
-        // 获取当前时间函数
-        function getCurrentTime() {
-            const now = new Date();
-            return `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
-        }
+        // 显示弹窗
+        transitResultModal.style.display = "flex";
+    },
 
-        // 关闭弹窗
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
-        }
+    // 8. 支付方式与异常处理
+    /**
+     * 选择支付方式
+     * @param {string} payment - 支付方式标识
+     */
+    selectPayment(payment) {
+        this.state.selectedPayment = payment;
 
-        // 联系客服
-        function contactCustomerService() {
-            // 关闭当前弹窗
-            closeModal('transitResultModal');
-            
-            // 显示联系客服提示
-            const loading = showLoading('正在连接客服...');
-            
-            setTimeout(function() {
-                hideLoading(loading);
-                showToast('已为您转接至客服，请稍候...');
-                
-                // 这里可以添加实际的客服联系逻辑
-                // 例如跳转到客服页面或打开聊天窗口
-            }, 1500);
-        }
-        
-        // 立即补缴
-        function makePayment() {
-            // 关闭当前弹窗
-            closeModal('transitResultModal');
-            
-            // 显示支付中提示
-            const loading = showLoading('正在处理支付...');
-            
-            setTimeout(function() {
-                hideLoading(loading);
-                showToast('支付成功！');
-                
-                // 更新状态
-                const transitStatus = document.getElementById('transitStatus');
-            }, 1500);
-        }
-function fetchRandomSite() {
-    // 验证选中城市是否存在
-    if (!selectedCity) {
-        console.error('未选择城市，无法获取站点数据');
-        return;
-    }
-
-    // 获取用户token
-    let token = '';
-    try {
-        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-        token = userData.token || '';
-
-    } catch (error) {
-        console.error('获取token失败:', error);
-        return;
-    }
-
-    if (!token) {
-        console.warn('未获取到token，无法请求站点数据');
-        return;
-    }
-
-    // 对城市名称进行URL编码，处理中文参数
-    const encodedCity = encodeURIComponent(selectedCity);
-
-    // 调用接口（使用编码后的城市名称）
-    fetch(`http://graywolf.top:6031/payment/transit/sites?city=${encodedCity}&type=SUBWAY`, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-            'Accept': '*/*'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`接口请求失败: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(result => {
-        if (result.code !== 200 || !Array.isArray(result.data) || result.data.length === 0) {
-            throw new Error(result.message || '未获取到站点数据');
-        }
-
-        // 从数据中随机选择一个站点
-        const sites = result.data;
-        const randomIndex = Math.floor(Math.random() * sites.length);
-        const randomSite = sites[randomIndex];
-
-        // 赋值给全局变量
-        siteName = randomSite.siteName || "";
-        type = randomSite.type || "";
-
-        console.log(`随机选中的${selectedCity}站点:`, { siteName, type });
-        // 此处可添加后续逻辑，如更新页面显示等
-    })
-    .catch(error => {
-        console.error('获取站点数据失败:', error);
-        // 错误处理：重置为空或使用默认值
-        siteName = "金安桥";
-        type = "SUBWAY";
-    });
-}
-function submitTransitEntry() {
-    // 验证必要参数
-    if (!siteName) {
-        console.error('未获取到进站站点信息，请先加载站点数据');
-        showToast('站点信息异常，无法提交进站记录');
-        return;
-    }
-
-    // 获取用户token
-    let token = '';
-    try {
-        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-        token = userData.token || '';
-
-    } catch (error) {
-        console.error('获取token失败:', error);
-        showToast('登录状态异常，无法提交');
-        return;
-    }
-
-    if (!token) {
-        showToast('请先登录');
-        return;
-    }
-
-    // 生成当前时间（格式：YYYY-MM-DD HH:mm:ss）
-    const currentTime = new Date();
-    const formattedTime = `${currentTime.getFullYear()}-${
-        String(currentTime.getMonth() + 1).padStart(2, '0')
-    }-${
-        String(currentTime.getDate()).padStart(2, '0')
-    } ${
-        String(currentTime.getHours()).padStart(2, '0')
-    }:${
-        String(currentTime.getMinutes()).padStart(2, '0')
-    }:${
-        String(currentTime.getSeconds()).padStart(2, '0')
-    }`;
-
-console.log('入时间',formattedTime);
-    // 构建请求参数
-    const requestData = {
-        entryStation: siteName,       // 使用之前获取的站点名称
-        entryTime: formattedTime,     // 当前时间
-        mode: "SUBWAY"                // 固定为地铁模式
-    };
-
-    // 显示加载状态
-    showToast('提交进站记录中...', 0);
-
-    // 调用接口
-    fetch('http://graywolf.top:6031/payment/transit/entry', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-            'Content-Type': 'application/json',
-            'Accept': '*/*'
-        },
-        body: JSON.stringify(requestData)
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`接口请求失败: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(result => {
-
-        if (result.code === 200) {
-            showToast('进站记录提交成功');
-            console.log('进站成功:', result.data);
-            simulateTransitResult(true,  false,  '');
-            // 可添加后续逻辑，如跳转到进站成功页面
-        } else {
-            throw new Error(result.message || '提交进站记录失败');
-        }
-    })
-    .catch(error => {
-        console.error('进站记录提交失败:', error);
-        showToast(error.message || '提交失败，请重试');
-    });
-}
-function submitTransitExit() {
-    // 验证是否已获取出站站点（可重新获取或使用新的随机站点）
-    if (!siteName) {
-        console.error('未获取到出站站点信息，请先加载站点数据');
-        showToast('站点信息异常，无法提交出站记录');
-        return;
-    }
-
-    // 获取用户token
-    let token = '';
-    try {
-        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-        token = userData.token || '';
-
-    } catch (error) {
-        console.error('获取token失败:', error);
-        showToast('登录状态异常，无法提交');
-        return;
-    }
-
-    if (!token) {
-        showToast('请先登录');
-        return;
-    }
-
-    // 生成当前时间（格式：YYYY-MM-DD HH:mm:ss）
-    const currentTime = new Date();
-
-    currentTime.setHours(currentTime.getHours() + 1);
-    const formattedTime = `${currentTime.getFullYear()}-${
-        String(currentTime.getMonth() + 1).padStart(2, '0')
-    }-${
-        String(currentTime.getDate()).padStart(2, '0')
-    } ${
-        String(currentTime.getHours()).padStart(2, '0')
-    }:${
-        String(currentTime.getMinutes()).padStart(2, '0')
-    }:${
-        String(currentTime.getSeconds()).padStart(2, '0')
-    }`;
-console.log('出时间',formattedTime);
-    // 构建请求参数
-    const requestData = {
-        exitStation: siteName,        // 使用获取的站点名称作为出站站点
-        exitTime: formattedTime,      // 当前时间作为出站时间
-        mode: "SUBWAY"                // 固定为地铁模式
-    };
-
-    // 显示加载状态
-    showToast('提交出站记录中...', 0);
-
-    // 调用出站接口
-    fetch('http://graywolf.top:6031/payment/transit/exit', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-            'Content-Type': 'application/json',
-            'Accept': '*/*'
-        },
-        body: JSON.stringify(requestData)
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`接口请求失败: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(result => {
-
-        if (result.code === 200) {
-            showToast('出站记录提交成功');
-            console.log('出站成功:', result.data);
-            simulateTransitResult(false,  false,  '')
-            // 可添加后续逻辑，如显示费用信息、跳转到首页等
-        } else {
-
-        console.log('出战失败',JSON.stringify(result));
-        if(result.data.reason==='没有找到未完成的出行记录'){
-         simulateTransitResult(false,true,'no_entry');
-         }
-            throw new Error(result.data.reason || '提交出站记录失败');
-        }
-    })
-    .catch(error => {
-        console.error('出站记录提交失败:', error);
-        if(error.message === '余额不足'){
-        simulateTransitResult(false,  true,  'payment_failed')
-        }
-        showToast(error.message || '提交失败，请重试');
-    });
-}
-        // 页面卸载时清除定时器
-        window.addEventListener('beforeunload', function () {
-            if (transitQRTimer) {
-                clearInterval(transitQRTimer);
-            }
-            if (countdownTimer) {
-                clearInterval(countdownTimer);
-            }
+        // 更新UI选中状态
+        document.querySelectorAll(".payment-item").forEach(item => {
+            item.classList.remove("active");
+            item.querySelector(".payment-check").textContent = "";
         });
+
+        const selectedItem = event.target.closest(".payment-item");
+        if (selectedItem) {
+            selectedItem.classList.add("active");
+            selectedItem.querySelector(".payment-check").textContent = "✓";
+        }
+    },
+
+    /**
+     * 更换支付方式
+     */
+    changePaymentMethod() {
+        this.showToast("支付方式更换功能");
+    },
+
+    /**
+     * 联系客服
+     */
+    contactCustomerService() {
+        this.closeModal("transitResultModal");
+        const loading = this.showLoading("正在连接客服...");
+
+        setTimeout(() => {
+            this.hideLoading(loading);
+            this.showToast("已为您转接至客服，请稍候...");
+            // 实际项目中可添加跳转客服页面逻辑
+        }, 1500);
+    },
+
+    /**
+     * 立即补缴
+     */
+    makePayment() {
+        this.closeModal("transitResultModal");
+        const loading = this.showLoading("正在处理支付...");
+
+        setTimeout(() => {
+            this.hideLoading(loading);
+            this.showToast("支付成功！");
+            // 实际项目中可添加支付成功后的状态更新逻辑
+        }, 1500);
+    },
+
+    // 9. 通用工具方法
+    /**
+     * 获取用户Token（从本地存储）
+     * @returns {string} 用户Token（空字符串表示获取失败）
+     */
+    getUserToken() {
+        try {
+            const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+            return userData.token || "";
+        } catch (error) {
+            console.error("解析用户token失败:", error);
+            return "";
+        }
+    },
+
+    /**
+     * 获取用户所在城市（模拟定位）
+     * @returns {string} 城市名称
+     */
+    getUserLocation() {
+        // 实际项目中可通过定位API获取
+        return "北京";
+    },
+
+    /**
+     * 获取当前时间（格式：HH:MM）
+     * @returns {string} 格式化后的时间字符串
+     */
+    getCurrentTime() {
+        const now = new Date();
+        return `${now.getHours()}:${now.getMinutes().toString().padStart(2, "0")}`;
+    },
+
+    /**
+     * 获取格式化的日期时间（格式：YYYY-MM-DD HH:mm:ss）
+     * @param {Date} [date] - 可选日期对象，默认当前时间
+     * @returns {string} 格式化后的日期时间字符串
+     */
+    getFormattedDateTime(date = new Date()) {
+        return `${date.getFullYear()}-${
+            String(date.getMonth() + 1).padStart(2, "0")
+        }-${
+            String(date.getDate()).padStart(2, "0")
+        } ${
+            String(date.getHours()).padStart(2, "0")
+        }:${
+            String(date.getMinutes()).padStart(2, "0")
+        }:${
+            String(date.getSeconds()).padStart(2, "0")
+        }`;
+    },
+
+    /**
+     * 关闭模态框
+     * @param {string} modalId - 模态框ID
+     */
+    closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) modal.style.display = "none";
+    },
+
+    /**
+     * 显示加载提示
+     * @param {string} message - 加载提示内容
+     * @returns {HTMLElement} 加载提示元素
+     */
+    showLoading(message) {
+        // 实际项目中可实现自定义加载组件
+        const loading = document.createElement("div");
+        loading.className = "loading";
+        loading.textContent = message;
+        document.body.appendChild(loading);
+        return loading;
+    },
+
+    /**
+     * 隐藏加载提示
+     * @param {HTMLElement} loading - 加载提示元素
+     */
+    hideLoading(loading) {
+        if (loading && loading.parentNode) {
+            loading.parentNode.removeChild(loading);
+        }
+    },
+
+    /**
+     * 显示提示信息
+     * @param {string} message - 提示内容
+     * @param {number} duration - 显示时长（毫秒，0表示手动关闭）
+     */
+    showToast(message, duration = 2000) {
+        // 优先使用Android原生提示，否则使用浏览器alert
+        if (window.AndroidInterface && typeof window.AndroidInterface.showToast === "function") {
+            window.AndroidInterface.showToast(message);
+        } else {
+            alert(message);
+        }
+    },
+
+    /**
+     * 跳转到出行记录页面
+     */
+    goToTransitRecords() {
+        this.closeModal("transitResultModal");
+        // 实际项目中可添加跳转逻辑
+        this.showToast("跳转到出行记录页面");
+    }
+};
+
+// 初始化出行码模块
+TransitCodeModule.init();
     </script>
 </body>
 

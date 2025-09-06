@@ -316,316 +316,416 @@
 
     <script src="script.js"></script>
     <script>
-        // 页面加载时获取记录ID并显示详情
-        document.addEventListener('DOMContentLoaded', function () {
-    // 从URL获取记录ID（transactionId）
-    const urlParams = new URLSearchParams(window.location.search);
-    const recordId = urlParams.get('id');
+        // 出行记录详情模块：统一封装记录加载、详情渲染、补款操作等核心功能
+ const TransitRecordDetailModule = {
+     // 1. 状态管理：存储模块核心配置、DOM元素缓存与临时数据
+     state: {
+         // API配置
+         apiConfig: {
+             recordDetailUrl: "http://graywolf.top:6031/payment/transit/detail/",
+             repayUrl: "http://graywolf.top:6031/payment/transit/repay",
+             headers: {
+                 "User-Agent": "Apifox/1.0.0 (https://apifox.com)",
+                 "Accept": "*/*",
+                 "Content-Type": "application/json"
+             }
+         },
 
-    if (recordId) {
-        loadRecordDetail(recordId);
-    } else {
-        // 如果没有记录ID，显示错误信息
-        document.getElementById('detailContent').innerHTML = `
-            <div class="error-message">
-                <p>未找到记录信息</p>
-            </div>
-        `;
-    }
-});
+         // DOM元素缓存
+         elements: {
+             detailContent: null,   // 详情内容容器
+             errorContent: null     // 异常内容容器
+         },
 
-// 加载记录详情（调用接口获取数据）
-function loadRecordDetail(transactionId) {
-    const content = document.getElementById('detailContent');
-    // 显示加载状态
-    content.innerHTML = '<div class="loading-message">加载详情中...</div>';
+         // 临时数据
+         currentRecordId: null    // 当前加载的记录ID
+     },
 
-    // 获取用户token
-    let token = '';
-    try {
-        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-        token = userData.token || '';
+     // 2. 初始化：页面加载后执行DOM缓存、事件绑定与记录加载
+     init() {
+         document.addEventListener("DOMContentLoaded", () => {
+             this.cacheDomElements();  // 缓存DOM元素
+             this.bindGlobalMethods(); // 暴露全局方法（兼容HTML onclick）
+             this.loadRecordFromUrl(); // 从URL获取记录ID并加载详情
+         });
+     },
 
-    } catch (error) {
-        console.error('获取token失败:', error);
-        content.innerHTML = `
-            <div class="error-message">
-                <p>登录状态异常，无法加载详情</p>
-            </div>
-        `;
-        return;
-    }
+     // 缓存DOM元素引用，减少重复查询
+     cacheDomElements() {
+         this.state.elements.detailContent = document.getElementById("detailContent");
+         this.state.elements.errorContent = document.getElementById("errorContent");
+     },
 
-    if (!token) {
-        content.innerHTML = `
-            <div class="error-message">
-                <p>请先登录</p>
-            </div>
-        `;
-        return;
-    }
+     // 暴露全局方法到window对象（兼容HTML中的onclick调用）
+     bindGlobalMethods() {
+         window.contactCustomerService = () => this.contactCustomerService();
+         window.payNow = () => this.payNow();
+     },
 
-    // 调用接口获取详情
-    fetch(`http://graywolf.top:6031/payment/transit/detail/${transactionId}`, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-            'Accept': '*/*'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`请求失败: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(result => {
-        if (result.code !== 200 || !result.data) {
-            throw new Error(result.message || '获取详情失败');
-        }
+     // 从URL参数中获取记录ID并触发加载
+     loadRecordFromUrl() {
+         const urlParams = new URLSearchParams(window.location.search);
+         const recordId = urlParams.get("id");
 
-        const detail = result.data;
-        renderDetailContent(content, detail);
-    })
-    .catch(error => {
-        console.error('加载详情出错:', error);
-        content.innerHTML = `
-            <div class="error-message">
-                <p>${error.message || '加载详情失败，请重试'}</p>
-            </div>
-        `;
-    });
-}
+         if (recordId) {
+             this.state.currentRecordId = recordId;
+             this.loadRecordDetail(recordId);
+         } else {
+             this.showDetailError("未找到记录信息");
+         }
+     },
 
-// 渲染详情内容
-function renderDetailContent(container, detail) {
-    // 判断是否为异常状态
-    const isError = detail.status === 2;
-    // 交通方式文本
-    const modeText = detail.mode === 'SUBWAY' ? '北京地铁' : '公共交通';
-    // 状态文本和样式
-    const statusText = isError ? '异常' : '正常';
-    const statusClass = isError ? 'error' : '';
-    // 站点信息（处理null值）
-    const entrySite = `${detail.entrySiteName || '未记录'}（${detail.entrySiteLine || '未知线路'}）`;
-    const exitSite = detail.exitSiteName ?
-        `${detail.exitSiteName}（${detail.exitSiteLine || '未知线路'}）` : '未记录';
-    // 时间格式化
-    const entryTimeFormatted = formatTime(detail.entryTime);
-    const exitTimeFormatted = detail.exitTime ? formatTime(detail.exitTime) : '未记录';
-    // 费用处理
-    const amount = detail.actualAmount !== null ?
-        parseFloat(detail.actualAmount).toFixed(2) : '0.00';
-    // 行程时长计算
-    const durationText = calculateDuration(detail.entryTime, detail.exitTime);
-    // 异常原因（仅异常状态显示）
-    const errorReason = isError ? detail.reason || '未明确异常原因' : '';
+     // 3. 记录详情加载与渲染
+     /**
+      * 加载记录详情（调用接口获取数据）
+      * @param {string} transactionId - 记录ID
+      */
+     loadRecordDetail(transactionId) {
+         const { detailContent } = this.state.elements;
+         if (!detailContent) {
+             console.error("未找到详情内容容器");
+             return;
+         }
 
-    // 构建详情HTML
-    const detailHTML = `
-        <div class="detail-header">
-            <div class="detail-title">${modeText}</div>
-            <div class="detail-status ${statusClass}">${statusText}</div>
-        </div>
-        <div class="detail-map">
-            <div class="station-line">
-                <div class="station start">${detail.entrySiteName || '未记录'}</div>
-                <div class="line-path ${isError ? 'error' : ''}"></div>
-                <div class="station end ${isError ? 'error' : ''}">${detail.exitSiteName || '未记录'}</div>
-            </div>
-        </div>
-        <div class="detail-info">
-            <div class="info-group">
-                <div class="info-item">
-                    <span class="info-label">进站时间：</span>
-                    <span class="info-value">${entryTimeFormatted}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">出站时间：</span>
-                    <span class="info-value ${isError && !detail.exitTime ? 'error' : ''}">${exitTimeFormatted}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">行程时长：</span>
-                    <span class="info-value ${isError ? 'error' : ''}">${durationText}</span>
-                </div>
-            </div>
-            <div class="info-group">
-                <div class="info-item">
-                    <span class="info-label">费用：</span>
-                    <span class="info-value amount">¥${amount}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">支付方式：</span>
-                    <span class="info-value ${isError ? 'error' : ''}">${isError ? '未完成支付' : '账户余额'}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">交易编号：</span>
-                    <span class="info-value">${detail.transactionId || '未知'}</span>
-                </div>
-            </div>
-            ${isError ? `
-                <div class="error-message">
-                    <p>异常原因：${errorReason}</p>
-                </div>
-            ` : ''}
-        </div>
-    `;
+         // 显示加载状态
+         detailContent.innerHTML = '<div class="loading-message">加载详情中...</div>';
 
-    container.innerHTML = detailHTML;
-    // 控制异常内容显示（兼容原有errorContent逻辑）
-    const errorContent = document.getElementById("errorContent");
-    if (errorContent) {
-        errorContent.style.display = isError ? "block" : "none";
-    }
-}
+         // 获取用户Token（验证登录状态）
+         const token = this.getUserToken();
+         if (!token) {
+             this.showDetailError("请先登录");
+             return;
+         }
 
-// 格式化时间为 "YYYY-MM-DD HH:mm:ss"
-function formatTime(timeStr) {
-    if (!timeStr) return '未知时间';
-    try {
-        const date = new Date(timeStr);
-        return `${date.getFullYear()}-${
-            String(date.getMonth() + 1).padStart(2, '0')
-        }-${
-            String(date.getDate()).padStart(2, '0')
-        } ${
-            String(date.getHours()).padStart(2, '0')
-        }:${
-            String(date.getMinutes()).padStart(2, '0')
-        }:${
-            String(date.getSeconds()).padStart(2, '0')
-        }`;
-    } catch (error) {
-        console.error('时间格式化失败:', error);
-        return timeStr.replace('T', ' ');
-    }
-}
+         // 调用详情接口
+         fetch(`${this.state.apiConfig.recordDetailUrl}${transactionId}`, {
+             method: "GET",
+             headers: {
+                 ...this.state.apiConfig.headers,
+                 "Authorization": `Bearer ${token}`
+             }
+         })
+             .then(response => {
+                 if (!response.ok) throw new Error(`请求失败: ${response.status}`);
+                 return response.json();
+             })
+             .then(result => {
+                 if (result.code !== 200 || !result.data) {
+                     throw new Error(result.message || "获取详情失败");
+                 }
+                 // 渲染详情内容
+                 this.renderDetailContent(result.data);
+             })
+             .catch(error => {
+                 console.error("加载详情出错:", error);
+                 this.showDetailError(error.message || "加载详情失败，请重试");
+             });
+     },
 
-// 计算行程时长
-function calculateDuration(entryTimeStr, exitTimeStr) {
-    if (!entryTimeStr || !exitTimeStr) {
-        return '未知';
-    }
-    try {
-        const entryTime = new Date(entryTimeStr).getTime();
-        const exitTime = new Date(exitTimeStr).getTime();
-        if (exitTime <= entryTime) {
-            return '异常（时间顺序错误）';
-        }
-        const minutes = Math.floor((exitTime - entryTime) / (1000 * 60));
-        return `${minutes}分钟`;
-    } catch (error) {
-        console.error('计算时长失败:', error);
-        return '未知';
-    }
-}
-        // 联系客服
-        function contactCustomerService() {
-            showToast('正在连接客服...');
-        }
+     /**
+      * 渲染详情内容到页面
+      * @param {Object} detail - 接口返回的记录详情数据
+      */
+     renderDetailContent(detail) {
+         const { detailContent, errorContent } = this.state.elements;
+         if (!detailContent) return;
 
-        // 立即补缴
-        function payNow() {
-            showToast('正在准备支付...');
-            const urlParams = new URLSearchParams(window.location.search);
-    const recordId = urlParams.get('id');
+         // 数据预处理（统一格式与异常处理）
+         const isError = detail.status === 2; // 判断是否为异常状态
+         const modeText = detail.mode === "SUBWAY" ? "北京地铁" : "公共交通"; // 交通方式文本
+         const statusText = isError ? "异常" : "正常"; // 状态文本
+         const statusClass = isError ? "error" : ""; // 状态样式类
+         const entrySite = this.formatSiteInfo(detail.entrySiteName, detail.entrySiteLine); // 进站站点信息
+         const exitSite = this.formatSiteInfo(detail.exitSiteName, detail.exitSiteLine); // 出站站点信息
+         const entryTimeFormatted = this.formatTime(detail.entryTime); // 格式化进站时间
+         const exitTimeFormatted = detail.exitTime ? this.formatTime(detail.exitTime) : "未记录"; // 格式化出站时间
+         const amount = this.formatAmount(detail.actualAmount); // 格式化费用
+         const durationText = this.calculateDuration(detail.entryTime, detail.exitTime); // 计算行程时长
+         const errorReason = isError ? detail.reason || "未明确异常原因" : ""; // 异常原因
 
-    if (recordId) {
-        repayTransit(recordId)
-           .then(data => {
-     console.log('补款成功:', data);
-     showToast('补款成功');
-     window.close();
-   })
-   .catch(error => {
-     console.error('补款失败:', error.message);
-     showToast(error.message || '补款失败，请稍后重试');
-   });
-    } else {
-        // 如果没有记录ID，显示错误信息
-        showToast('ID无效,请联系客服');
-    }
-        }
-        /**
- * 调用交通补款接口
- * @param {string} transactionId - 交易ID，用于填充transitId参数
- * @returns {Promise} - 返回接口请求的Promise对象
- */
-function repayTransit(transactionId) {
-    // 验证参数
+         // 构建详情HTML结构
+         const detailHTML = `
+             <div class="detail-header">
+                 <div class="detail-title">${modeText}</div>
+                 <div class="detail-status ${statusClass}">${statusText}</div>
+             </div>
+             <div class="detail-map">
+                 <div class="station-line">
+                     <div class="station start">${detail.entrySiteName || "未记录"}</div>
+                     <div class="line-path ${isError ? "error" : ""}"></div>
+                     <div class="station end ${isError ? "error" : ""}">${detail.exitSiteName || "未记录"}</div>
+                 </div>
+             </div>
+             <div class="detail-info">
+                 <div class="info-group">
+                     <div class="info-item">
+                         <span class="info-label">进站时间：</span>
+                         <span class="info-value">${entryTimeFormatted}</span>
+                     </div>
+                     <div class="info-item">
+                         <span class="info-label">出站时间：</span>
+                         <span class="info-value ${isError && !detail.exitTime ? "error" : ""}">${exitTimeFormatted}</span>
+                     </div>
+                     <div class="info-item">
+                         <span class="info-label">行程时长：</span>
+                         <span class="info-value ${isError ? "error" : ""}">${durationText}</span>
+                     </div>
+                 </div>
+                 <div class="info-group">
+                     <div class="info-item">
+                         <span class="info-label">费用：</span>
+                         <span class="info-value amount">¥${amount}</span>
+                     </div>
+                     <div class="info-item">
+                         <span class="info-label">支付方式：</span>
+                         <span class="info-value ${isError ? "error" : ""}">${isError ? "未完成支付" : "账户余额"}</span>
+                     </div>
+                     <div class="info-item">
+                         <span class="info-label">交易编号：</span>
+                         <span class="info-value">${detail.transactionId || "未知"}</span>
+                     </div>
+                 </div>
+                 ${isError ? `
+                     <div class="error-message">
+                         <p>异常原因：${errorReason}</p>
+                     </div>
+                 ` : ""}
+             </div>
+         `;
 
+         // 渲染到容器并控制异常内容显示
+         detailContent.innerHTML = detailHTML;
+         if (errorContent) {
+             errorContent.style.display = isError ? "block" : "none";
+         }
+     },
 
-    // 获取用户token
-    let token;
-    try {
-        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-        token = userData.token;
+     // 4. 补款操作相关逻辑
+     /**
+      * 立即补款（触发补款接口调用）
+      */
+     payNow() {
+         const { currentRecordId } = this.state;
+         if (!currentRecordId) {
+             this.showToast("记录ID无效，请联系客服");
+             return;
+         }
 
-        if (!token) {
-            return Promise.reject(new Error('未获取到登录信息，请重新登录'));
-        }
-    } catch (error) {
-        return Promise.reject(new Error('解析用户信息失败'));
-    }
+         this.showToast("正在准备支付...");
 
-    // 生成当前时间，格式为YYYY-MM-DDTHH:mm:ss
-    const now = new Date();
-    const payTime = `${now.getFullYear()}-${
-        String(now.getMonth() + 1).padStart(2, '0')
-    }-${
-        String(now.getDate()).padStart(2, '0')
-    }T${
-        String(now.getHours()).padStart(2, '0')
-    }:${
-        String(now.getMinutes()).padStart(2, '0')
-    }:${
-        String(now.getSeconds()).padStart(2, '0')
-    }`;
+         // 调用补款接口并处理结果
+         this.repayTransit(currentRecordId)
+             .then(data => {
+                 console.log("补款成功:", data);
+                 this.showToast("补款成功");
+                 window.close(); // 关闭当前页面（返回上一页）
+             })
+             .catch(error => {
+                 console.error("补款失败:", error.message);
+                 this.showToast(error.message || "补款失败，请稍后重试");
+             });
+     },
 
-    // 构造请求数据
-    const requestData = {
-        transitId: transactionId,  // 使用传入的transactionId
-        amount: "4.00",            // 固定金额为4
-        payTime: payTime           // 当前时间
-    };
+     /**
+      * 调用交通补款接口
+      * @param {string} transactionId - 交易ID（用于关联补款记录）
+      * @returns {Promise<Object>} 补款结果Promise
+      */
+     repayTransit(transactionId) {
+         // 验证交易ID
+         if (!transactionId) {
+             return Promise.reject(new Error("记录ID不能为空"));
+         }
 
-    // 调用补款接口
-    return fetch('http://graywolf.top:6031/payment/transit/repay', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-            'Content-Type': 'application/json',
-            'Accept': '*/*'
-        },
-        body: JSON.stringify(requestData)
-    })
-    .then(response => {
-        // 处理网络响应状态
-        if (!response.ok) {
-            console.error('补款接口响应异常:', {
-                status: response.status,
-                statusText: response.statusText,
-                url: response.url
-            });
-            return Promise.reject(new Error(`网络请求失败 (${response.status} - ${response.statusText})`));
-        }
-        return response.json();
-    })
-    .then(result => {
-        // 处理业务响应结果
-        if (result.code === 200) {
-            return Promise.resolve(result.data || { message: '补款成功' });
-        } else {
-            return Promise.reject(new Error(result.message || '补款失败，请重试'));
-        }
-    })
-    .catch(error => {
-        console.error('补款操作失败:', error);
-        return Promise.reject(error);
-    });
-}
+         // 获取用户Token（验证登录状态）
+         const token = this.getUserToken();
+         if (!token) {
+             return Promise.reject(new Error("未获取到登录信息，请重新登录"));
+         }
+
+         // 构建补款请求参数
+         const requestData = {
+             transitId: transactionId,
+             amount: "4.00", // 固定补款金额（业务约定）
+             payTime: this.getFormattedPayTime() // 格式化补款时间（符合接口要求）
+         };
+
+         // 调用补款接口
+         return fetch(this.state.apiConfig.repayUrl, {
+             method: "POST",
+             headers: {
+                 ...this.state.apiConfig.headers,
+                 "Authorization": `Bearer ${token}`
+             },
+             body: JSON.stringify(requestData)
+         })
+             .then(response => {
+                 if (!response.ok) {
+                     console.error("补款接口响应异常:", {
+                         status: response.status,
+                         statusText: response.statusText,
+                         url: response.url
+                     });
+                     throw new Error(`网络请求失败 (${response.status} - ${response.statusText})`);
+                 }
+                 return response.json();
+             })
+             .then(result => {
+                 if (result.code === 200) {
+                     return Promise.resolve(result.data || { message: "补款成功" });
+                 } else {
+                     throw new Error(result.message || "补款失败，请重试");
+                 }
+             })
+             .catch(error => {
+                 console.error("补款操作失败:", error);
+                 return Promise.reject(error);
+             });
+     },
+
+     // 5. 通用工具方法（格式化、验证、提示等）
+     /**
+      * 获取用户Token（从本地存储解析）
+      * @returns {string} 用户Token（空字符串表示获取失败）
+      */
+     getUserToken() {
+         try {
+             const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+             return userData.token || "";
+         } catch (error) {
+             console.error("解析用户token失败:", error);
+             this.showDetailError("登录状态异常，无法加载详情");
+             return "";
+         }
+     },
+
+     /**
+      * 格式化站点信息（名称+线路）
+      * @param {string} siteName - 站点名称
+      * @param {string} siteLine - 站点线路
+      * @returns {string} 格式化后的站点信息
+      */
+     formatSiteInfo(siteName, siteLine) {
+         const name = siteName || "未记录";
+         const line = siteLine || "未知线路";
+         return `${name}（${line}）`;
+     },
+
+     /**
+      * 格式化时间（转为 "YYYY-MM-DD HH:mm:ss" 格式）
+      * @param {string} timeStr - 原始时间字符串
+      * @returns {string} 格式化后的时间
+      */
+     formatTime(timeStr) {
+         if (!timeStr) return "未知时间";
+         try {
+             const date = new Date(timeStr);
+             return `${date.getFullYear()}-${
+                 String(date.getMonth() + 1).padStart(2, "0")
+             }-${
+                 String(date.getDate()).padStart(2, "0")
+             } ${
+                 String(date.getHours()).padStart(2, "0")
+             }:${
+                 String(date.getMinutes()).padStart(2, "0")
+             }:${
+                 String(date.getSeconds()).padStart(2, "0")
+             }`;
+         } catch (error) {
+             console.error("时间格式化失败:", error);
+             return timeStr.replace("T", " "); // 降级处理（移除T分隔符）
+         }
+     },
+
+     /**
+      * 格式化金额（保留2位小数）
+      * @param {number|null} amount - 原始金额
+      * @returns {string} 格式化后的金额
+      */
+     formatAmount(amount) {
+         if (amount === null || isNaN(amount)) return "0.00";
+         return parseFloat(amount).toFixed(2);
+     },
+
+     /**
+      * 计算行程时长（出站时间-进站时间）
+      * @param {string} entryTimeStr - 进站时间字符串
+      * @param {string} exitTimeStr - 出站时间字符串
+      * @returns {string} 行程时长（分钟）或提示文本
+      */
+     calculateDuration(entryTimeStr, exitTimeStr) {
+         if (!entryTimeStr || !exitTimeStr) return "未知";
+         try {
+             const entryTime = new Date(entryTimeStr).getTime();
+             const exitTime = new Date(exitTimeStr).getTime();
+
+             if (exitTime <= entryTime) return "异常（时间顺序错误）";
+
+             const minutes = Math.floor((exitTime - entryTime) / (1000 * 60));
+             return `${minutes}分钟`;
+         } catch (error) {
+             console.error("计算时长失败:", error);
+             return "未知";
+         }
+     },
+
+     /**
+      * 获取格式化的补款时间（符合接口 "YYYY-MM-DDTHH:mm:ss" 要求）
+      * @returns {string} 格式化后的补款时间
+      */
+     getFormattedPayTime() {
+         const now = new Date();
+         return `${now.getFullYear()}-${
+             String(now.getMonth() + 1).padStart(2, "0")
+         }-${
+             String(now.getDate()).padStart(2, "0")
+         }T${
+             String(now.getHours()).padStart(2, "0")
+         }:${
+             String(now.getMinutes()).padStart(2, "0")
+         }:${
+             String(now.getSeconds()).padStart(2, "0")
+         }`;
+     },
+
+     /**
+      * 显示详情错误信息
+      * @param {string} message - 错误提示内容
+      */
+     showDetailError(message) {
+         const { detailContent } = this.state.elements;
+         if (detailContent) {
+             detailContent.innerHTML = `
+                 <div class="error-message">
+                     <p>${message}</p>
+                 </div>
+             `;
+         }
+     },
+
+     /**
+      * 显示提示信息（兼容Android原生与Web环境）
+      * @param {string} message - 提示内容
+      */
+     showToast(message) {
+         if (window.AndroidInterface && typeof window.AndroidInterface.showToast === "function") {
+             window.AndroidInterface.showToast(message);
+         } else {
+             alert(message); // Web环境降级使用alert
+         }
+     },
+
+     /**
+      * 联系客服（触发客服连接逻辑）
+      */
+     contactCustomerService() {
+         this.showToast("正在连接客服...");
+         // 实际项目中可添加跳转客服页面、打开客服聊天窗口等逻辑
+     }
+ };
+
+ // 初始化出行记录详情模块
+ TransitRecordDetailModule.init();
     </script>
 </body>
 

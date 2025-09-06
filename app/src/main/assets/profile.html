@@ -180,262 +180,375 @@
 
 <script src="script.js"></script>
 <script>
-    // 页面加载时初始化
-    document.addEventListener('DOMContentLoaded', function () {
-        initializePage();
-        initializeVerificationPage();
-    });
-function initializeVerificationPage() {
-    // 显示加载状态
+    // 个人中心模块：统一封装个人中心相关功能，集中管理状态与业务逻辑
+const ProfileModule = {
+    // 1. 状态管理：存储模块配置与状态
+    state: {
+        apiConfig: {
+            auditStatusUrl: "http://graywolf.top:6031/app/user/audit/status",
+            logoutUrl: "http://graywolf.top:6031/app/user/logout",
+            headers: {
+                "User-Agent": "Apifox/1.0.0 (https://apifox.com)",
+                "Content-Type": "application/json",
+                "Accept": "*/*"
+            }
+        },
+        assetsVisible: false, // 资产可见性状态
+        elements: {
+            // DOM元素缓存
+            avatarImg: null,
+            userNameEl: null,
+            userIdEl: null,
+            amountElement: null,
+            eyeIcon: null,
+            statusContainer: null,
+            menuItem: null,
+            logoutModal: null
+        }
+    },
 
-    // 获取用户认证信息
-    let token = '';
+    // 2. 初始化：页面加载后执行所有初始化逻辑
+    init() {
+        document.addEventListener("DOMContentLoaded", () => {
+            this.cacheDomElements(); // 缓存DOM元素
+            this.initializePage(); // 初始化页面基础数据
+            this.initializeVerificationPage(); // 初始化实名认证状态
+        });
+
+        // 暴露全局方法：兼容HTML中的onclick调用
+        this.exposeGlobalMethods();
+    },
+
+    // 缓存DOM元素引用，减少重复查询
+    cacheDomElements() {
+        this.state.elements.avatarImg = document.getElementById("userAvatar");
+        this.state.elements.userNameEl = document.getElementById("userName");
+        this.state.elements.userIdEl = document.getElementById("userId");
+        this.state.elements.amountElement = document.querySelector(".assets-amount .amount");
+        this.state.elements.eyeIcon = document.getElementById("eyeIcon");
+        this.state.elements.statusContainer = document.querySelector(".user-status");
+        this.state.elements.menuItem = document.querySelector(".assets-overview .menu-item");
+        this.state.elements.logoutModal = document.getElementById("logoutModal");
+    },
+
+    // 暴露全局方法
+    exposeGlobalMethods() {
+        window.toggleAssetVisibility = () => this.toggleAssetVisibility();
+        window.viewAssetDetails = () => this.viewAssetDetails();
+        window.showSecurityCenter = () => this.showSecurityCenter();
+        window.showPaymentSettings = () => this.showPaymentSettings();
+        window.showIdentityVerification = () => this.showIdentityVerification();
+        window.showLogoutConfirm = () => this.showLogoutConfirm();
+        window.logout = () => this.logout();
+        window.setTransferAmount = (amount) => this.setTransferAmount(amount);
+        window.setAllAmount = () => this.setAllAmount();
+        window.closeModal = (modalId) => this.closeModal(modalId);
+        window.showToast = (message) => this.showToast(message);
+        window.goToPage = (page) => this.goToPage(page);
+        window.goToEditProfile = () => this.goToEditProfile();
+        window.goToPaymentPassword = () => this.goToPaymentPassword();
+    },
+
+    // 3. 页面初始化：填充用户基础信息
+    /**
+     * 初始化页面：从本地存储加载并填充用户信息（头像、用户名、用户ID）
+     */
+    initializePage() {
         try {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            token = userData.token || '';
+            // 从localStorage获取用户数据
+            const userDataStr = localStorage.getItem("userData");
+            if (!userDataStr) {
+                console.log("未找到用户数据，使用默认值");
+                return;
+            }
+
+            const userData = JSON.parse(userDataStr);
+
+            // 1. 填充头像
+            if (this.state.elements.avatarImg) {
+                const avatarSrc = userData.avatarUrl?.trim() || "icons/Avatar.png";
+                this.state.elements.avatarImg.src = avatarSrc;
+                // 头像加载失败时回退到默认图标
+                this.state.elements.avatarImg.onerror = function () {
+                    this.src = "icons/Avatar.png";
+                };
+            }
+
+            // 2. 填充用户名（优先昵称，无则用手机号脱敏）
+            if (this.state.elements.userNameEl && this.state.elements.userNameEl.firstChild) {
+                let displayName = "未知用户";
+                if (userData.nickName?.trim()) {
+                    displayName = userData.nickName;
+                } else if (userData.phone) {
+                    // 手机号脱敏：157****8453
+                    displayName = userData.phone.replace(/(\d{3})\d{4}(\d{4})/, "$1****$2");
+                }
+                this.state.elements.userNameEl.firstChild.textContent = displayName;
+            }
+
+            // 3. 填充用户ID
+            if (this.state.elements.userIdEl && userData.userId) {
+                this.state.elements.userIdEl.textContent = `ID: ${userData.userId}`;
+            }
 
         } catch (error) {
-            console.error('获取token失败:', error);
-            showToast('登录状态异常，请重新登录');
-            return;
+            console.error("填充用户数据失败：", error);
+            // 出错时保持默认显示，不影响页面布局
         }
+    },
+
+    // 4. 实名认证状态初始化
+    /**
+     * 初始化实名认证页面：获取审核状态并更新页面显示
+     */
+    initializeVerificationPage() {
+        // 获取用户Token
+        const token = this.getAuthToken();
         if (!token) {
-            showToast('请先登录');
+            this.showToast("请先登录");
             return;
         }
 
-    // 调用接口获取审核状态
-    fetchAuditStatus(token)
-        .then((auditStatus) => {
-            // 更新页面状态显示
-            updateVerificationStatus(auditStatus);
-            // 显示模拟面板（实际项目可根据需求调整）
-updateAssetsOverview(auditStatus);
-        })
-        .catch((error) => {
-            console.error('获取审核状态失败:', error);
-            showToast(error.message || '获取审核状态失败，请重试');
-            // 显示默认表单
+        // 调用接口获取审核状态
+        this.fetchAuditStatus(token)
+            .then((auditStatus) => {
+                this.updateVerificationStatus(auditStatus); // 更新认证状态显示
+                this.updateAssetsOverview(auditStatus); // 更新资产菜单交互
+            })
+            .catch((error) => {
+                console.error("获取审核状态失败:", error);
+                this.showToast(error.message || "获取审核状态失败，请重试");
+            });
+    },
 
+    /**
+     * 获取用户认证Token
+     * @returns {string} Token或空字符串
+     */
+    getAuthToken() {
+        try {
+            const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+            return userData.token || "";
+        } catch (error) {
+            console.error("获取token失败:", error);
+            this.showToast("登录状态异常，请重新登录");
+            return "";
+        }
+    },
 
+    /**
+     * 调用接口获取审核状态
+     * @param {string} token - 用户认证token
+     * @returns {Promise<Object>} 审核状态数据
+     */
+    fetchAuditStatus(token) {
+        return new Promise((resolve, reject) => {
+            fetch(this.state.apiConfig.auditStatusUrl, {
+                method: "GET",
+                headers: {
+                    ...this.state.apiConfig.headers,
+                    "Authorization": `Bearer ${token}`
+                }
+            })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(`接口请求失败，状态码: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then((result) => {
+                    if (result.code !== 200 || !result.data) {
+                        throw new Error(result.message || "获取审核状态失败");
+                    }
+                    resolve(result.data);
+                })
+                .catch((error) => {
+                    reject(error);
+                });
         });
-}
+    },
 
-
-
-/**
- * 调用接口获取审核状态
- * @param {string} token - 用户认证token
- * @returns {Promise<Object>} 审核状态数据
- */
-function fetchAuditStatus(token) {
-    return new Promise((resolve, reject) => {
-        fetch('http://graywolf.top:6031/app/user/audit/status', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
-                'Content-Type': 'application/json',
-                'Accept': '*/*'
-            }
-        })
-        .then((response) => {
-            if (!response.ok) {
-                throw new Error(`接口请求失败，状态码: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then((result) => {
-            if (result.code !== 200 || !result.data) {
-                throw new Error(result.message || '获取审核状态失败');
-            }
-            resolve(result.data);
-        })
-        .catch((error) => {
-            reject(error);
-        });
-    });
-}
-/**
- * 根据审核状态更新资产概览组件的点击事件
- * @param {string} auditStatus - 审核状态，可能值：pending（审核中）、approved（已通过）、rejected（已拒绝）
- */
-function updateAssetsOverview(auditStatus) {
-    // 获取资产菜单项元素
-    const menuItem = document.querySelector('.assets-overview .menu-item');
-    if (!menuItem) {
-        console.error('未找到资产菜单项(.menu-item)');
-        return;
-    }
-
-    // 根据审核状态设置点击事件
-    if (auditStatus.status === 'approved') {
-        // 已实名：恢复默认点击事件（查看资产详情）
-        menuItem.onclick = viewAssetDetails;
-    } else {
-        // 未实名（审核中/已拒绝）：修改点击事件为提示未实名
-        menuItem.onclick = function() {
-            showToast('未实名,请先实名');
-        };
-    }
-    }
-/**
- * 根据审核状态更新用户实名认证状态显示
- * @param {string} auditStatus - 审核状态，可能值：pending（审核中）、approved（已通过）、rejected（已拒绝）
- */
-function updateVerificationStatus(auditStatus) {
-    // 获取状态显示容器
-    const statusContainer = document.querySelector('.user-status');
-    if (!statusContainer) {
-        console.error('未找到状态显示容器(.user-status)');
-        return;
-    }
-
-    // 根据审核状态生成对应的HTML内容
-    let statusHtml = '';
-    console.error('aaaaaaaaaaa')
-    console.error(JSON.stringify(auditStatus))
-    switch (auditStatus.status) {
-        case 'approved':
-            // 已通过审核：使用verified类
-            statusHtml = '<span class="status-badge verified">已实名</span>';
-            break;
-        case 'pending':
-        case 'rejected':
-        default:
-            // 审核中、已拒绝或其他状态：使用level类
-            statusHtml = '<span class="status-badge level">未实名</span>';
-            break;
-    }
-
-    // 更新容器内容
-    statusContainer.innerHTML = statusHtml;
-
-    // 可选：添加状态日志便于调试
-
-}
-    function initializePage() {
-    try {
-        // 从localStorage获取userData
-        const userDataStr = localStorage.getItem('userData');
-        if (!userDataStr) {
-            console.log('未找到用户数据，使用默认值');
+    /**
+     * 根据审核状态更新用户实名认证状态显示
+     * @param {Object} auditStatus - 审核状态数据
+     */
+    updateVerificationStatus(auditStatus) {
+        if (!this.state.elements.statusContainer) {
+            console.error("未找到状态显示容器(.user-status)");
             return;
         }
 
-        // 解析用户数据
-        const userData = JSON.parse(userDataStr);
+        // 根据审核状态生成对应的HTML内容
+        let statusHtml = "";
+        switch (auditStatus.status) {
+            case "approved":
+                // 已通过审核
+                statusHtml = '<span class="status-badge verified">已实名</span>';
+                break;
+            case "pending":
+            case "rejected":
+            default:
+                // 审核中、已拒绝或其他状态
+                statusHtml = '<span class="status-badge level">未实名</span>';
+                break;
+        }
 
-        // 1. 填充头像（如果有有效头像地址则更新）
-        const avatarImg = document.getElementById('userAvatar');
-        if (avatarImg) { // 确保元素存在
-            // 优先使用用户头像，为空则用默认图标
-            const avatarSrc = userData.avatarUrl?.trim() || 'icons/Avatar.png';
-            avatarImg.src = avatarSrc;
-            // 头像加载失败时回退到默认图标
-            avatarImg.onerror = function () {
-                this.src = 'icons/Avatar.png';
+        // 更新容器内容
+        this.state.elements.statusContainer.innerHTML = statusHtml;
+    },
+
+    /**
+     * 根据审核状态更新资产概览组件的点击事件
+     * @param {Object} auditStatus - 审核状态数据
+     */
+    updateAssetsOverview(auditStatus) {
+        if (!this.state.elements.menuItem) {
+            console.error("未找到资产菜单项(.menu-item)");
+            return;
+        }
+
+        // 根据审核状态设置点击事件
+        if (auditStatus.status === "approved") {
+            // 已实名：恢复默认点击事件（查看资产详情）
+            this.state.elements.menuItem.onclick = this.viewAssetDetails;
+        } else {
+            // 未实名（审核中/已拒绝）：提示未实名
+            this.state.elements.menuItem.onclick = () => {
+                this.showToast("未实名,请先实名");
             };
         }
+    },
 
-        // 2. 填充用户名（优先使用nickName，无则用手机号脱敏显示）
-        const userNameEl = document.getElementById('userName');
-        if (userNameEl && userNameEl.firstChild) {
-            let displayName = '未知用户'; // 默认值
-            if (userData.nickName?.trim()) {
-                // 使用昵称（如"666"）
-                displayName = userData.nickName;
-            } else if (userData.phone) {
-                // 手机号脱敏（如157****8453）
-                displayName = userData.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
-            }
-            userNameEl.firstChild.textContent = displayName;
+    // 5. 资产相关功能
+    /**
+     * 切换资产金额显示/隐藏状态
+     */
+    toggleAssetVisibility() {
+        if (!this.state.elements.amountElement || !this.state.elements.eyeIcon) {
+            console.error("资产显示相关元素缺失");
+            return;
         }
 
-        // 3. 填充用户ID（显示格式：ID: 127）
-        const userIdEl = document.getElementById('userId');
-        if (userIdEl && userData.userId) {
-            userIdEl.textContent = `ID: ${userData.userId}`;
-        }
-
-    } catch (error) {
-        console.error('填充用户数据失败：', error);
-        // 出错时保持默认显示，不影响页面布局
-    }
-}
-    // 个人中心相关功能
-    let assetsVisible = false;
-
-    function toggleAssetVisibility() {
-        const amountElement = document.querySelector('.assets-amount .amount');
-        const eyeIcon = document.getElementById('eyeIcon');
-
-        if (assetsVisible) {
-            amountElement.textContent = '****';
-            eyeIcon.src = 'icons/yincangmima.png';
-            assetsVisible = false;
+        if (this.state.assetsVisible) {
+            // 隐藏资产
+            this.state.elements.amountElement.textContent = "****";
+            this.state.elements.eyeIcon.src = "icons/yincangmima.png";
         } else {
-            amountElement.textContent = '¥12,345.67';
-            eyeIcon.src = 'icons/xianshimima.png';
-            assetsVisible = true;
+            // 显示资产
+            this.state.elements.amountElement.textContent = "¥12,345.67";
+            this.state.elements.eyeIcon.src = "icons/xianshimima.png";
         }
-    }
 
-    function viewAssetDetails() {
-        window.location.href = 'assets.html';
-    }
+        // 切换状态标记
+        this.state.assetsVisible = !this.state.assetsVisible;
+    },
 
-    function showSecurityCenter() {
-        window.location.href = 'security_center.html';
-    }
+    /**
+     * 查看资产详情（跳转到资产页面）
+     */
+    viewAssetDetails() {
+        window.location.href = "assets.html";
+    },
 
-    function showPaymentSettings() {
-        window.location.href = 'transaction_settings.html';
-    }
+    // 6. 个人中心菜单功能
+    /**
+     * 跳转到安全中心
+     */
+    showSecurityCenter() {
+        window.location.href = "security_center.html";
+    },
 
-    function showIdentityVerification() {
-        window.location.href = 'identity_verification.html';
-    }
+    /**
+     * 跳转到支付设置
+     */
+    showPaymentSettings() {
+        window.location.href = "transaction_settings.html";
+    },
 
-    // 退出登录相关函数
-    function showLogoutConfirm() {
-        document.getElementById('logoutModal').style.display = 'flex';
-    }
+    /**
+     * 跳转到身份验证页面
+     */
+    showIdentityVerification() {
+        window.location.href = "identity_verification.html";
+    },
 
-    function logout() {
-        // 1. 获取存储的 token（用于后端 logout 请求）
-        let token = '';
+    /**
+     * 跳转到编辑个人资料页面
+     */
+    goToEditProfile() {
+        window.location.href = "edit_profile.html";
+    },
+
+    /**
+     * 跳转到支付密码设置页面
+     */
+    goToPaymentPassword() {
+        window.location.href = "payment_password.html";
+    },
+
+    /**
+     * 通用页面跳转
+     * @param {string} page - 目标页面路径
+     */
+    goToPage(page) {
+        window.location.href = page;
+    },
+
+    // 7. 退出登录相关功能
+    /**
+     * 显示退出登录确认弹窗
+     */
+    showLogoutConfirm() {
+        if (this.state.elements.logoutModal) {
+            this.state.elements.logoutModal.style.display = "flex";
+        }
+    },
+
+    /**
+     * 关闭模态框
+     * @param {string} modalId - 模态框ID
+     */
+    closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = "none";
+        }
+    },
+
+    /**
+     * 执行退出登录流程
+     */
+    logout() {
+        // 1. 获取用户Token
+        let token = "";
         try {
-            // 从 localStorage 读取（之前登录时保存的完整用户数据）
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            token = userData.token || '';
+            const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+            token = userData.token || "";
         } catch (error) {
-            console.error('获取 token 失败：', error);
+            console.error("获取 token 失败：", error);
         }
 
-        // 2. 调用后端 logout 接口（即使 token 获取失败也继续执行后续清除操作）
+        // 2. 调用后端退出接口
         const logoutBackend = () => {
             return new Promise((resolve) => {
                 if (!token) {
-                    resolve(false); // 无 token 时直接 resolve
+                    resolve(false);
                     return;
                 }
 
-                fetch('http://graywolf.top:6031/app/user/logout', {
-                    method: 'DELETE',
+                fetch(this.state.apiConfig.logoutUrl, {
+                    method: "DELETE",
                     headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': '*/*'
+                        ...this.state.apiConfig.headers,
+                        "Authorization": `Bearer ${token}`
                     }
                 })
                     .then(response => {
-                        // 后端 logout 接口通常无论成功与否都返回 200，这里仅做基本状态判断
-                        AndroidInterface.showToast(response.message)
                         resolve(response.ok);
                     })
                     .catch(error => {
-                        console.error('后端退出请求失败：', error);
-                        resolve(false); // 网络错误时也继续执行前端清除
+                        console.error("后端退出请求失败：", error);
+                        resolve(false);
                     });
             });
         };
@@ -443,48 +556,66 @@ function updateVerificationStatus(auditStatus) {
         // 3. 执行完整退出流程
         logoutBackend().then(() => {
             // 4. 清除前端存储
-            localStorage.removeItem('isLoggedIn');
-            localStorage.removeItem('userData');
+            localStorage.removeItem("isLoggedIn");
+            localStorage.removeItem("userData");
 
-            // 5. 清除原生存储
-            if (typeof AndroidInterface !== 'undefined') {
+            // 5. 清除原生存储（如果有）
+            if (window.AndroidInterface) {
                 try {
                     AndroidInterface.clearUserData();
-                    console.log('原生存储已清除');
+                    console.log("原生存储已清除");
                 } catch (error) {
-                    console.error('清除原生存储失败：', error);
+                    console.error("清除原生存储失败：", error);
                 }
             }
 
-            // 6. 显示退出提示并跳转登录页
-            if (typeof AndroidInterface !== 'undefined') {
-                AndroidInterface.showToast('已成功退出登录');
-            } else {
-                alert('已成功退出登录');
-            }
+            // 6. 显示提示并跳转登录页
+            this.showToast("已成功退出登录");
 
             // 延迟跳转确保所有操作完成
             setTimeout(() => {
-                window.location.href = 'login.html';
+                window.location.href = "login.html";
             }, 300);
         });
-    }
+    },
 
-    function setTransferAmount(amount) {
-        document.getElementById('transferAmount').value = amount;
-    }
+    // 8. 转账相关功能
+    /**
+     * 设置转账金额
+     * @param {number} amount - 转账金额
+     */
+    setTransferAmount(amount) {
+        const transferInput = document.getElementById("transferAmount");
+        if (transferInput) {
+            transferInput.value = amount;
+        }
+    },
 
-    function setAllAmount() {
-        document.getElementById('transferAmount').value = '12345.67';
-    }
+    /**
+     * 设置全部金额为转账金额
+     */
+    setAllAmount() {
+        const transferInput = document.getElementById("transferAmount");
+        if (transferInput) {
+            transferInput.value = "12345.67";
+        }
+    },
 
-    function closeModal(modalId) {
-        document.getElementById(modalId).style.display = 'none';
-    }
+    // 9. 工具方法
+    /**
+     * 显示提示信息
+     * @param {string} message - 提示内容
+     */
+    showToast(message) {
+        // 移除现有toast
+        const existingToast = document.querySelector(".toast");
+        if (existingToast) {
+            existingToast.remove();
+        }
 
-    function showToast(message) {
-        const toast = document.createElement('div');
-        toast.className = 'toast';
+        // 创建新toast
+        const toast = document.createElement("div");
+        toast.className = "toast";
         toast.textContent = message;
         toast.style.cssText = `
             position: fixed;
@@ -498,24 +629,20 @@ function updateVerificationStatus(auditStatus) {
             z-index: 10000;
             font-size: 14px;
         `;
+
         document.body.appendChild(toast);
+
+        // 2秒后自动移除
         setTimeout(() => {
-            document.body.removeChild(toast);
+            if (document.body.contains(toast)) {
+                document.body.removeChild(toast);
+            }
         }, 2000);
     }
+};
 
-    // 页面跳转函数
-    function goToPage(page) {
-        window.location.href = page;
-    }
-
-    function goToEditProfile() {
-        window.location.href = 'edit_profile.html';
-    }
-
-    function goToPaymentPassword() {
-        window.location.href = 'payment_password.html';
-    }
+// 初始化个人中心模块
+ProfileModule.init();
 </script>
 </body>
 
